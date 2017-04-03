@@ -1,3 +1,6 @@
+# Configuraciones del Eclipse
+.project
+
 # Object files
 *.o
 *.ko
