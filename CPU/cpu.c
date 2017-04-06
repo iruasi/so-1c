@@ -3,6 +3,6 @@
 
 int main(){
 	//Proyecto para subir
-	printf("Proceso CONSOLA\n");
+	printf("Proceso CPU\n");
 	return EXIT_SUCCESS;
 }
