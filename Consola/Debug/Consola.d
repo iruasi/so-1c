@@ -1,1 +1,0 @@
-Consola.d: ../Consola.c
