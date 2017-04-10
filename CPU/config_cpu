@@ -1,0 +1,8 @@
+# De momento, dado que todos los procesos se ejecutaran en la misma red local
+# todas las direcciones IP de cada proceso seran el localhost
+
+# Valores estimados para un posible archivo de configuracion
+# dado que no hay ejemplo hecho en la consigna del TP
+
+PUERTO_MEMORIA=5002
+PUERTO_KERNEL=5001

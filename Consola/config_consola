@@ -1,0 +1,5 @@
+# De momento, dado que todos los procesos se ejecutaran en la misma red local
+# todas las direcciones IP de cada proceso seran el localhost
+
+IP_KERNEL=127.0.0.1  # Dir IP donde estara Kernel
+PUERTO_KERNEL=5000   # En este puerto, Consola manda a conectar los Programas a kernel
