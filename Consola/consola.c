@@ -38,7 +38,7 @@ char *port_kernel[MAX_PORT_LEN];
 
 int main(void){
 
-	t_config *conf = config_create("config");
+	t_config *conf = config_create("config_consola");
 	if (setupConfig(conf) < 0)
 		return FALLO_CONFIGURACION;
 
