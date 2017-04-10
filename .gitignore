@@ -1,6 +1,9 @@
 # Configuraciones del Eclipse
 .project
 
+# Subcarpetas irrelevantes de cada proceso
+*/Debug
+
 # Object files
 *.o
 *.ko
