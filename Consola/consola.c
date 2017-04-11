@@ -9,6 +9,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
 
@@ -22,42 +23,44 @@
 #define FALLO_CONFIGURACION -22
 
 
-int setupConfig(t_config *configuracion);
+int setupConfig(t_config *configuracion, char *ip_kernel, char *port_kernel);
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
-int establecerConexion();
+int establecerConexion(char *ip_kernel, char *port_kernel);
 
 void Iniciar_Programa();
 void Finalizar_Programa(int process_id);
 void Desconectar_Consola();
 void Limpiar_Mensajes();
 
-// Son variables globales para no andar pasandolas como parametro
-// a cada thread que se vaya a crear...
-char *ip_kernel[MAX_IP_LEN];
-char *port_kernel[MAX_PORT_LEN];
 
 int main(void){
 
-	t_config *conf = config_create("config");
-	if (setupConfig(conf) < 0)
+	char *ip_kernel = malloc(MAX_IP_LEN * sizeof *ip_kernel);
+	char *port_kernel = malloc(MAX_PORT_LEN * sizeof *port_kernel);
+
+	t_config *conf = config_create("config_consola");
+	if (setupConfig(conf, ip_kernel, port_kernel) < 0)
 		return FALLO_CONFIGURACION;
 
-	printf ("ip es:%s\npuerto es:%s\n", ip_kernel, port_kernel);
+	printf ("ip es: %s\npuerto es: %s\n", ip_kernel, port_kernel);
 
+	int sock = establecerConexion(ip_kernel, port_kernel);
+	printf("El socket usado fue %d", sock);
 
+	free(ip_kernel);
+	free(port_kernel);
 
 	return 0;
 }
 
 
-int setupConfig(t_config* cfg){
+int setupConfig(t_config* cfg, char *ip_kernel, char *port_kernel){
 
 	if (!config_has_property(cfg, "IP_KERNEL")){
 			printf("No se detecto el valor IP_KERNEL!");
 			return FALLO_CONFIGURACION;
 	}
 	strcpy(ip_kernel, config_get_string_value(cfg, "IP_KERNEL"));
-
 
 	if (!config_has_property(cfg, "PUERTO_KERNEL")){
 		printf("No se detecto el valor PUERTO_KERNEL!");
@@ -80,8 +83,7 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 /* Esta funcion conecta con kernel y retorna un file descriptor del socket a kernel
  * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
  */
-
-int establecerConexion(){
+int establecerConexion(char *ip_kernel, char *port_kernel){
 
 	char * msj = "Hola! Soy un script en consola!";
 //	int bytes_sent; // Se deberia usar despues para chequear que send() procedio bien
