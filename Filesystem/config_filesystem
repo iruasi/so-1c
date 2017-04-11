@@ -3,5 +3,6 @@
 
 # Valores obtenidos del ejemplo del TP
 
-PUERTO=5003  # En este puerto, Filesystem recibe las conexiones de Kernel
+# En este puerto, Filesystem recibe las conexiones de Kernel
+PUERTO=5003
 PUNTO_MONTAJE=/mnt/SADICA_FS/

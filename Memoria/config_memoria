@@ -3,7 +3,8 @@
 
 # Valores obtenidos del ejemplo del TP
 
-PUERTO=5002 # En este puerto, Memoria recibe conexiones de Kernel y CPUs
+# En este puerto, Memoria recibe conexiones de Kernel y CPUs
+PUERTO=5002
 MARCOS=500
 MARCO_SIZE=256
 ENRTRADAS_CACHE=15

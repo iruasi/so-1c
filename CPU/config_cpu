@@ -4,5 +4,10 @@
 # Valores estimados para un posible archivo de configuracion
 # dado que no hay ejemplo hecho en la consigna del TP
 
+IP_MEMORIA=127.0.0.1
+# En este puerto de la Memoria, CPUs se comunican con ella.
 PUERTO_MEMORIA=5002
+
+IP_KERNEL=127.0.0.1
+# En este puerto del Kernel, CPUs se comunican con el.
 PUERTO_KERNEL=5001
