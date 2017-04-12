@@ -17,7 +17,7 @@
 
 #define MAX_IP_LEN 17
 #define MAX_PORT_LEN 6
-#define MAXLEN 100
+#define MAXMSJ 100
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
@@ -33,12 +33,17 @@ void Desconectar_Consola();
 void Limpiar_Mensajes();
 
 
-int main(void){
+int main(int argc, char* argv[]){
+
+	if(argc!=2){
+		printf("Error en la cantidad de parametros\n");
+		return EXIT_FAILURE;
+	}
 
 	char *ip_kernel = malloc(MAX_IP_LEN * sizeof *ip_kernel);
 	char *port_kernel = malloc(MAX_PORT_LEN * sizeof *port_kernel);
 
-	t_config *conf = config_create("config_consola");
+	t_config *conf = config_create(argv[1]);
 	if (setupConfig(conf, ip_kernel, port_kernel) < 0)
 		return FALLO_CONFIGURACION;
 
@@ -86,7 +91,7 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 int establecerConexion(char *ip_kernel, char *port_kernel){
 
 	char * msj = "Hola! Soy un script en consola!";
-//	int bytes_sent; // Se deberia usar despues para chequear que send() procedio bien
+	int bytes_sent;
 
 	int stat;
 	int sock_kern; // file descriptor para el socket del kernel
@@ -101,12 +106,12 @@ int establecerConexion(char *ip_kernel, char *port_kernel){
 
 	sock_kern = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
 
-// Por ahora no utilizamos connect() porque precisamos que el kernel funcione
 	connect(sock_kern, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo);
 
-	// Por ahora no utilizamos send() porque precisamos el kernel funcione
-	send(sock_kern, msj, strlen(msj), 0); // send retorna un int, pero no nos interesa para error checking aun
+	// send retorna un int, pero no nos interesa para error checking aun
+	bytes_sent = send(sock_kern, msj, strlen(msj), 0);
+	printf("Se enviaron: %d bytes\n", bytes_sent);
 
 	return sock_kern;
 }
