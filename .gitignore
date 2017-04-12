@@ -1,5 +1,7 @@
 # Configuraciones del Eclipse
-.project
+
+#*/.project   # Son necesarios
+#*/.cproject  # Son necesarios
 
 # Subcarpetas irrelevantes de cada proceso
 */Debug
