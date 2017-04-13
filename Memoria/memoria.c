@@ -22,6 +22,8 @@
 
 void mostrarConfiguracion(tMemoria *datos_memoria);
 void liberarConfiguracionMemoria(tMemoria *datos_memoria);
+int establecerConexion(char *ip_destino, char *puerto_destino);
+void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
 
 int main(int argc, char* argv[]){
 
@@ -39,6 +41,10 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(memoria);
 
 	printf ("ip de kernel es:%s\npuerto kernel es:%s\n", memoria->ip_kernel, memoria->puerto_kernel);
+
+	printf("Conectando con kernel...\n");
+	sock_kern = establecerConexion(memoria->ip_kernel,memoria->puerto_kernel);
+	printf("socket de kernel es: %d\n",sock_kern);
 
 
 
@@ -93,6 +99,41 @@ void liberarConfiguracionMemoria(tMemoria *memoria){
 	free(memoria->cache_x_proc);
 	free(memoria->retardo_memoria);
 
+}
+void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
+
+	memset(hint, 0, sizeof *hint);
+	hint->ai_family = fam;
+	hint->ai_socktype = sockType;
+	hint->ai_flags = flags;
+}
+
+int establecerConexion(char *ip_dest, char *port_dest){
+
+	char * msj = "Hola soy Memoria";
+
+	int stat, bytes_sent;
+	int sock_dest; // file descriptor para el socket del destino a conectar
+	struct addrinfo hints, *destInfo;
+
+	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
+
+	if ((stat = getaddrinfo(ip_dest, port_dest, &hints, &destInfo)) != 0){
+		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
+		return FALLO_GRAL;
+	}
+
+	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
+		return FALLO_GRAL;
+
+	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+	freeaddrinfo(destInfo);
+
+	bytes_sent = send(sock_dest, msj, strlen(msj), 0);
+	printf("Se enviaron: %d bytes\n", bytes_sent);
+
+
+	return sock_dest;
 }
 
 
