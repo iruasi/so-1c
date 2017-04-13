@@ -14,13 +14,17 @@
 #include <netdb.h>
 
 #include <commons/config.h>
+#include "consola.h"
 
-#define MAX_IP_LEN 17
+#define MAX_IP_LEN 16
 #define MAX_PORT_LEN 6
 #define MAXMSJ 100
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
+
+tConsola *getConfigConsola(char *ruta_archivo_configuracion);
+void liberarConfiguracionConsola(tConsola *datos_consola);
 
 
 int setupConfig(t_config *configuracion, char *ip_kernel, char *port_kernel);
@@ -40,21 +44,16 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	char *ip_kernel = malloc(MAX_IP_LEN * sizeof *ip_kernel);
-	char *port_kernel = malloc(MAX_PORT_LEN * sizeof *port_kernel);
-
-	t_config *conf = config_create(argv[1]);
-	if (setupConfig(conf, ip_kernel, port_kernel) < 0)
+	tConsola *cons_data = getConfigConsola(argv[1]);
+	if (cons_data == NULL)
 		return FALLO_CONFIGURACION;
 
-	printf ("ip es: %s\npuerto es: %s\n", ip_kernel, port_kernel);
+	printf ("ip es: %s\npuerto es: %s\n", cons_data->ip_kernel, cons_data->puerto_kernel);
 
-	int sock = establecerConexion(ip_kernel, port_kernel);
+	int sock = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	printf("El socket usado fue %d", sock);
 
-	free(ip_kernel);
-	free(port_kernel);
-
+	liberarConfiguracionConsola(cons_data);
 	return 0;
 }
 
@@ -116,3 +115,32 @@ int establecerConexion(char *ip_kernel, char *port_kernel){
 	return sock_kern;
 }
 
+/* Carga los datos de configuracion en una estructura.
+ * Si alguno de los datos de config no se encontraron, retorna NULL;
+ */
+tConsola *getConfigConsola(char *ruta_config){
+
+	// Alojamos espacio en memoria para la esctructura que almacena los datos de config
+	tConsola *consola      = malloc(sizeof *consola);
+	consola->ip_kernel     = malloc(MAX_IP_LEN * sizeof consola->ip_kernel);
+	consola->puerto_kernel = malloc(MAX_PORT_LEN * sizeof consola->puerto_kernel);
+
+	t_config *consola_conf = config_create(ruta_config);
+
+	if (!config_has_property(consola_conf, "IP_KERNEL") || !config_has_property(consola_conf, "PUERTO_KERNEL")){
+		printf("No se detecto alguno de los parametros de configuracion!");
+		return NULL;
+	}
+
+	strcpy(consola->ip_kernel, config_get_string_value(consola_conf, "IP_KERNEL"));
+	strcpy(consola->puerto_kernel, config_get_string_value(consola_conf, "PUERTO_KERNEL"));
+
+	config_destroy(consola_conf);
+	return consola;
+}
+
+void liberarConfiguracionConsola(tConsola *cons){
+	free(cons->ip_kernel);
+	free(cons->puerto_kernel);
+	free(cons);
+}
