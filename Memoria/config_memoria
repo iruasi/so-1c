@@ -4,9 +4,15 @@
 # Valores obtenidos del ejemplo del TP
 
 # En este puerto, Memoria recibe conexiones de Kernel y CPUs
-PUERTO=5002
+PUERTO_PROPIO=5002
 MARCOS=500
 MARCO_SIZE=256
-ENRTRADAS_CACHE=15
+ENTRADAS_CACHE=15
 CACHE_X_PROC=3
 RETARDO_MEMORIA=100
+
+
+
+
+IP_KERNEL=127.0.0.1
+PUERTO_KERNEL=5000
