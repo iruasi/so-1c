@@ -1,12 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <netdb.h>
+
 #include <commons/config.h>
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+
 #include "kernel.h"
+
+
 
 #define BACKLOG 5
 
@@ -20,8 +23,15 @@
 void setupHints(struct addrinfo *hint, int address_family, int socket_type, int flags);
 int recibirConexion(char *puerto_de_comunicacion);
 
+void abrirConexiones(fd_set readfds);
+
 void mostrarConfiguracion(tKernel *datos_kernel);
 void liberarConfiguracionKernel(tKernel *datos_kernel);
+
+// Esto en desarrollo para el select()
+void abrirConexiones(fd_set readfds, tKernel kern_data){
+	FD_SET(3, &readfds);
+}
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -29,11 +39,17 @@ int main(int argc, char* argv[]){
 			return EXIT_FAILURE;
 	}
 
-	tKernel *kernel = getConfigKernel(argv[1]);
-
 	int stat;
 
+	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
+/*
+	struct timeval tv;
+	fd_set readfds;
+
+	tv.tv_sec = 2;
+	FD_ZERO(&readfds);
+*/
 
 //	stat = recibirConexion(kernel->puerto_memoria); todavia no existe el proceso memoria
 
