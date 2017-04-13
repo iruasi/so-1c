@@ -4,6 +4,7 @@
 #include <netdb.h>
 
 #include <commons/config.h>
+#include "cpu.h"
 
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
 #define MAX_PORT_LEN 6
@@ -20,6 +21,9 @@ int revisarYObtenerConf(t_config *configuracion, char *entrada_del_valor, char* 
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
 int establecerConexion(char *ip_destino, char *puerto_destino);
 
+tCPU *getConfigCPU(char *ruta_archivo_configuracion);
+void liberarConfiguracionCPU(tCPU *datos_cpu);
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -30,63 +34,20 @@ int main(int argc, char* argv[]){
 	int stat;
 	int sock_kern, sock_mem;
 
-	char *ip_memoria = malloc(MAX_IP_LEN * sizeof *ip_memoria);
-	char *ip_kernel  = malloc(MAX_IP_LEN * sizeof *ip_kernel);
+	tCPU *cpu_data = getConfigCPU(argv[1]);
+	if (cpu_data == NULL)
+		return FALLO_CONFIGURACION;
 
-	char *port_memoria = malloc (MAX_PORT_LEN * sizeof *port_memoria);
-	char *port_kernel  = malloc (MAX_PORT_LEN * sizeof *port_kernel);
-
-	t_config *conf = config_create(argv[1]);
-
-	if ((stat = setupConfig(conf, ip_kernel, ip_memoria, port_kernel, port_memoria)) < 0)
-		return stat;
-
-	printf ("ip de kernel es:%s\npuerto kernel es:%s\n", ip_kernel, port_kernel);
-	printf ("ip de memoria es:%s\npuerto memoria es:%s\n", ip_memoria, port_memoria);
+	printf ("ip de kernel es:%s\npuerto kernel es:%s\n", cpu_data->ip_kernel, cpu_data->puerto_kernel);
+	printf ("ip de memoria es:%s\npuerto memoria es:%s\n", cpu_data->ip_memoria, cpu_data->puerto_memoria);
 
 	printf("Conectando con kernel...\n");
-	sock_kern = establecerConexion(ip_kernel, port_kernel);
+	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	printf("socket de kernel es: %d\n",sock_kern);
 
 //	printf("Conectando con memoria...\n");
 //	sock_mem = establecerConexion(ip_memoria, port_memoria);
 //	printf("socket de memoria es: %d\n",sock_mem);
-
-	return 0;
-}
-
-/* Con esta funcion se cargan los valores pertinentes del config_cpu;
- * retorna FALLO_CONFIGURACION si algo sale mal. Retorna 0 en caso contrario.
- */
-int setupConfig(t_config* cfg, char *ip_kern, char *ip_mem, char *port_kern, char *port_mem){
-
-	int stat;
-
-	if ((stat = revisarYObtenerConf(cfg, ip_kern, "IP_KERNEL")) != 0)
-		return stat;
-
-	if ((stat = revisarYObtenerConf(cfg, port_kern, "PUERTO_KERNEL")) != 0)
-		return stat;
-
-	if ((stat = revisarYObtenerConf(cfg, ip_mem, "IP_MEMORIA")) != 0)
-		return stat;
-
-	if ((stat = revisarYObtenerConf(cfg, port_mem, "PUERTO_MEMORIA")) != 0)
-		return stat;
-
-	return 0;
-}
-
-/* Si `valor' existe en `cfg', lo carga como String en `entrada' y retorna 0;
- * Caso contrario retorna FALLO_CONFIGURACION.
- */
-int revisarYObtenerConf(t_config *cfg, char *entrada, char* valor){
-
-	if (!config_has_property(cfg, valor)){
-				printf("No se detecto el valor %s!", valor);
-				return FALLO_CONFIGURACION;
-	}
-	strcpy(entrada, config_get_string_value(cfg, valor));
 
 	return 0;
 }
@@ -107,7 +68,7 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
  */
 int establecerConexion(char *ip_dest, char *port_dest){
 
-	char * msj = "Hola soy cpu!";
+	char * msj = "Hola soy cpu!\0";
 
 	int stat, bytes_sent;
 	int sock_dest; // file descriptor para el socket del destino a conectar
@@ -133,3 +94,41 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	return sock_dest;
 }
 
+tCPU *getConfigCPU(char *ruta_config){
+
+	// Alojamos espacio en memoria para la esctructura que almacena los datos de config
+	tCPU *cpu = malloc(sizeof *cpu);
+	cpu->ip_memoria    = malloc(MAX_IP_LEN * sizeof cpu->ip_memoria);
+	cpu->puerto_memoria= malloc(MAX_PORT_LEN * sizeof cpu->puerto_memoria);
+	cpu->ip_kernel     = malloc(MAX_IP_LEN * sizeof cpu->ip_kernel);
+	cpu->puerto_kernel = malloc(MAX_PORT_LEN * sizeof cpu->puerto_kernel);
+
+	t_config *cpu_conf = config_create(ruta_config);
+
+	if (!config_has_property(cpu_conf, "IP_MEMORIA") || !config_has_property(cpu_conf, "PUERTO_MEMORIA")){
+		printf("No se detecto alguno de los parametros de configuracion!");
+		return NULL;
+	}
+
+	if (!config_has_property(cpu_conf, "IP_KERNEL") || !config_has_property(cpu_conf, "PUERTO_KERNEL")){
+		printf("No se detecto alguno de los parametros de configuracion!");
+		return NULL;
+	}
+
+	strcpy(cpu->ip_memoria,     config_get_string_value(cpu_conf, "IP_MEMORIA"));
+	strcpy(cpu->puerto_memoria, config_get_string_value(cpu_conf, "PUERTO_MEMORIA"));
+	strcpy(cpu->ip_kernel,      config_get_string_value(cpu_conf, "IP_KERNEL"));
+	strcpy(cpu->puerto_kernel,  config_get_string_value(cpu_conf, "PUERTO_KERNEL"));
+
+	config_destroy(cpu_conf);
+	return cpu;
+
+}
+
+void liberarConfiguracionCPU(tCPU *cpu){
+	free(cpu->ip_memoria);
+	free(cpu->puerto_memoria);
+	free(cpu->ip_kernel);
+	free(cpu->puerto_kernel);
+	free(cpu);
+}

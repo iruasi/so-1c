@@ -89,7 +89,7 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
  */
 int establecerConexion(char *ip_kernel, char *port_kernel){
 
-	char * msj = "Hola! Soy un script en consola!";
+	char * msj = "Hola! Soy un script en consola!\0";
 	int bytes_sent;
 
 	int stat;

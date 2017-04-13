@@ -6,10 +6,7 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-
 #include "kernel.h"
-
-
 
 #define BACKLOG 5
 
@@ -20,18 +17,14 @@
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
 
+
 void setupHints(struct addrinfo *hint, int address_family, int socket_type, int flags);
 int recibirConexion(char *puerto_de_comunicacion);
 
-void abrirConexiones(fd_set readfds);
+void abrirConexiones(fd_set readfds, tKernel kernel_config_data);
 
 void mostrarConfiguracion(tKernel *datos_kernel);
 void liberarConfiguracionKernel(tKernel *datos_kernel);
-
-// Esto en desarrollo para el select()
-void abrirConexiones(fd_set readfds, tKernel kern_data){
-	FD_SET(3, &readfds);
-}
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -103,6 +96,11 @@ int recibirConexion(char *port_comm){
 	printf ("%s\n", buf);
 
 	return 0;
+}
+
+// Esto en desarrollo para el select()
+void abrirConexiones(fd_set readfds, tKernel kern_data){
+	FD_SET(3, &readfds);
 }
 
 tKernel *getConfigKernel(char* ruta){

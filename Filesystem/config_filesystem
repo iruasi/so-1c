@@ -6,3 +6,5 @@
 # En este puerto, Filesystem recibe las conexiones de Kernel
 PUERTO=5003
 PUNTO_MONTAJE=/mnt/SADICA_FS/
+
+IP_KERNEL=127.0.0.1
