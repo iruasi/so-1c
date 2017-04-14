@@ -68,7 +68,7 @@ int main(int argc, char* argv[]){
 		fgets(buf, MAXMSJ -2, stdin);
 		buf[MAXMSJ -1] = '\0';
 
-		printf("enviando...%s\n");
+		printf("enviando...%s\n", buf);
 		stat = send(sock_kern, buf, MAXMSJ, 0);
 
 		for(i = 0; i < MAXMSJ; i++)
