@@ -22,12 +22,14 @@
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
+#define FALLO_SOCKET -23
+#define FALLO_CONEXION -25
 
 tConsola *getConfigConsola(char *ruta_archivo_configuracion);
+void mostrarConfiguracionConsola(tConsola *datos_consola);
 void liberarConfiguracionConsola(tConsola *datos_consola);
 
 
-int setupConfig(t_config *configuracion, char *ip_kernel, char *port_kernel);
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
 int establecerConexion(char *ip_kernel, char *port_kernel);
 
@@ -44,34 +46,40 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
+	char buf[MAXMSJ] = "go";
+	int i;
+	int stat = 1;
+	int sock_kern;
+
 	tConsola *cons_data = getConfigConsola(argv[1]);
 	if (cons_data == NULL)
 		return FALLO_CONFIGURACION;
+	mostrarConfiguracionConsola(cons_data);
 
-	printf ("ip es: %s\npuerto es: %s\n", cons_data->ip_kernel, cons_data->puerto_kernel);
+	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
+	if (sock_kern < 0)
+		return sock_kern;
 
-	int sock = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
-	printf("El socket usado fue %d", sock);
+	// todo: ESTE CICLO NO ANDA BIEN, NO SE PORQUE
+	printf(" buf: %s\n stat: %d\n", buf, stat);
+	while((strcmp(buf, "\n\0")) && stat != -1){
 
+		printf("Ingrese su mensaje:\n");
+		fgets(buf, MAXMSJ -2, stdin);
+		buf[MAXMSJ -1] = '\0';
+
+		printf("enviando...%s\n");
+		stat = send(sock_kern, buf, MAXMSJ, 0);
+
+		for(i = 0; i < MAXMSJ; i++)
+			buf[i] = '\0';
+	}
+
+	printf(" buf: %s\n stat: %d\n", buf, stat);
+	printf("Cerrando comunicacion y limpiando proceso...\n");
+
+	close(sock_kern);
 	liberarConfiguracionConsola(cons_data);
-	return 0;
-}
-
-
-int setupConfig(t_config* cfg, char *ip_kernel, char *port_kernel){
-
-	if (!config_has_property(cfg, "IP_KERNEL")){
-			printf("No se detecto el valor IP_KERNEL!");
-			return FALLO_CONFIGURACION;
-	}
-	strcpy(ip_kernel, config_get_string_value(cfg, "IP_KERNEL"));
-
-	if (!config_has_property(cfg, "PUERTO_KERNEL")){
-		printf("No se detecto el valor PUERTO_KERNEL!");
-		return FALLO_CONFIGURACION;
-	}
-	strcpy(port_kernel, config_get_string_value(cfg, "PUERTO_KERNEL"));
-
 	return 0;
 }
 
@@ -84,35 +92,34 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 	hint->ai_flags = flags;
 }
 
-/* Esta funcion conecta con kernel y retorna un file descriptor del socket a kernel
+/* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
  * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
  */
-int establecerConexion(char *ip_kernel, char *port_kernel){
-
-	char * msj = "Hola! Soy un script en consola!\0";
-	int bytes_sent;
+int establecerConexion(char *ip_dest, char *port_dest){
 
 	int stat;
-	int sock_kern; // file descriptor para el socket del kernel
-	struct addrinfo hints, *serverInfo;
+	int sock_dest; // file descriptor para el socket del destino a conectar
+	struct addrinfo hints, *destInfo;
 
 	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
 
-	if ((stat = getaddrinfo(ip_kernel, port_kernel, &hints, &serverInfo)) != 0){
+	if ((stat = getaddrinfo(ip_dest, port_dest, &hints, &destInfo)) != 0){
 		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
 		return FALLO_GRAL;
 	}
 
-	sock_kern = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
+		return FALLO_GRAL;
 
-	connect(sock_kern, serverInfo->ai_addr, serverInfo->ai_addrlen);
-	freeaddrinfo(serverInfo);
+	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+	freeaddrinfo(destInfo);
 
-	// send retorna un int, pero no nos interesa para error checking aun
-	bytes_sent = send(sock_kern, msj, strlen(msj), 0);
-	printf("Se enviaron: %d bytes\n", bytes_sent);
+	if (sock_dest < 0){
+		printf("Error al tratar de conectar con Kernel!");
+		return FALLO_CONEXION;
+	}
 
-	return sock_kern;
+	return sock_dest;
 }
 
 /* Carga los datos de configuracion en una estructura.
@@ -139,7 +146,14 @@ tConsola *getConfigConsola(char *ruta_config){
 	return consola;
 }
 
+void mostrarConfiguracionConsola(tConsola *cons_data){
+
+	printf("%s\n", cons_data->ip_kernel);
+	printf("%s\n", cons_data->puerto_kernel);
+}
+
 void liberarConfiguracionConsola(tConsola *cons){
+
 	free(cons->ip_kernel);
 	free(cons->puerto_kernel);
 	free(cons);

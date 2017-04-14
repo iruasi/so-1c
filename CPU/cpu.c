@@ -13,15 +13,13 @@
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
-
-
-int setupConfig(t_config *configuracion, char *ip_kernel, char *ip_memoria, char *puerto_kernel, char *puerto_memoria);
-int revisarYObtenerConf(t_config *configuracion, char *entrada_del_valor, char* valor_de_configuracion);
+#define FALLO_CONEXION -25
 
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
 int establecerConexion(char *ip_destino, char *puerto_destino);
 
 tCPU *getConfigCPU(char *ruta_archivo_configuracion);
+void mostrarConfiguracionCPU(tCPU *datos_cpu);
 void liberarConfiguracionCPU(tCPU *datos_cpu);
 
 int main(int argc, char* argv[]){
@@ -31,24 +29,43 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
+	char buf[MAXMSJ];
+	int i;
 	int stat;
 	int sock_kern, sock_mem;
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	if (cpu_data == NULL)
 		return FALLO_CONFIGURACION;
-
-	printf ("ip de kernel es:%s\npuerto kernel es:%s\n", cpu_data->ip_kernel, cpu_data->puerto_kernel);
-	printf ("ip de memoria es:%s\npuerto memoria es:%s\n", cpu_data->ip_memoria, cpu_data->puerto_memoria);
+	mostrarConfiguracionCPU(cpu_data);
 
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
-	printf("socket de kernel es: %d\n",sock_kern);
+	if (sock_kern < 0)
+			return sock_kern;
 
+		while((stat = recv(sock_kern, buf, MAXMSJ, 0)) > 0){
+			printf("%s\n", buf);
+
+			for(i = 0; i < MAXMSJ; ++i)
+				buf[i] = '\0';
+		}
+
+		if (stat == -1){
+			printf("Error en la conexion con Kernel! status: %d \n", stat);
+			return -1;
+		}
+
+		printf("Kernel termino la conexion\nLimpiando proceso...\n");
+
+//	NO VAMOS A CONECTAR CON MEMORIA TODAVIA...
 //	printf("Conectando con memoria...\n");
 //	sock_mem = establecerConexion(ip_memoria, port_memoria);
 //	printf("socket de memoria es: %d\n",sock_mem);
 
+	close(sock_kern);
+	close(sock_mem);
+	liberarConfiguracionCPU(cpu_data);
 	return 0;
 }
 
@@ -62,15 +79,12 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 }
 
 
-/*
- * Esta funcion conecta con un destino y envia un breve saludo.
- * Si falla retorna FALLO_GRAL; retorna el socket a destino si funciona bien.
+
+/* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
  */
 int establecerConexion(char *ip_dest, char *port_dest){
 
-	char * msj = "Hola soy cpu!\0";
-
-	int stat, bytes_sent;
+	int stat;
 	int sock_dest; // file descriptor para el socket del destino a conectar
 	struct addrinfo hints, *destInfo;
 
@@ -87,9 +101,10 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
 	freeaddrinfo(destInfo);
 
-	bytes_sent = send(sock_dest, msj, strlen(msj), 0);
-	printf("Se enviaron: %d bytes\n", bytes_sent);
-
+	if (sock_dest < 0){
+		printf("Error al tratar de conectar con Kernel!");
+		return FALLO_CONEXION;
+	}
 
 	return sock_dest;
 }
@@ -123,6 +138,14 @@ tCPU *getConfigCPU(char *ruta_config){
 	config_destroy(cpu_conf);
 	return cpu;
 
+}
+
+void mostrarConfiguracionCPU(tCPU *cpu){
+
+	printf("IP kernel: %s\n", cpu->ip_kernel);
+	printf("Puerto kernel: %s\n", cpu->puerto_kernel);
+	printf("IP memoria: %s\n", cpu->ip_memoria);
+	printf("Puerto memoria: %s\n", cpu->puerto_memoria);
 }
 
 void liberarConfiguracionCPU(tCPU *cpu){

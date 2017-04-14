@@ -8,7 +8,8 @@
 #include <commons/collections/list.h>
 #include "kernel.h"
 
-#define BACKLOG 5
+
+#define BACKLOG 20
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
@@ -16,12 +17,10 @@
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
-
+#define FALLO_RECV -23
 
 void setupHints(struct addrinfo *hint, int address_family, int socket_type, int flags);
-int recibirConexion(char *puerto_de_comunicacion);
-
-void abrirConexiones(fd_set readfds, tKernel kernel_config_data);
+int setSocketComm(char *puerto_de_comunicacion);
 
 void mostrarConfiguracion(tKernel *datos_kernel);
 void liberarConfiguracionKernel(tKernel *datos_kernel);
@@ -32,26 +31,44 @@ int main(int argc, char* argv[]){
 			return EXIT_FAILURE;
 	}
 
-	int stat;
+	char buf[MAXMSJ];
+	int stat, bytes_sent;
+	int i;
+
+	struct sockaddr_in clientInfo;
+	socklen_t clientSize = sizeof(clientInfo);
 
 	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
-/*
-	struct timeval tv;
-	fd_set readfds;
 
-	tv.tv_sec = 2;
-	FD_ZERO(&readfds);
-*/
+	// Creamos sockets listos para send/recv para cada proceso
+	int fd_cons = setSocketComm(kernel->puerto_prog);
+	int fd_cpu  = setSocketComm(kernel->puerto_cpu);
+	int fd_mem  = setSocketComm(kernel->puerto_memoria);
+	int fd_fs   = setSocketComm(kernel->puerto_fs);
 
-//	stat = recibirConexion(kernel->puerto_memoria); todavia no existe el proceso memoria
+	while ((stat = recv(fd_cons, buf, MAXMSJ, 0)) > 0){
+		stat = send(fd_cpu, buf, MAXMSJ, 0);
 
-//	stat = recibirConexion(kernel->puerto_fs); todavia no existe el proceso filesystem
+		stat = send(fd_mem, buf, MAXMSJ, 0);
 
-	stat = recibirConexion(kernel->puerto_prog);
-	printf("stat es: %d\n", stat);
-	stat = recibirConexion(kernel->puerto_cpu);
-	printf("stat es: %d\n", stat);
+		stat = send(fd_fs, buf, MAXMSJ, 0);
+
+		for (i = 0; i < MAXMSJ; ++i)
+			buf[i] = '\0';
+	}
+
+	if (bytes_sent == -1){
+		printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
+		return FALLO_RECV;
+	}
+
+	printf("Consola termino la conexion\nNo se esperan mas mensajes, cerrando todo...\n");
+
+	close(fd_cons);
+	close(fd_cpu);
+	close(fd_mem);
+	close(fd_fs);
 
 	liberarConfiguracionKernel(kernel);
 	return stat;
@@ -65,15 +82,14 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 	hint->ai_flags = flags;
 }
 
-int recibirConexion(char *port_comm){
-
-	char buf[MAXMSJ];
-
+/* Crea un socket para establecer comunicacion, a partir de un puerto dado
+ */
+int setSocketComm(char *port_comm){
 	int stat;
 	int sock_listen;
 	struct addrinfo hints, *serverInfo;
 
-	int sock_cli;
+	int sock_comm;
 	struct sockaddr_in clientInfo;
 	socklen_t clientSize = sizeof(clientInfo);
 
@@ -89,19 +105,13 @@ int recibirConexion(char *port_comm){
 	bind(sock_listen, serverInfo->ai_addr, serverInfo->ai_addrlen);
 	freeaddrinfo(serverInfo);
 
-	listen(sock_listen, BACKLOG); // syscall bloqueante
-	sock_cli = accept(sock_listen, (struct sockaddr *) &clientInfo, &clientSize);
+	listen(sock_listen, BACKLOG);
+	sock_comm = accept(sock_listen, (struct sockaddr *) &clientInfo, &clientSize);
+	close(sock_listen);
 
-	recv(sock_cli, buf, MAXMSJ, 0);
-	printf ("%s\n", buf);
-
-	return 0;
+	return sock_comm;
 }
 
-// Esto en desarrollo para el select()
-void abrirConexiones(fd_set readfds, tKernel kern_data){
-	FD_SET(3, &readfds);
-}
 
 tKernel *getConfigKernel(char* ruta){
 

@@ -12,7 +12,7 @@
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
-
+#define FALLO_CONEXION -25
 
 typedef struct{
 	char* puerto;
