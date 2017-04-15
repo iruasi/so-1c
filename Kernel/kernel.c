@@ -48,6 +48,9 @@ int main(int argc, char* argv[]){
 	int fd_fs   = setSocketComm(kernel->puerto_fs);
 
 	while ((stat = recv(fd_cons, buf, MAXMSJ, 0)) > 0){
+
+		printf("%s\n", buf);
+
 		stat = send(fd_cpu, buf, MAXMSJ, 0);
 
 		stat = send(fd_mem, buf, MAXMSJ, 0);
@@ -106,7 +109,10 @@ int setSocketComm(char *port_comm){
 	freeaddrinfo(serverInfo);
 
 	listen(sock_listen, BACKLOG);
+	printf("Estoy escuchando...\n");
 	sock_comm = accept(sock_listen, (struct sockaddr *) &clientInfo, &clientSize);
+	printf("Devuelvo un sock_comm: %d, para el del puerto %s\n", sock_comm, port_comm);
+
 	close(sock_listen);
 
 	return sock_comm;

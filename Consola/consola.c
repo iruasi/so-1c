@@ -46,7 +46,7 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	char buf[MAXMSJ] = "go";
+	char buf[MAXMSJ] = "AAA";
 	int i;
 	int stat = 1;
 	int sock_kern;
@@ -59,23 +59,20 @@ int main(int argc, char* argv[]){
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0)
 		return sock_kern;
+	stat=1;
 
-	// todo: ESTE CICLO NO ANDA BIEN, NO SE PORQUE
-	printf(" buf: %s\n stat: %d\n", buf, stat);
-	while((strcmp(buf, "\n\0")) && stat != -1){
+	while((strcmp(buf, "terminar")) && (stat != -1)){
 
 		printf("Ingrese su mensaje:\n");
-		fgets(buf, MAXMSJ -2, stdin);
+		fgets(buf, MAXMSJ, stdin);
 		buf[MAXMSJ -1] = '\0';
 
-		printf("enviando...%s\n", buf);
 		stat = send(sock_kern, buf, MAXMSJ, 0);
 
 		for(i = 0; i < MAXMSJ; i++)
 			buf[i] = '\0';
 	}
 
-	printf(" buf: %s\n stat: %d\n", buf, stat);
 	printf("Cerrando comunicacion y limpiando proceso...\n");
 
 	close(sock_kern);
@@ -111,7 +108,8 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
 		return FALLO_GRAL;
 
-	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+	stat = connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+
 	freeaddrinfo(destInfo);
 
 	if (sock_dest < 0){
