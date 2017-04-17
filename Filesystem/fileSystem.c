@@ -90,9 +90,9 @@ tFileSystem* getConfigFS(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
 	tFileSystem *fileSystem= malloc(sizeof(tFileSystem));
 
-	fileSystem->puerto = malloc(MAX_PORT_LEN * sizeof(fileSystem->puerto));
-	fileSystem->punto_montaje = malloc(sizeof(fileSystem->punto_montaje));
-	fileSystem->ip_kernel = malloc(MAX_IP_LEN * sizeof(fileSystem->ip_kernel));
+	fileSystem->puerto        = malloc(MAX_PORT_LEN * sizeof(fileSystem->puerto));
+	fileSystem->punto_montaje = malloc(MAX_IP_LEN * sizeof(fileSystem->punto_montaje));
+	fileSystem->ip_kernel     = malloc(MAX_IP_LEN * sizeof(fileSystem->ip_kernel));
 
 	t_config *fileSystemConfig = config_create(ruta);
 
