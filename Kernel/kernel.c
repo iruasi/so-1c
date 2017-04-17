@@ -8,8 +8,9 @@
 #include <commons/collections/list.h>
 #include "kernel.h"
 
-
-#define BACKLOG 20
+#define BACKLOG 10
+#define BACKLOG_CPU  10 // cantidad de procesos CPU que pueden enfilar en un solo listen
+#define BACKLOG_CONS 10 // cantidad de procesos Consola que pueden enfilar en un solo listen
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
@@ -21,6 +22,8 @@
 
 void setupHints(struct addrinfo *hint, int address_family, int socket_type, int flags);
 int setSocketComm(char *puerto_de_comunicacion);
+int makeListenSock(char *port_listen);
+int makeCommSock(int socket_in);
 
 void mostrarConfiguracion(tKernel *datos_kernel);
 void liberarConfiguracionKernel(tKernel *datos_kernel);
@@ -32,14 +35,99 @@ int main(int argc, char* argv[]){
 	}
 
 	char buf[MAXMSJ];
-	int stat, bytes_sent;
-	int i;
+	int stat, bytes_sent, ready_fds;
+	int i, fd, new_fd;
+	int fd_max;
 
-	struct sockaddr_in clientInfo;
-	socklen_t clientSize = sizeof(clientInfo);
+	struct sockaddr_in clientAddr;
+	socklen_t clientSize = sizeof(clientAddr);
 
 	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
+
+
+	// A esta altura ya tendraimos al Kernel conectado con una Memoria y un FS
+	// No pueden usarse numeros arbitrarios para simularlos porque sino select() retorna error
+
+	//int supuesto_socket_memoria = algun_int;
+	//int supuesto_socket_filesys = algun_otro_int;
+
+
+	fd_set read_fd, master_fd;
+	FD_ZERO(&read_fd);
+	FD_ZERO(&master_fd);
+
+	// Agregamos Mem, FS y stdin al set de read
+	//FD_SET(sock_mem_mock, &master_fd);
+	//FD_SET(sock_fs_mock, &master_fd);
+	FD_SET(0, &master_fd);
+
+	// Creamos sockets para hacer listen() de CPUs o Consolas;
+	// Hacemos el listen(); Y lo agregamos al set read_socks
+	int sock_lis_cpu = makeListenSock(kernel->puerto_cpu);
+	listen(sock_lis_cpu, BACKLOG_CPU);
+	FD_SET(sock_lis_cpu, &master_fd);
+
+	int sock_lis_con = makeListenSock(kernel->puerto_prog);
+	listen(sock_lis_con, BACKLOG_CONS);
+	FD_SET(sock_lis_con, &master_fd);
+
+	// TODO: implementar funcion que retorne el verdadero fd_max
+	fd_max = (sock_lis_con > sock_lis_cpu)? sock_lis_con : sock_lis_cpu;
+
+	// Para el select() vamos a estar pasando NULL por timeout, recomendacion de la catedra
+	while (1){
+		read_fd = master_fd;
+
+		ready_fds = select(fd_max + 1, &read_fd, NULL, NULL, NULL);
+		if (ready_fds == -1)
+			return -26; // despues vemos de hacerlo lindo...
+
+		printf("lele");
+		for (fd = 0; fd < fd_max; ++fd){
+
+			if (FD_ISSET(fd, &read_fd)){
+				printf("Aca hay uno! el fd es: %d\n", fd);
+
+				// Para luego distinguir un recv() entre diferentes procesos, debemos definir un t_Package
+				// este t_Package tendria un identificador, y un mensaje. Ambos de un size maximo predeterminado.
+				if (fd == sock_lis_cpu){
+					printf("es de cpu!\n");
+					new_fd = makeCommSock(sock_lis_cpu);
+					FD_SET(new_fd, &master_fd);
+
+					listen(sock_lis_cpu, BACKLOG_CPU);
+
+				} else if (fd == sock_lis_con){
+					printf("es de consola!\n");
+					new_fd = makeCommSock(sock_lis_con);
+					FD_SET(new_fd, &master_fd);
+
+					listen(sock_lis_con, BACKLOG_CONS); // Volvemos a ponernos para escuchar otra consola
+
+				} else if (fd == 30){ //sock_mem_mock
+					printf("es de memoria!\n");
+					// aca deberiamos hacer algo especifico para memoria, ej algunos send/recv
+
+				} else if (fd == 40){ //sock_fs_mock
+					printf("es de fs!\n");
+					// aca deberiamos hacer algo especifico para filesystem, ej algunos send/recv
+
+				} else if (fd == 0){ //socket del stdin
+
+					printf("Ingreso texto por pantalla!\n");
+					FD_CLR(0, &master_fd); // sacamos stdin del set a checkear, sino el ciclo queda para siempre detectando stdin...
+
+				}
+
+			}
+		}
+
+		//break; // TODO: ver como salir del ciclo; cuando es necesario??
+	}
+
+/* De momento dejo comentada esta seccion, que ya no deberia utilizarse
+ * Tal vez sirva para algo, pero no deberiamos depender de este bloque de codigo...
 
 	// Creamos sockets listos para send/recv para cada proceso
 	int fd_cons = setSocketComm(kernel->puerto_prog);
@@ -72,7 +160,13 @@ int main(int argc, char* argv[]){
 	close(fd_cpu);
 	close(fd_mem);
 	close(fd_fs);
+*/
 
+	// Un poco mas de limpieza antes de cerrar
+	FD_ZERO(&read_fd);
+	FD_ZERO(&master_fd);
+	close(sock_lis_con);
+	close(sock_lis_cpu);
 	liberarConfiguracionKernel(kernel);
 	return stat;
 }
@@ -85,37 +179,70 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 	hint->ai_flags = flags;
 }
 
-/* Crea un socket para establecer comunicacion, a partir de un puerto dado
+/* crea un socket y lo bindea() a un puerto particular, luego retorna este socket.
  */
-int setSocketComm(char *port_comm){
-	int stat;
-	int sock_listen;
-	struct addrinfo hints, *serverInfo;
+int makeListenSock(char *port_listen){
 
-	int sock_comm;
-	struct sockaddr_in clientInfo;
-	socklen_t clientSize = sizeof(clientInfo);
+	int stat, sock_listen;
+
+	struct addrinfo hints, *serverInfo;
 
 	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, AI_PASSIVE);
 
-	if ((stat = getaddrinfo(NULL, port_comm, &hints, &serverInfo)) != 0){
+	if ((stat = getaddrinfo(NULL, port_listen, &hints, &serverInfo)) != 0){
 		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
 		return FALLO_GRAL;
 	}
 
 	sock_listen = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
-
 	bind(sock_listen, serverInfo->ai_addr, serverInfo->ai_addrlen);
+
 	freeaddrinfo(serverInfo);
+	return sock_listen;
+}
 
-	listen(sock_listen, BACKLOG);
-	printf("Estoy escuchando...\n");
-	sock_comm = accept(sock_listen, (struct sockaddr *) &clientInfo, &clientSize);
-	printf("Devuelvo un sock_comm: %d, para el del puerto %s\n", sock_comm, port_comm);
+/* acepta una conexion entrante, y crea un socket para comunicaciones regulares;
+ */
+int makeCommSock(int socket_in){
 
-	close(sock_listen);
+	struct sockaddr_in clientAddr;
+	socklen_t clientSize = sizeof(clientAddr);
+
+	int sock_comm = accept(socket_in, (struct sockaddr*) &clientAddr, &clientSize);
 
 	return sock_comm;
+}
+
+// Esta funcion ya estaria reemplazada por makeListenSock() y makeCommSock(), que separa responsabilidades
+int setSocketComm(char *port_comm){
+        int stat;
+        int sock_listen;
+        struct addrinfo hints, *serverInfo;
+
+        int sock_comm;
+        struct sockaddr_in clientInfo;
+        socklen_t clientSize = sizeof(clientInfo);
+
+        setupHints(&hints, AF_UNSPEC, SOCK_STREAM, AI_PASSIVE);
+
+        if ((stat = getaddrinfo(NULL, port_comm, &hints, &serverInfo)) != 0){
+                fprintf("getaddrinfo: %s\n", gai_strerror(stat));
+                return FALLO_GRAL;
+        }
+
+        sock_listen = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
+
+        bind(sock_listen, serverInfo->ai_addr, serverInfo->ai_addrlen);
+        freeaddrinfo(serverInfo);
+
+        listen(sock_listen, BACKLOG);
+        printf("Estoy escuchando...\n");
+        sock_comm = accept(sock_listen, (struct sockaddr *) &clientInfo, &clientSize);
+        printf("Devuelvo un sock_comm: %d, para el del puerto %s\n", sock_comm, port_comm);
+
+        close(sock_listen);
+
+        return sock_comm;
 }
 
 
