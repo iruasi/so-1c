@@ -24,7 +24,7 @@ void setupHints(struct addrinfo *hint, int address_family, int socket_type, int 
 int setSocketComm(char *puerto_de_comunicacion);
 int makeListenSock(char *port_listen);
 int makeCommSock(int socket_in);
-
+int establecerConexionConFilesystem(char *ip_destino, char *puerto_destino);
 void mostrarConfiguracion(tKernel *datos_kernel);
 void liberarConfiguracionKernel(tKernel *datos_kernel);
 
@@ -34,16 +34,28 @@ int main(int argc, char* argv[]){
 			return EXIT_FAILURE;
 	}
 
-	char buf[MAXMSJ];
+
 	int stat, bytes_sent, ready_fds;
 	int i, fd, new_fd;
 	int fd_max;
+	int sock_filesystem;
 
 	struct sockaddr_in clientAddr;
 	socklen_t clientSize = sizeof(clientAddr);
 
 	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
+
+
+	//aca se conecta con filesystem
+	printf("Conectando con FILESYSTEM...\n");
+	sock_filesystem = establecerConexionConFilesystem(kernel->ip_fs, kernel->puerto_fs);
+	if (sock_filesystem < 0)
+		return sock_filesystem;
+
+
+
+	//hasta aca fin conexion filesystem
 
 
 	// A esta altura ya tendraimos al Kernel conectado con una Memoria y un FS
@@ -83,7 +95,7 @@ int main(int argc, char* argv[]){
 		if (ready_fds == -1)
 			return -26; // despues vemos de hacerlo lindo...
 
-		printf("lele");
+		//printf("lele");
 		for (fd = 0; fd < fd_max; ++fd){
 
 			if (FD_ISSET(fd, &read_fd)){
@@ -218,6 +230,7 @@ int setSocketComm(char *port_comm){
         int stat;
         int sock_listen;
         struct addrinfo hints, *serverInfo;
+        char buf[MAXMSJ];
 
         int sock_comm;
         struct sockaddr_in clientInfo;
@@ -243,6 +256,47 @@ int setSocketComm(char *port_comm){
         close(sock_listen);
 
         return sock_comm;
+}
+
+//ESTABLECER CONEXION PARA FILESYSTEM:
+int establecerConexionConFilesystem(char *ip_dest, char *port_dest){
+
+
+	int stat,i;
+	int sock_dest; // file descriptor para el socket del destino a conectar
+	int bytes_sent;
+	struct addrinfo hints, *destInfo;
+	char buf[MAXMSJ];
+
+	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
+
+	if ((stat = getaddrinfo(ip_dest, port_dest, &hints, &destInfo)) != 0){
+		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
+		return FALLO_GRAL;
+	}
+
+	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
+		return FALLO_GRAL;
+
+	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+	freeaddrinfo(destInfo);
+
+
+
+	if (sock_dest < 0){
+		printf("Error al tratar de conectar con FILESYSTEM!");
+		return FALLO_CONEXION;
+	}
+
+
+	char * msjAFilesystem = "Hola soy Kernel";
+	bytes_sent = send(sock_dest, msjAFilesystem, strlen(msjAFilesystem), 0);
+	printf("Se enviaron: %d bytes\n a FiLESYSTEM", bytes_sent);
+
+
+
+
+	return sock_dest;
 }
 
 

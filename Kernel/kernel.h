@@ -5,6 +5,8 @@
 
 #endif /* KERNEL_H_ */
 
+#define FALLO_CONEXION -25
+
 typedef struct{
 
 	char* puerto_cpu;
