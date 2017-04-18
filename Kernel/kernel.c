@@ -15,18 +15,26 @@
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
 #define MAXMSJ 100
+#define MAXALGO 4 		// cantidad maxima de carecteres para kernel->algoritmo (RR o FIFO)
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
 #define FALLO_RECV -23
+#define FALLO_CONEXION -24
+
+/* MAX(A, B) es un macro que devuelve el mayor entre dos argumentos,
+ * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
+ */
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 void setupHints(struct addrinfo *hint, int address_family, int socket_type, int flags);
-int setSocketComm(char *puerto_de_comunicacion);
+int establecerConexion(char *ip_destino, char *port_destino);
 int makeListenSock(char *port_listen);
-int makeCommSock(int socket_in);
-int establecerConexionConFilesystem(char *ip_destino, char *puerto_destino);
+int makeCommSock(int socket_listen);
+
 void mostrarConfiguracion(tKernel *datos_kernel);
 void liberarConfiguracionKernel(tKernel *datos_kernel);
+
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -34,11 +42,17 @@ int main(int argc, char* argv[]){
 			return EXIT_FAILURE;
 	}
 
-
+	char buf[MAXMSJ];
 	int stat, bytes_sent, ready_fds;
 	int i, fd, new_fd;
-	int fd_max;
-	int sock_filesystem;
+	int sock_fs, sock_mem;
+	int sock_lis_cpu, sock_lis_con;
+	int fd_max = -1;
+
+	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
+	fd_set read_fd, master_fd;
+	FD_ZERO(&read_fd);
+	FD_ZERO(&master_fd);
 
 	struct sockaddr_in clientAddr;
 	socklen_t clientSize = sizeof(clientAddr);
@@ -47,45 +61,57 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(kernel);
 
 
-	//aca se conecta con filesystem
-	printf("Conectando con FILESYSTEM...\n");
-	sock_filesystem = establecerConexionConFilesystem(kernel->ip_fs, kernel->puerto_fs);
-	if (sock_filesystem < 0)
-		return sock_filesystem;
+/* 		----DE MOMENTO NO EXISTE SERVIDOR EN MEMORIA, ASI QUE TODAS LAS COSAS RELACIONADAS A MEMORIA SE VERAN COMENTADAS----
+	// Se trata de conectar con Memoria
+	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
+		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
+		return FALLO_CONEXION;
+	}
+
+	fd_max = MAX(sock_mem, fd_max);
+*/
+
+	// Se trata de conectar con Filesystem
+	if ((sock_fs  = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
+		printf("Error fatal! No se pudo conectar con el Filesystem! sock_fs: %d\n", sock_fs);
+		return FALLO_CONEXION;
+	}
+	char * msjAFilesystem = "Hola soy Kernel";
+	bytes_sent = send(sock_fs, msjAFilesystem, strlen(msjAFilesystem), 0);
+	printf("Se enviaron: %d bytes\n a FiLESYSTEM", bytes_sent);
 
 
+	fd_max = MAX(sock_fs, fd_max);
 
-	//hasta aca fin conexion filesystem
+	// Creamos sockets para hacer listen() de CPUs
+	if ((sock_lis_cpu = makeListenSock(kernel->puerto_cpu)) < 0){
+		printf("No se pudo crear socket para escuchar! sock_lis_cpu: %d\n", sock_lis_cpu);
+		return FALLO_CONEXION;
+	}
 
+	fd_max = MAX(sock_lis_cpu, fd_max);
 
-	// A esta altura ya tendraimos al Kernel conectado con una Memoria y un FS
-	// No pueden usarse numeros arbitrarios para simularlos porque sino select() retorna error
+	// Creamos sockets para hacer listen() de Consolas
+	if ((sock_lis_con = makeListenSock(kernel->puerto_prog)) < 0){
+		printf("No se pudo crear socket para escuchar! sock_lis_con: %d\n", sock_lis_con);
+		return FALLO_CONEXION;
+	}
 
-	//int supuesto_socket_memoria = algun_int;
-	//int supuesto_socket_filesys = algun_otro_int;
+	fd_max = MAX(sock_lis_con, fd_max);
 
+	// fd_max ahora va a tener el valor mas alto de los sockets hasta ahora hechos
+	// la implementacion sigue siendo ineficiente.. a futuro se va a hacer algo mas power!
 
-	fd_set read_fd, master_fd;
-	FD_ZERO(&read_fd);
-	FD_ZERO(&master_fd);
-
-	// Agregamos Mem, FS y stdin al set de read
-	//FD_SET(sock_mem_mock, &master_fd);
-	//FD_SET(sock_fs_mock, &master_fd);
+	// Se agregan memoria, fs, listen_cpu, listen_consola y stdin al set master
+	//FD_SET(sock_mem, &master_fd);
+	FD_SET(sock_fs, &master_fd);
+	FD_SET(sock_lis_cpu, &master_fd);
+	FD_SET(sock_lis_con, &master_fd);
 	FD_SET(0, &master_fd);
 
-	// Creamos sockets para hacer listen() de CPUs o Consolas;
-	// Hacemos el listen(); Y lo agregamos al set read_socks
-	int sock_lis_cpu = makeListenSock(kernel->puerto_cpu);
+
 	listen(sock_lis_cpu, BACKLOG_CPU);
-	FD_SET(sock_lis_cpu, &master_fd);
-
-	int sock_lis_con = makeListenSock(kernel->puerto_prog);
 	listen(sock_lis_con, BACKLOG_CONS);
-	FD_SET(sock_lis_con, &master_fd);
-
-	// TODO: implementar funcion que retorne el verdadero fd_max
-	fd_max = (sock_lis_con > sock_lis_cpu)? sock_lis_con : sock_lis_cpu;
 
 	// Para el select() vamos a estar pasando NULL por timeout, recomendacion de la catedra
 	while (1){
@@ -106,28 +132,32 @@ int main(int argc, char* argv[]){
 				if (fd == sock_lis_cpu){
 					printf("es de cpu!\n");
 					new_fd = makeCommSock(sock_lis_cpu);
-					FD_SET(new_fd, &master_fd);
+					fd_max = MAX(fd_max, new_fd);
 
-					listen(sock_lis_cpu, BACKLOG_CPU);
+					FD_SET(new_fd, &master_fd);
+					listen(sock_lis_cpu, BACKLOG_CPU); // Volvemos a ponernoas para escuchar otro CPU
 
 				} else if (fd == sock_lis_con){
 					printf("es de consola!\n");
 					new_fd = makeCommSock(sock_lis_con);
+					fd_max = MAX(fd_max, new_fd);
+
 					FD_SET(new_fd, &master_fd);
+					listen(sock_lis_con, BACKLOG_CONS); // Volvemos a ponernos para escuchar otra Consola
 
-					listen(sock_lis_con, BACKLOG_CONS); // Volvemos a ponernos para escuchar otra consola
+/*				} else if (fd == sock_mem){
+					printf("llego algo desde memoria!\n");
 
-				} else if (fd == 30){ //sock_mem_mock
-					printf("es de memoria!\n");
-					// aca deberiamos hacer algo especifico para memoria, ej algunos send/recv
+					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
+*/
+				} else if (fd == sock_fs){
+					printf("llego algo desde fs!\n");
 
-				} else if (fd == 40){ //sock_fs_mock
-					printf("es de fs!\n");
-					// aca deberiamos hacer algo especifico para filesystem, ej algunos send/recv
+					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
 
 				} else if (fd == 0){ //socket del stdin
-
 					printf("Ingreso texto por pantalla!\n");
+
 					FD_CLR(0, &master_fd); // sacamos stdin del set a checkear, sino el ciclo queda para siempre detectando stdin...
 
 				}
@@ -138,45 +168,12 @@ int main(int argc, char* argv[]){
 		//break; // TODO: ver como salir del ciclo; cuando es necesario??
 	}
 
-/* De momento dejo comentada esta seccion, que ya no deberia utilizarse
- * Tal vez sirva para algo, pero no deberiamos depender de este bloque de codigo...
-
-	// Creamos sockets listos para send/recv para cada proceso
-	int fd_cons = setSocketComm(kernel->puerto_prog);
-	int fd_cpu  = setSocketComm(kernel->puerto_cpu);
-	int fd_mem  = setSocketComm(kernel->puerto_memoria);
-	int fd_fs   = setSocketComm(kernel->puerto_fs);
-
-	while ((stat = recv(fd_cons, buf, MAXMSJ, 0)) > 0){
-
-		printf("%s\n", buf);
-
-		stat = send(fd_cpu, buf, MAXMSJ, 0);
-
-		stat = send(fd_mem, buf, MAXMSJ, 0);
-
-		stat = send(fd_fs, buf, MAXMSJ, 0);
-
-		for (i = 0; i < MAXMSJ; ++i)
-			buf[i] = '\0';
-	}
-
-	if (bytes_sent == -1){
-		printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
-		return FALLO_RECV;
-	}
-
-	printf("Consola termino la conexion\nNo se esperan mas mensajes, cerrando todo...\n");
-
-	close(fd_cons);
-	close(fd_cpu);
-	close(fd_mem);
-	close(fd_fs);
-*/
 
 	// Un poco mas de limpieza antes de cerrar
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
+//	close(sock_mem);
+	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
 	liberarConfiguracionKernel(kernel);
@@ -191,7 +188,8 @@ void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
 	hint->ai_flags = flags;
 }
 
-/* crea un socket y lo bindea() a un puerto particular, luego retorna este socket.
+/* crea un socket y lo bindea() a un puerto particular,
+ * luego retorna este socket, apto para listen()
  */
 int makeListenSock(char *port_listen){
 
@@ -225,48 +223,15 @@ int makeCommSock(int socket_in){
 	return sock_comm;
 }
 
-// Esta funcion ya estaria reemplazada por makeListenSock() y makeCommSock(), que separa responsabilidades
-int setSocketComm(char *port_comm){
-        int stat;
-        int sock_listen;
-        struct addrinfo hints, *serverInfo;
-        char buf[MAXMSJ];
 
-        int sock_comm;
-        struct sockaddr_in clientInfo;
-        socklen_t clientSize = sizeof(clientInfo);
+/* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
+ * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
+ */
+int establecerConexion(char *ip_dest, char *port_dest){
 
-        setupHints(&hints, AF_UNSPEC, SOCK_STREAM, AI_PASSIVE);
-
-        if ((stat = getaddrinfo(NULL, port_comm, &hints, &serverInfo)) != 0){
-                fprintf("getaddrinfo: %s\n", gai_strerror(stat));
-                return FALLO_GRAL;
-        }
-
-        sock_listen = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
-
-        bind(sock_listen, serverInfo->ai_addr, serverInfo->ai_addrlen);
-        freeaddrinfo(serverInfo);
-
-        listen(sock_listen, BACKLOG);
-        printf("Estoy escuchando...\n");
-        sock_comm = accept(sock_listen, (struct sockaddr *) &clientInfo, &clientSize);
-        printf("Devuelvo un sock_comm: %d, para el del puerto %s\n", sock_comm, port_comm);
-
-        close(sock_listen);
-
-        return sock_comm;
-}
-
-//ESTABLECER CONEXION PARA FILESYSTEM:
-int establecerConexionConFilesystem(char *ip_dest, char *port_dest){
-
-
-	int stat,i;
+	int stat;
 	int sock_dest; // file descriptor para el socket del destino a conectar
-	int bytes_sent;
 	struct addrinfo hints, *destInfo;
-	char buf[MAXMSJ];
 
 	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
 
@@ -278,23 +243,13 @@ int establecerConexionConFilesystem(char *ip_dest, char *port_dest){
 	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
 		return FALLO_GRAL;
 
-	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+	stat = connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen); // llamada bloqueante
 	freeaddrinfo(destInfo);
 
-
-
 	if (sock_dest < 0){
-		printf("Error al tratar de conectar con FILESYSTEM!");
+		printf("Error al tratar de conectar con Kernel!");
 		return FALLO_CONEXION;
 	}
-
-
-	char * msjAFilesystem = "Hola soy Kernel";
-	bytes_sent = send(sock_dest, msjAFilesystem, strlen(msjAFilesystem), 0);
-	printf("Se enviaron: %d bytes\n a FiLESYSTEM", bytes_sent);
-
-
-
 
 	return sock_dest;
 }
@@ -305,7 +260,7 @@ tKernel *getConfigKernel(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
 	tKernel *kernel = malloc(sizeof(tKernel));
 
-	kernel->algoritmo   = malloc(2 * sizeof kernel->algoritmo);
+	kernel->algoritmo   = malloc(MAXALGO * sizeof kernel->algoritmo);
 	kernel->ip_fs       = malloc(MAX_IP_LEN * sizeof kernel->ip_fs);
 	kernel->ip_memoria  = malloc(MAX_IP_LEN * sizeof kernel->ip_memoria);
 	kernel->puerto_cpu  = malloc(MAX_PORT_LEN * sizeof kernel->puerto_cpu);
@@ -315,13 +270,13 @@ tKernel *getConfigKernel(char* ruta){
 
 	t_config *kernelConfig = config_create(ruta);
 
-	strcpy(kernel->algoritmo,  config_get_string_value(kernelConfig, "ALGORITMO"));
-	strcpy(kernel->ip_fs,      config_get_string_value(kernelConfig, "IP_FS"));
-	strcpy(kernel->ip_memoria, config_get_string_value(kernelConfig, "IP_MEMORIA"));
-	strcpy(kernel->puerto_prog,    config_get_string_value(kernelConfig, "PUERTO_PROG"));
-	strcpy(kernel->puerto_cpu, config_get_string_value(kernelConfig, "PUERTO_CPU"));
+	strcpy(kernel->algoritmo,   config_get_string_value(kernelConfig, "ALGORITMO"));
+	strcpy(kernel->ip_fs,       config_get_string_value(kernelConfig, "IP_FS"));
+	strcpy(kernel->ip_memoria,  config_get_string_value(kernelConfig, "IP_MEMORIA"));
+	strcpy(kernel->puerto_prog, config_get_string_value(kernelConfig, "PUERTO_PROG"));
+	strcpy(kernel->puerto_cpu,  config_get_string_value(kernelConfig, "PUERTO_CPU"));
 	strcpy(kernel->puerto_memoria, config_get_string_value(kernelConfig, "PUERTO_MEMORIA"));
-	strcpy(kernel->puerto_fs,  config_get_string_value(kernelConfig, "PUERTO_FS"));
+	strcpy(kernel->puerto_fs,   config_get_string_value(kernelConfig, "PUERTO_FS"));
 
 	kernel->grado_multiprog = config_get_int_value(kernelConfig, "GRADO_MULTIPROG");
 	kernel->quantum         = config_get_int_value(kernelConfig, "QUANTUM");
