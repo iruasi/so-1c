@@ -5,7 +5,6 @@
 
 #endif /* KERNEL_H_ */
 
-#define FALLO_CONEXION -25
 
 typedef struct{
 
@@ -25,4 +24,16 @@ typedef struct{
 	uint8_t stack_size;
 }tKernel;
 
-tKernel *getConfigKernel(char*);
+
+/* Dada una ruta de acceso, crea una estructura configurada para Kernel;
+ * retorna un puntero a la esctructura creada.
+ */
+tKernel *getConfigKernel(char *ruta);
+
+/* Muestra en stdout la configuracion del Kernel
+ */
+void mostrarConfiguracion(tKernel *kernel);
+
+/* Libera todos los recursos allocados de la estructura
+ */
+void liberarConfiguracionKernel(tKernel *kernel);
