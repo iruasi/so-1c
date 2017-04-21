@@ -1,11 +1,28 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <netdb.h>
+
+#define FALLO_GRAL -21
+#define FALLO_CONEXION -24
+
+#ifndef FUNCIONESCOMUNES_H_
+#define FUNCIONESCOMUNES_H_
+
+#endif /* FUNCIONESCOMUNES_H_ */
+
+/* Recibe una estructura que almacena informacion del propio host;
+ * La inicializa con valores utiles, pasados por parametro
+ */
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags){
-  memset(hint, 0, sizeof *hint);
-	hint->ai_family = fam;
-	hint->ai_socktype = sockType;
-	hint->ai_flags = flags;
+    memset(hints, 0, sizeof *hints);
+	hints->ai_family = address_family;
+	hints->ai_socktype = socket_type;
+	hints->ai_flags = flags;
 }
 
-
+/* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
+ * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
+ */
 int establecerConexion(char *ip_dest, char *port_dest){
 
 	int stat;
@@ -33,7 +50,9 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	return sock_dest;
 }
 
-
+/* crea un socket y lo bindea() a un puerto particular,
+ * luego retorna este socket, apto para listen()
+ */
 int makeListenSock(char *port_listen){
 
 	int stat, sock_listen;
@@ -54,6 +73,8 @@ int makeListenSock(char *port_listen){
 	return sock_listen;
 }
 
+/* acepta una conexion entrante, y crea un socket para comunicaciones regulares;
+ */
 int makeCommSock(int socket_in){
 
 	struct sockaddr_in clientAddr;
@@ -62,4 +83,14 @@ int makeCommSock(int socket_in){
 	int sock_comm = accept(socket_in, (struct sockaddr*) &clientAddr, &clientSize);
 
 	return sock_comm;
+}
+
+/* Limpia un buffer usado por cada proceso para emitir varios mensajes
+ */
+void clearBuffer(char * buffer, int bufferLength){
+
+	int i;
+	for (i = 0; i < bufferLength; ++i)
+		buffer[i] = '\0';
+
 }

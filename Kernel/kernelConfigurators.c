@@ -3,7 +3,7 @@
 
 #include "kernelConfigurators.h"
 #include <commons/config.h>
-
+#include <commons/string.h>
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
@@ -11,21 +11,20 @@
 #define MAXALGO 4 		// cantidad maxima de carecteres para kernel->algoritmo (RR o FIFO)
 
 
-
 tKernel *getConfigKernel(char* ruta){
 
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
+	t_config *kernelConfig = config_create(ruta);
+
 	tKernel *kernel = malloc(sizeof(tKernel));
 
-	kernel->algoritmo   =    malloc(MAXALGO * sizeof kernel->algoritmo);
-	kernel->ip_fs       =    malloc(MAX_IP_LEN * sizeof kernel->ip_fs);
-	kernel->ip_memoria  =    malloc(MAX_IP_LEN * sizeof kernel->ip_memoria);
-	kernel->puerto_cpu  =    malloc(MAX_PORT_LEN * sizeof kernel->puerto_cpu);
-	kernel->puerto_prog =    malloc(MAX_PORT_LEN * sizeof kernel->puerto_prog);
-	kernel->puerto_memoria = malloc(MAX_PORT_LEN * sizeof kernel->puerto_memoria);
-	kernel->puerto_fs   =    malloc(MAX_PORT_LEN * sizeof kernel->puerto_fs);
-
-	t_config *kernelConfig = config_create(ruta);
+	kernel->algoritmo   =    malloc(MAXALGO);
+	kernel->ip_fs       =    malloc(MAX_IP_LEN);
+	kernel->ip_memoria  =    malloc(MAX_IP_LEN);
+	kernel->puerto_cpu  =    malloc(MAX_PORT_LEN);
+	kernel->puerto_prog =    malloc(MAX_PORT_LEN);
+	kernel->puerto_memoria = malloc(MAX_PORT_LEN);
+	kernel->puerto_fs   =    malloc(MAX_PORT_LEN);
 
 	strcpy(kernel->algoritmo,      config_get_string_value(kernelConfig, "ALGORITMO"));
 	strcpy(kernel->ip_fs,          config_get_string_value(kernelConfig, "IP_FS"));
