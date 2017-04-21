@@ -12,26 +12,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
+#include <unistd.h>
 
-#include <commons/config.h>
-#include "consola.h"
+#include "../funcionesComunes.h"
+#include "consolaConfigurator.h"
 
-#define MAX_IP_LEN 16
-#define MAX_PORT_LEN 6
 #define MAXMSJ 100
 
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
 #define FALLO_SOCKET -23
-#define FALLO_CONEXION -25
 
-tConsola *getConfigConsola(char *ruta_archivo_configuracion);
-void mostrarConfiguracionConsola(tConsola *datos_consola);
-void liberarConfiguracionConsola(tConsola *datos_consola);
-
-
-void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
-int establecerConexion(char *ip_kernel, char *port_kernel);
+/* Con este macro verificamos igualdad de strings;
+ * es mas declarativo que strcmp porque devuelve true|false mas humanamente
+ */
+#define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
 
 void Iniciar_Programa();
 void Finalizar_Programa(int process_id);
@@ -46,8 +41,7 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	char buf[MAXMSJ] = "AAA";
-	int i;
+	char *buf = malloc(MAXMSJ);
 	int stat = 1;
 	int sock_kern;
 
@@ -56,12 +50,12 @@ int main(int argc, char* argv[]){
 		return FALLO_CONFIGURACION;
 	mostrarConfiguracionConsola(cons_data);
 
+	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0)
 		return sock_kern;
-	stat=1;
 
-	while((strcmp(buf, "terminar")) && (stat != -1)){
+	while(!(STR_EQ(buf, "terminar")) && (stat != -1)){
 
 		printf("Ingrese su mensaje:\n");
 		fgets(buf, MAXMSJ, stdin);
@@ -69,8 +63,7 @@ int main(int argc, char* argv[]){
 
 		stat = send(sock_kern, buf, MAXMSJ, 0);
 
-		for(i = 0; i < MAXMSJ; i++)
-			buf[i] = '\0';
+		clearBuffer(buf, MAXMSJ);
 	}
 
 	printf("Cerrando comunicacion y limpiando proceso...\n");
@@ -78,81 +71,4 @@ int main(int argc, char* argv[]){
 	close(sock_kern);
 	liberarConfiguracionConsola(cons_data);
 	return 0;
-}
-
-
-void setupHints(struct addrinfo *hint, int fam, int sockType, int flags){
-
-	memset(hint, 0, sizeof *hint);
-	hint->ai_family = fam;
-	hint->ai_socktype = sockType;
-	hint->ai_flags = flags;
-}
-
-/* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
- * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
- */
-int establecerConexion(char *ip_dest, char *port_dest){
-
-	int stat;
-	int sock_dest; // file descriptor para el socket del destino a conectar
-	struct addrinfo hints, *destInfo;
-
-	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
-
-	if ((stat = getaddrinfo(ip_dest, port_dest, &hints, &destInfo)) != 0){
-		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
-		return FALLO_GRAL;
-	}
-
-	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
-		return FALLO_GRAL;
-
-	stat = connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
-
-	freeaddrinfo(destInfo);
-
-	if (sock_dest < 0){
-		printf("Error al tratar de conectar con Kernel!");
-		return FALLO_CONEXION;
-	}
-
-	return sock_dest;
-}
-
-/* Carga los datos de configuracion en una estructura.
- * Si alguno de los datos de config no se encontraron, retorna NULL;
- */
-tConsola *getConfigConsola(char *ruta_config){
-
-	// Alojamos espacio en memoria para la esctructura que almacena los datos de config
-	tConsola *consola      = malloc(sizeof *consola);
-	consola->ip_kernel     = malloc(MAX_IP_LEN * sizeof consola->ip_kernel);
-	consola->puerto_kernel = malloc(MAX_PORT_LEN * sizeof consola->puerto_kernel);
-
-	t_config *consola_conf = config_create(ruta_config);
-
-	if (!config_has_property(consola_conf, "IP_KERNEL") || !config_has_property(consola_conf, "PUERTO_KERNEL")){
-		printf("No se detecto alguno de los parametros de configuracion!");
-		return NULL;
-	}
-
-	strcpy(consola->ip_kernel, config_get_string_value(consola_conf, "IP_KERNEL"));
-	strcpy(consola->puerto_kernel, config_get_string_value(consola_conf, "PUERTO_KERNEL"));
-
-	config_destroy(consola_conf);
-	return consola;
-}
-
-void mostrarConfiguracionConsola(tConsola *cons_data){
-
-	printf("%s\n", cons_data->ip_kernel);
-	printf("%s\n", cons_data->puerto_kernel);
-}
-
-void liberarConfiguracionConsola(tConsola *cons){
-
-	free(cons->ip_kernel);
-	free(cons->puerto_kernel);
-	free(cons);
 }
