@@ -4,18 +4,25 @@
 #include <netdb.h>
 #include "memoria.h"
 #include <commons/config.h>
+#include <pthread.h>
+#include<sys/socket.h>
+#include<arpa/inet.h> //inet_addr
+#include<unistd.h>    //write
 
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
 #define MAX_PORT_LEN 6
-
+#define NUM_CLIENT 10
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
-
+#define MAX_SIZE 100
 #define FALLO_GRAL -21
 #define FALLO_CONFIGURACION -22
+#define FALLO_RECV -23
 #define FALLO_CONEXION -25
+
 
 void mostrarConfiguracion(tMemoria *datos_memoria);
 void liberarConfiguracionMemoria(tMemoria *datos_memoria);
+void *connection_handler(void *);
 
 int establecerConexion(char *ip_destino, char *puerto_destino);
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
@@ -31,11 +38,75 @@ int main(int argc, char* argv[]){
 	int i;
 	int stat;
 	int sock_kern;
+	int bytes_sent;
 
 	tMemoria *memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
-	printf("Conectando con Kernel...\n");
+	//sv multihilo
+	int socket_desc , client_sock , c , *new_sock;
+	struct sockaddr_in server , client;
+
+	//Crea socket
+	socket_desc = socket(AF_INET , SOCK_STREAM , 0);
+	if (socket_desc == -1)
+	{
+	    printf("No pudo crear el socket");
+	 }
+	puts("Socket creado");
+
+	//Prepara la structura innadr
+	server.sin_family = AF_INET;
+	server.sin_addr.s_addr = INADDR_ANY;
+	server.sin_port = htons(5002);
+	//Bind
+	if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
+	{
+		//imprime error de bind
+		perror("bind fallo. error");
+		return 1;
+	}
+	puts("bind creado");
+
+	//Listen
+	listen(socket_desc , 3);
+
+	//acepta y escucha comunicaiones
+	puts("esperando comunicaciones entrantes...");
+	c = sizeof(struct sockaddr_in);
+
+	while(client_sock=accept(socket_desc,(struct sockaddr*)&client,(socklen_t*)&c))
+	{
+		puts("Conexion aceptada");
+
+		pthread_t sniffer_thread;
+		new_sock = malloc(1);
+		*new_sock = client_sock;
+
+		if( pthread_create( &sniffer_thread , NULL ,  connection_handler , (void*) new_sock) < 0)
+		{
+			perror("no pudo crear hilo");
+			return 1;
+	    }
+
+		puts("Handler assignado");
+	}
+
+	if (client_sock < 0)
+	{
+		perror("accept fallo");
+		return 1;
+	}
+
+
+	//fin sv multihilo
+
+
+
+
+
+
+	/*printf("Conectando con Kernel...\n");
 	sock_kern = establecerConexion(memoria->ip_kernel,memoria->puerto_kernel);
 	if (sock_kern < 0)
 		return sock_kern;
@@ -54,7 +125,8 @@ int main(int argc, char* argv[]){
 
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 
-	close(sock_kern);
+	close(sock_kern);*/
+
 	liberarConfiguracionMemoria(memoria);
 	return 0;
 }
@@ -147,4 +219,60 @@ void liberarConfiguracionMemoria(tMemoria *memoria){
 	free(memoria->retardo_memoria);
 	free(memoria);
 }
+
+/*
+  Esto maneja las conexiones de cada proceso que se le conecta
+  */
+void *connection_handler(void *socket_desc)
+{
+    //Get the socket descriptor
+    int sock = *(int*)socket_desc;
+    int n;
+    int stat;
+    int bytes_sent;
+    int i;
+    char buf[MAXMSJ];
+    char sendBuff[100], client_message[2000];
+
+
+    while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0)
+    {
+
+    	printf("%s\n", buf);
+
+    	for (i = 0; i < MAXMSJ; ++i)
+    		buf[i] = '\0';
+    }
+
+    if (bytes_sent == -1){
+    	printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
+    	return FALLO_RECV;
+    }
+
+
+
+
+
+
+
+
+   /* while((n=recv(sock,client_message,2000,0))>0)
+    {
+
+    	send(sock,client_message,n,0);
+    }
+    close(sock);
+
+    if(n==0)
+    {
+    	puts("Client Disconnected");
+    }
+    else
+    {
+    	perror("recv failed");
+    }
+    return 0;*/
+}
+
+
 

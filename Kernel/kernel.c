@@ -63,17 +63,19 @@ int main(int argc, char* argv[]){
 
 	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
+	strcpy(buf, "Hola soy Kernel");
 
-
-/* 		----DE MOMENTO NO EXISTE SERVIDOR EN MEMORIA, ASI QUE TODAS LAS COSAS RELACIONADAS A MEMORIA SE VERAN COMENTADAS----
+///* 		----DE MOMENTO NO EXISTE SERVIDOR EN MEMORIA, ASI QUE TODAS LAS COSAS RELACIONADAS A MEMORIA SE VERAN COMENTADAS----
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
 		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
 		return FALLO_CONEXION;
 	}
 
+	bytes_sent = send(sock_mem, buf, strlen(buf), 0);
 	fd_max = MAX(sock_mem, fd_max);
-*/
+	printf("Se enviaron: %d bytes a MEMORIA\n", bytes_sent);
+//*/
 
 	// Se trata de conectar con Filesystem
 	if ((sock_fs  = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
@@ -81,7 +83,7 @@ int main(int argc, char* argv[]){
 		return FALLO_CONEXION;
 	}
 
-	strcpy(buf, "Hola soy Kernel");
+
 	bytes_sent = send(sock_fs, buf, strlen(buf), 0);
 
 	printf("Se enviaron: %d bytes a FILESYSTEM\n", bytes_sent);
@@ -159,11 +161,11 @@ int main(int argc, char* argv[]){
 					new_fd = handleNewListened(sock_lis_con, &master_fd);
 					fd_max = MAX(fd_max, new_fd);
 
-/*				} else if (fd == sock_mem){
+				} else if (fd == sock_mem){
 					printf("llego algo desde memoria!\n");
 
 					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
-*/
+
 				} else if (fd == sock_fs){
 					printf("llego algo desde fs!\n");
 
