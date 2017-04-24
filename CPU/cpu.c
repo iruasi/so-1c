@@ -31,16 +31,50 @@ int main(int argc, char* argv[]){
 	int i;
 	int stat;
 	int sock_kern, sock_mem;
-
+	int bytes_sent;
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	if (cpu_data == NULL)
 		return FALLO_CONFIGURACION;
 	mostrarConfiguracionCPU(cpu_data);
 
+	//CONECTAR CON MEMORIA...
+		printf("Conectando con memoria...\n");
+		sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
+		if (sock_mem < 0)
+				return sock_mem;
+
+			//TODO para que sería este while?!, pq se queda aca y no conecta con kernel:
+			/*while((stat = recv(sock_mem, buf, MAXMSJ, 0)) > 0){
+				printf("%s\n", buf);
+
+				for(i = 0; i < MAXMSJ; ++i)
+					buf[i] = '\0';
+			}*/
+		stat = recv(sock_mem, buf, MAXMSJ, 0);
+		printf("%s\n", buf);
+		for(i = 0; i < MAXMSJ; ++i)
+			buf[i] = '\0';
+
+
+			if (stat == -1){
+				printf("Error en la conexion con Memoria! status: %d \n", stat);
+				return -1;
+			}
+
+		printf("socket de memoria es: %d\n",sock_mem);
+		strcpy(buf, "Hola soy CPU");
+		bytes_sent = send(sock_mem, buf, strlen(buf), 0);
+		printf("Se enviaron: %d bytes a MEMORIA\n", bytes_sent);
+
+
+
+
+
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0)
 		return sock_kern;
+
 
 	while((stat = recv(sock_kern, buf, MAXMSJ, 0)) > 0){
 		printf("%s\n", buf);
@@ -49,6 +83,7 @@ int main(int argc, char* argv[]){
 			buf[i] = '\0';
 	}
 
+
 	if (stat == -1){
 		printf("Error en la conexion con Kernel! status: %d \n", stat);
 		return -1;
@@ -56,10 +91,8 @@ int main(int argc, char* argv[]){
 
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 
-//	NO VAMOS A CONECTAR CON MEMORIA TODAVIA...
-//	printf("Conectando con memoria...\n");
-//	sock_mem = establecerConexion(ip_memoria, port_memoria);
-//	printf("socket de memoria es: %d\n",sock_mem);
+
+
 
 	close(sock_kern);
 	close(sock_mem);

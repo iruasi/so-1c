@@ -44,6 +44,7 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(memoria);
 
 	//sv multihilo
+
 	int socket_desc , client_sock , c , *new_sock;
 	struct sockaddr_in server , client;
 
@@ -98,7 +99,6 @@ int main(int argc, char* argv[]){
 		return 1;
 	}
 
-
 	//fin sv multihilo
 
 
@@ -106,26 +106,7 @@ int main(int argc, char* argv[]){
 
 
 
-	/*printf("Conectando con Kernel...\n");
-	sock_kern = establecerConexion(memoria->ip_kernel,memoria->puerto_kernel);
-	if (sock_kern < 0)
-		return sock_kern;
 
-	while((stat = recv(sock_kern, buf, MAXMSJ, 0)) > 0){
-		printf("%s\n", buf);
-
-		for(i = 0; i < MAXMSJ; ++i)
-			buf[i] = '\0';
-	}
-
-	if (stat == -1){
-		printf("Error en la conexion con Kernel! status: %d \n", stat);
-		return -1;
-	}
-
-	printf("Kernel termino la conexion\nLimpiando proceso...\n");
-
-	close(sock_kern);*/
 
 	liberarConfiguracionMemoria(memoria);
 	return 0;
@@ -233,6 +214,11 @@ void *connection_handler(void *socket_desc)
     int i;
     char buf[MAXMSJ];
     char sendBuff[100], client_message[2000];
+    for(i = 0; i < MAXMSJ; ++i)
+    			buf[i] = '\0';
+    strcpy(buf, "Hola soy Memoria\n");
+    bytes_sent = send(sock, buf, strlen(buf), 0);
+    printf("Se enviaron: %d bytes a socket nro %d \n", bytes_sent,sock);
 
 
     while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0)
@@ -251,16 +237,11 @@ void *connection_handler(void *socket_desc)
 
 
 
-
-
-
-
-
-   /* while((n=recv(sock,client_message,2000,0))>0)
+    /*while((n=recv(sock,client_message,2000,0))>0)
     {
 
     	send(sock,client_message,n,0);
-    }
+    }*/
     close(sock);
 
     if(n==0)
@@ -271,7 +252,7 @@ void *connection_handler(void *socket_desc)
     {
     	perror("recv failed");
     }
-    return 0;*/
+    return 0;
 }
 
 
