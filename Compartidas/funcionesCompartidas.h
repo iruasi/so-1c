@@ -1,9 +1,3 @@
-/*
- * funcionesCompartidas.h
- *
- *  Created on: 21/4/2017
- *      Author: utnso
- */
 
 #ifndef FUNCIONESCOMPARTIDAS_H_
 #define FUNCIONESCOMPARTIDAS_H_
@@ -12,7 +6,6 @@
 #define FALLO_CONEXION -24
 
 
-#endif /* FUNCIONESCOMPARTIDAS_H_ */
 
 /* Recibe una estructura que almacena informacion del propio host;
  * La inicializa con valores utiles, pasados por parametro
@@ -38,3 +31,5 @@ int makeCommSock(int);
  */
 void clearBuffer(char *, int );
 
+
+#endif /* FUNCIONESCOMPARTIDAS_H_ */

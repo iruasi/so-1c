@@ -13,7 +13,6 @@ typedef struct {
 } tConsola;
 
 /* Carga los datos de configuracion en una estructura.
- * Si alguno de los datos de config no se encontraron, retorna NULL;
  */
 tConsola *getConfigConsola(char *ruta_configuracion);
 

@@ -14,14 +14,11 @@
 #include <netdb.h>
 #include <unistd.h>
 
-#include "../funcionesComunes.h"
-#include "consolaConfigurator.h"
+#include "../Compartidas/funcionesCompartidas.c"
+#include "../Compartidas/tiposErrores.h"
+#include "consolaConfigurators.h"
 
 #define MAXMSJ 100
-
-#define FALLO_GRAL -21
-#define FALLO_CONFIGURACION -22
-#define FALLO_SOCKET -23
 
 /* Con este macro verificamos igualdad de strings;
  * es mas declarativo que strcmp porque devuelve true|false mas humanamente
@@ -46,8 +43,6 @@ int main(int argc, char* argv[]){
 	int sock_kern;
 
 	tConsola *cons_data = getConfigConsola(argv[1]);
-	if (cons_data == NULL)
-		return FALLO_CONFIGURACION;
 	mostrarConfiguracionConsola(cons_data);
 
 	printf("Conectando con kernel...\n");

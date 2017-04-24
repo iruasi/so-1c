@@ -1,20 +1,13 @@
-/*
- * funcionesCompartidas.c
- *
- *  Created on: 21/4/2017
- *      Author: utnso
- */
-
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
 #include "funcionesCompartidas.h"
 
 
-/* Recibe una estructura que almacena informacion del propio host;
- * La inicializa con valores utiles, pasados por parametro
- */
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags){
     memset(hints, 0, sizeof *hints);
 	hints->ai_family = address_family;
@@ -22,9 +15,6 @@ void setupHints(struct addrinfo *hints, int address_family, int socket_type, int
 	hints->ai_flags = flags;
 }
 
-/* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
- * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
- */
 int establecerConexion(char *ip_dest, char *port_dest){
 
 	int stat;
@@ -52,9 +42,6 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	return sock_dest;
 }
 
-/* crea un socket y lo bindea() a un puerto particular,
- * luego retorna este socket, apto para listen()
- */
 int makeListenSock(char *port_listen){
 
 	int stat, sock_listen;
@@ -75,8 +62,6 @@ int makeListenSock(char *port_listen){
 	return sock_listen;
 }
 
-/* acepta una conexion entrante, y crea un socket para comunicaciones regulares;
- */
 int makeCommSock(int socket_in){
 
 	struct sockaddr_in clientAddr;
@@ -87,8 +72,6 @@ int makeCommSock(int socket_in){
 	return sock_comm;
 }
 
-/* Limpia un buffer usado por cada proceso para emitir varios mensajes
- */
 void clearBuffer(char * buffer, int bufferLength){
 
 	int i;
