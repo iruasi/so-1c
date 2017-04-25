@@ -7,7 +7,6 @@
 #define MAX_PORT_LEN 6
 
 
-
 typedef struct{
 
 	char* puerto_entrada;
@@ -17,6 +16,13 @@ typedef struct{
 	uint32_t cache_x_proc;
 	uint32_t retardo_memoria;
 }tMemoria;
+
+typedef struct{
+
+	uint32_t size;
+	bool     isFree;
+} tHeapMeta;
+
 
 tMemoria *getConfigMemoria(char* ruta);
 void mostrarConfiguracion(tMemoria *memoria);

@@ -10,7 +10,7 @@
 
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/tiposErrores.h"
-#include "memoria.h"
+#include "memoriaConfigurators.h"
 
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
 #define MAX_PORT_LEN 6
@@ -19,9 +19,25 @@
 #define MAX_SIZE 100
 
 
-void mostrarConfiguracion(tMemoria *datos_memoria);
-void liberarConfiguracionMemoria(tMemoria *datos_memoria);
+
 void* connection_handler(void *);
+
+
+int *setupMemoria(int quant, int size){
+
+	// dividimos la memoria fisica en una cantidad quant de frames de tamanio size
+	int *frames = malloc(quant * size);
+
+	// setteo del Heap MetaData
+	tHeapMeta *hmd = malloc(sizeof hmd->isFree + sizeof hmd->size);
+	hmd->isFree = true;
+	hmd->size = size - 5;
+
+	memcpy(frames, hmd, hmd->size);
+
+	free(hmd);
+	return frames;
+}
 
 
 int main(int argc, char* argv[]){
@@ -38,6 +54,12 @@ int main(int argc, char* argv[]){
 
 	tMemoria *memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
+
+	// creamos la "MEMORIA FISICA"
+	int *MEM_FIS = setupMemoria(memoria->marcos, memoria->marco_size);
+
+
+	printf("bytes disponibles en MEM_FIS: %d\n MEM_FIS esta libre: %d\n", *MEM_FIS, (uint8_t) MEM_FIS[1]);
 
 	//sv multihilo
 
@@ -103,47 +125,6 @@ int main(int argc, char* argv[]){
 	return 0;
 }
 
-
-tMemoria *getConfigMemoria(char* ruta){
-	printf("Ruta del archivo de configuracion: %s\n", ruta);
-	tMemoria *memoria = malloc(sizeof(tMemoria));
-
-	memoria->puerto_entrada = malloc(MAX_PORT_LEN);
-
-	t_config *memoriaConfig = config_create(ruta);
-
-	strcpy(memoria->puerto_entrada, config_get_string_value(memoriaConfig, "PUERTO_ENTRADA"));
-
-	memoria->marcos =          config_get_int_value(memoriaConfig, "MARCOS");
-	memoria->marco_size =      config_get_int_value(memoriaConfig, "MARCO_SIZE");
-	memoria->entradas_cache =  config_get_int_value(memoriaConfig, "ENTRADAS_CACHE");
-	memoria->cache_x_proc =    config_get_int_value(memoriaConfig, "CACHE_X_PROC");
-	memoria->retardo_memoria = config_get_int_value(memoriaConfig, "RETARDO_MEMORIA");
-
-	config_destroy(memoriaConfig);
-	return memoria;
-}
-
-void mostrarConfiguracion(tMemoria *memoria){
-
-	printf("Puerto Entrada: %s\n",  memoria->puerto_entrada);
-	printf("Marcos %d\n",           memoria->marcos);
-	printf("Marcosize: %d\n",       memoria->marco_size);
-	printf("Entradas cache: %d\n",  memoria->entradas_cache);
-	printf("Cache x proc: %d\n",    memoria->cache_x_proc);
-	printf("Retardo memoria: %d\n", memoria->retardo_memoria);
-}
-
-void liberarConfiguracionMemoria(tMemoria *memoria){
-
-	free(memoria->puerto_entrada);
-	free(memoria->marcos);
-	free(memoria->marco_size);
-	free(memoria->entradas_cache);
-	free(memoria->cache_x_proc);
-	free(memoria->retardo_memoria);
-	free(memoria);
-}
 
 /*
   Esto maneja las conexiones de cada proceso que se le conecta
