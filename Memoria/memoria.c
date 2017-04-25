@@ -4,9 +4,9 @@
 #include <netdb.h>
 #include <commons/config.h>
 #include <pthread.h>
-#include<sys/socket.h>
-#include<arpa/inet.h> //inet_addr
-#include<unistd.h>    //write
+#include <sys/socket.h>
+#include <arpa/inet.h> //inet_addr
+#include <unistd.h>    //write
 
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/tiposErrores.h"
@@ -14,7 +14,7 @@
 
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
 #define MAX_PORT_LEN 6
-#define NUM_CLIENT 10
+
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 #define MAX_SIZE 100
 
@@ -32,7 +32,6 @@ int main(int argc, char* argv[]){
 	}
 
 	char buf[MAXMSJ];
-	int i;
 	int stat;
 	int sock_kern;
 	int bytes_sent;
@@ -58,7 +57,7 @@ int main(int argc, char* argv[]){
 	server.sin_addr.s_addr = INADDR_ANY;
 	server.sin_port = htons(5002);
 	//Bind
-	if( bind(socket_desc,(struct sockaddr *)&server , sizeof(server)) < 0)
+	if( bind(socket_desc, (struct sockaddr *) &server , sizeof(server)) < 0)
 	{
 		//imprime error de bind
 		perror("bind fallo. error");
@@ -81,7 +80,7 @@ int main(int argc, char* argv[]){
 		new_sock = malloc(sizeof client_sock);
 		*new_sock = client_sock;
 
-		if( pthread_create(&sniffer_thread ,NULL , (int) connection_handler ,(void*) new_sock) < 0)
+		if( pthread_create(&sniffer_thread ,NULL , (void*) connection_handler ,(void*) new_sock) < 0)
 		{
 			perror("no pudo crear hilo");
 			return FALLO_GRAL;
@@ -155,8 +154,8 @@ void* connection_handler(void *socket_desc)
     int sock = *(int*) socket_desc;
     int stat;
     int bytes_sent;
-    int i;
     char buf[MAXMSJ];
+
     clearBuffer(buf, MAXMSJ);
 
     strcpy(buf, "Hola soy Memoria\n");
@@ -180,6 +179,7 @@ void* connection_handler(void *socket_desc)
     	perror("recv failed");
 
     puts("Client Disconnected");
+
     close(sock);
     return 0;
 }

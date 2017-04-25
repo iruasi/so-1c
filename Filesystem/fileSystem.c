@@ -42,10 +42,12 @@ int main(int argc, char* argv[]){
 		clearBuffer(buf, MAXMSJ);
 	}
 
+
 	if (stat < 0){
 		printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", stat);
 		return FALLO_RECV;
 	}
+
 
 
 	//FIN SV SIMPLE

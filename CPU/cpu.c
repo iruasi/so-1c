@@ -14,9 +14,6 @@
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 
-#define FALLO_GRAL -21
-#define FALLO_CONFIGURACION -22
-
 
 tCPU *getConfigCPU(char *ruta_archivo_configuracion);
 void mostrarConfiguracionCPU(tCPU *datos_cpu);
@@ -31,13 +28,13 @@ int main(int argc, char* argv[]){
 	}
 
 	char *buf = malloc(MAXMSJ);
-	int i;
 	int stat;
 	int sock_kern, sock_mem;
 	int bytes_sent;
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
+
 
 	// CONECTAR CON MEMORIA...
 	printf("Conectando con memoria...\n");
@@ -65,6 +62,7 @@ int main(int argc, char* argv[]){
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0)
 		return sock_kern;
+
 
 	while((stat = recv(sock_kern, buf, MAXMSJ, 0)) > 0){
 		printf("%s\n", buf);
