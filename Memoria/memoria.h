@@ -1,10 +1,3 @@
-/*
- * memoria.h
- *
- *  Created on: 13/4/2017
- *      Author: utnso
- */
-
 #include<stdint.h>
 
 #ifndef MEMORIA_H_
@@ -16,9 +9,7 @@
 
 typedef struct{
 
-	char* puerto_propio;
-	char* puerto_kernel;
-	char* ip_kernel;
+	char* puerto_entrada;
 	uint32_t marcos;
 	uint32_t marco_size;
 	uint32_t entradas_cache;

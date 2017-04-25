@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "kernelConfigurators.h"
 #include <commons/config.h>

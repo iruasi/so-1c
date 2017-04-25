@@ -3,8 +3,6 @@
 #ifndef KERNEL_H_
 #define KERNEL_H_
 
-#endif /* KERNEL_H_ */
-
 
 typedef struct{
 
@@ -37,3 +35,5 @@ void mostrarConfiguracion(tKernel *kernel);
 /* Libera todos los recursos allocados de la estructura
  */
 void liberarConfiguracionKernel(tKernel *kernel);
+
+#endif /* KERNEL_H_ */

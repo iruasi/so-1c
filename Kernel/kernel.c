@@ -8,7 +8,9 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-#include "../funcionesComunes.h"
+
+#include "../Compartidas/funcionesCompartidas.c"
+#include "../Compartidas/tiposErrores.h"
 #include "kernelConfigurators.h"
 
 #define BACKLOG 20 // cantidad de procesos que pueden enfilar en un solo listen
@@ -19,19 +21,16 @@
 
 #define MAXCPUS 10
 
-#define FALLO_GRAL -21
-#define FALLO_CONFIGURACION -22
-#define FALLO_RECV -23
-#define FALLO_CONEXION -24
-
 /* MAX(A, B) es un macro que devuelve el mayor entre dos argumentos,
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
+
 int handleNewListened(int socket_listen, fd_set *setFD);
 int sendReceived(int status, char *buffer, int *sockets, int total_sockets);
 void clearAndClose(int *fd, fd_set *setFD);
+
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -43,14 +42,10 @@ int main(int argc, char* argv[]){
 	int stat, ready_fds;
 	int fd, new_fd;
 	int sock_fs, sock_mem;
-	int *socks_cpu = malloc(MAXCPUS * sizeof *socks_cpu); // en este vector vamos a almacenar todos los sockets de cpus
-	int ctrl_cpus = 0; // con este se va a controlar las cantidad maxima de CPUS
-
 	int *socksToSend = malloc((2 * MAXCPUS ) * sizeof *socksToSend); // aca almacenamos todos los sockets a los que queremos enviar
 	int ctrlSend = 0;
-
 	int sock_lis_cpu, sock_lis_con;
-	int bytes_sent = -1;
+	int bytes_sent;
 	int fd_max = -1;
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
@@ -58,24 +53,22 @@ int main(int argc, char* argv[]){
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 
-	struct sockaddr_in clientAddr;
-	socklen_t clientSize = sizeof(clientAddr);
-
 	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
 	strcpy(buf, "Hola soy Kernel");
 
-///* 		----DE MOMENTO NO EXISTE SERVIDOR EN MEMORIA, ASI QUE TODAS LAS COSAS RELACIONADAS A MEMORIA SE VERAN COMENTADAS----
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
 		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
 		return FALLO_CONEXION;
 	}
 
-	bytes_sent = send(sock_mem, buf, strlen(buf), 0);
-	fd_max = MAX(sock_mem, fd_max);
+	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
+	while ((bytes_sent = send(sock_mem, buf, strlen(buf), 0)) < 0)
+		;
 	printf("Se enviaron: %d bytes a MEMORIA\n", bytes_sent);
-//*/
+
+	fd_max = MAX(sock_mem, fd_max);
 
 	// Se trata de conectar con Filesystem
 	if ((sock_fs  = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
@@ -83,9 +76,9 @@ int main(int argc, char* argv[]){
 		return FALLO_CONEXION;
 	}
 
-
-	bytes_sent = send(sock_fs, buf, strlen(buf), 0);
-
+	// No permitimos continuar la ejecucion hasta lograr un handshake con Filesystem
+	while ((bytes_sent = send(sock_fs, buf, strlen(buf), 0)) < 0)
+		;
 	printf("Se enviaron: %d bytes a FILESYSTEM\n", bytes_sent);
 
 	fd_max = MAX(sock_fs, fd_max);
@@ -110,7 +103,7 @@ int main(int argc, char* argv[]){
 	// la implementacion sigue siendo ineficiente.. a futuro se va a hacer algo mas power!
 
 	// Se agregan memoria, fs, listen_cpu, listen_consola y stdin al set master
-	//FD_SET(sock_mem, &master_fd);
+	FD_SET(sock_mem, &master_fd);
 	FD_SET(sock_fs, &master_fd);
 	FD_SET(sock_lis_cpu, &master_fd);
 	FD_SET(sock_lis_con, &master_fd);
@@ -124,22 +117,22 @@ int main(int argc, char* argv[]){
 	socksToSend[0] = sock_fs;
 	ctrlSend = 1;
 
-	// Para el select() vamos a estar pasando NULL por timeout, recomendacion de la catedra
+
 	while (1){
 		read_fd = master_fd;
 
 		ready_fds = select(fd_max + 1, &read_fd, NULL, NULL, NULL);
 		if (ready_fds == -1)
-			return -26; // despues vemos de hacerlo lindo...
+			return FALLO_SELECT; // despues vemos de hacerlo lindo...
 
-		//printf("lele");
+
 		for (fd = 0; fd <= fd_max; ++fd){
 
 			if (FD_ISSET(fd, &read_fd)){
 				printf("Aca hay uno! el fd es: %d\n", fd);
 
 				// Para luego distinguir un recv() entre diferentes procesos, debemos definir un t_Package
-				// este t_Package tendria un identificador, y un mensaje. Ambos de un size maximo predeterminado.
+				// este t_Package tendria un identificador, y un mensaje.
 				if (fd == sock_lis_cpu){
 					printf("es de listen_cpu!\n");
 
@@ -166,13 +159,27 @@ int main(int argc, char* argv[]){
 
 					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
 
+					/*
+					if ((stat == 0) || (stat == -1)){ // se va MEM
+						printf("recv del Memoria retorno con: %d\nLo sacamos del set master\n", stat);
+						clearAndClose(&fd, &master_fd);
+					}
+
+					puts("Perdimos conexion con Memoria! Entremos en Panico!\n");
+					return ABORTO_MEMORIA;
+					 */
 				} else if (fd == sock_fs){
 					printf("llego algo desde fs!\n");
 
 					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande, aunque esto no deba suceder todavia
-
-					if ((stat == 0) || (stat == -1)) // se va FS
+					/*
+					if ((stat == 0) || (stat == -1)){ // se va FS
+						printf("recv del Filesystem retorno con: %d\nLo sacamos del set master\n", stat);
 						clearAndClose(&fd, &master_fd);
+					}
+					*/
+					puts("Perdimos conexion con Filesystem! Entremos en Panico!\n");
+					return ABORTO_FILESYSTEM;
 
 					//sendReceived(stat, &fd, &master_fd);
 
