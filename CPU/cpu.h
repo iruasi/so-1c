@@ -1,10 +1,18 @@
-#ifndef CPU_H_
+//VOLAR ESTO, REEMPLAZADO CON CPUCONFIGURATORS.H
+
+
+
+
+
+
+
+/*#ifndef CPU_H_
 #define CPU_H_
 
 
 
 #endif /* CPU_H_ */
-
+/*
 typedef struct {
 	char *ip_memoria;
 	char *puerto_memoria;
@@ -12,3 +20,4 @@ typedef struct {
 	char *puerto_kernel;
 
 } tCPU;
+*/

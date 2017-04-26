@@ -15,6 +15,7 @@ typedef struct{
 	uint32_t entradas_cache;
 	uint32_t cache_x_proc;
 	uint32_t retardo_memoria;
+	uint8_t tipo_de_proceso;
 }tMemoria;
 
 typedef struct{

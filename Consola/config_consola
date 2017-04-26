@@ -5,3 +5,5 @@
 IP_KERNEL=127.0.0.1
 # En este puerto, Consola manda a conectar los Programas a kernel
 PUERTO_KERNEL=5000
+
+TIPO_DE_PROCESO=4

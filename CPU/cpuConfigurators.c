@@ -21,6 +21,8 @@ tCPU *getConfigCPU(char *ruta_config){
 	strcpy(cpu->ip_kernel,      config_get_string_value(cpu_conf, "IP_KERNEL"));
 	strcpy(cpu->puerto_kernel,  config_get_string_value(cpu_conf, "PUERTO_KERNEL"));
 
+	cpu->tipo_de_proceso = config_get_int_value(cpu_conf,"TIPO_DE_PROCESO");
+
 	config_destroy(cpu_conf);
 	return cpu;
 }
@@ -31,6 +33,7 @@ void mostrarConfiguracionCPU(tCPU *cpu){
 	printf("Puerto kernel: %s\n",  cpu->puerto_kernel);
 	printf("IP memoria: %s\n",     cpu->ip_memoria);
 	printf("Puerto memoria: %s\n", cpu->puerto_memoria);
+	printf("Tipo de proceso: %d\n", cpu->tipo_de_proceso);
 }
 
 void liberarConfiguracionCPU(tCPU *cpu){

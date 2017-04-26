@@ -20,6 +20,7 @@ tMemoria *getConfigMemoria(char* ruta){
 	memoria->entradas_cache =  config_get_int_value(memoriaConfig, "ENTRADAS_CACHE");
 	memoria->cache_x_proc =    config_get_int_value(memoriaConfig, "CACHE_X_PROC");
 	memoria->retardo_memoria = config_get_int_value(memoriaConfig, "RETARDO_MEMORIA");
+	memoria->tipo_de_proceso = config_get_int_value(memoriaConfig, "TIPO_DE_PROCESO");
 
 	config_destroy(memoriaConfig);
 	return memoria;
@@ -33,15 +34,11 @@ void mostrarConfiguracion(tMemoria *memoria){
 	printf("Entradas cache: %d\n",  memoria->entradas_cache);
 	printf("Cache x proc: %d\n",    memoria->cache_x_proc);
 	printf("Retardo memoria: %d\n", memoria->retardo_memoria);
+	printf("Tipo de proceso: %d\n", memoria->tipo_de_proceso);
 }
 
 void liberarConfiguracionMemoria(tMemoria *memoria){
 
 	free(memoria->puerto_entrada);
-	free(memoria->marcos);
-	free(memoria->marco_size);
-	free(memoria->entradas_cache);
-	free(memoria->cache_x_proc);
-	free(memoria->retardo_memoria);
 	free(memoria);
 }

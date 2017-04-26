@@ -20,6 +20,7 @@ typedef struct{
 	char** sem_init;
 	char** shared_vars;
 	uint8_t stack_size;
+	uint8_t tipo_de_proceso;
 }tKernel;
 
 

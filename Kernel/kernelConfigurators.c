@@ -42,6 +42,7 @@ tKernel *getConfigKernel(char* ruta){
 	kernel->sem_ids         = config_get_array_value(kernelConfig, "SEM_IDS");
 	kernel->sem_init        = config_get_array_value(kernelConfig, "SEM_INIT");
 	kernel->shared_vars     = config_get_array_value(kernelConfig, "SHARED_VARS");
+	kernel->tipo_de_proceso = config_get_int_value(kernelConfig, "TIPO_DE_PROCESO");
 
 	config_destroy(kernelConfig);
 	return kernel;
@@ -65,6 +66,7 @@ void mostrarConfiguracion(tKernel *kernel){
 	printf("Identificadores de semaforos: %s, %s, %s\n", kernel->sem_ids[0], kernel->sem_ids[1], kernel->sem_ids[2]);
 	printf("Valores de semaforos: %s, %s, %s\n", kernel->sem_init[0], kernel->sem_init[1], kernel->sem_init[2]);
 	printf("Variables globales: %s, %s, %s\n", kernel->shared_vars[0], kernel->shared_vars[1], kernel->shared_vars[2]);
+	printf("Tipo de proceso: %d\n", kernel->tipo_de_proceso);
 }
 
 void liberarConfiguracionKernel(tKernel *kernel){

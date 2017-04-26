@@ -2,6 +2,7 @@
 #define CONSOLA_H_
 
 #include <commons/config.h>
+#include <stdint.h>
 
 #endif /* CONSOLA_H_ */
 
@@ -10,6 +11,7 @@ typedef struct {
 
 	char *ip_kernel;
 	char *puerto_kernel;
+	uint8_t tipo_de_proceso;
 } tConsola;
 
 /* Carga los datos de configuracion en una estructura.

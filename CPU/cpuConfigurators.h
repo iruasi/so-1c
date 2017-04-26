@@ -5,11 +5,15 @@
 #define MAX_PORT_LEN 6
 
 
+#include <stdint.h>
+
+
 typedef struct {
 	char *ip_memoria;
 	char *puerto_memoria;
 	char *ip_kernel;
 	char *puerto_kernel;
+	uint8_t tipo_de_proceso;
 
 } tCPU;
 
