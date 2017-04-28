@@ -42,26 +42,45 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracionCPU(cpu_data);
 
 
-	// CONECTAR CON MEMORIA...
-	printf("Conectando con memoria...\n");
-	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
-	if (sock_mem < 0)
-		return sock_mem;
-
-	stat = recv(sock_mem, buf, MAXMSJ, 0);
-	printf("%s\n", buf);
-	clearBuffer(buf, MAXMSJ);
-
-	if (stat < 0){
-		printf("Error en la conexion con Memoria! status: %d \n", stat);
-		return FALLO_CONEXION;
-	}
-
-	printf("socket de memoria es: %d\n",sock_mem);
 	strcpy(buf, "Hola soy CPU");
-	bytes_sent = send(sock_mem, buf, strlen(buf), 0);
-	clearBuffer(buf, MAXMSJ);
-	printf("Se enviaron: %d bytes a MEMORIA\n", bytes_sent);
+
+		// CONECTAR CON MEMORIA...
+		printf("Conectando con memoria...\n");
+		sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
+		if (sock_mem < 0)
+			return sock_mem;
+		//paso estructura dinamica
+		t_Package package;
+		package.tipo_de_proceso = cpu_data->tipo_de_proceso;
+		package.tipo_de_mensaje = 2;
+		package.message = buf;
+		package.message_long = strlen(package.message)+1;
+		package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_long)+package.message_long+sizeof(package.total_size);
+
+		char *serializedPackage;
+		serializedPackage = serializarOperandos(&package);
+
+		send(sock_mem, serializedPackage, package.total_size, 0);
+
+
+
+
+
+		//fin envio estructura dinamica
+
+
+
+
+		stat = recv(sock_mem, buf, MAXMSJ, 0);
+		printf("%s\n", buf);
+		clearBuffer(buf, MAXMSJ);
+
+		if (stat < 0){
+			printf("Error en la conexion con Memoria! status: %d \n", stat);
+			return FALLO_CONEXION;
+		}
+
+		printf("socket de memoria es: %d\n",sock_mem);
 
 	pcb* pcbDePrueba = malloc(sizeof(pcb));
 	pcbDePrueba->id = 1;
@@ -162,5 +181,32 @@ uint32_t getSizeDelIndiceStack(uint32_t id){
 	if(id==1) return 1;
 	return 2;
 }
+char* serializarOperandos(t_Package *package){
+
+	char *serializedPackage = malloc(package->total_size);
+	int offset = 0;
+	int size_to_send;
+
+
+	size_to_send =  sizeof(package->tipo_de_proceso);
+	memcpy(serializedPackage + offset, &(package->tipo_de_proceso), size_to_send);
+	offset += size_to_send;
+
+
+	size_to_send =  sizeof(package->tipo_de_mensaje);
+	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
+	offset += size_to_send;
+
+	size_to_send =  sizeof(package->message_long);
+	memcpy(serializedPackage + offset, &(package->message_long), size_to_send);
+	offset += size_to_send;
+
+	size_to_send =  package->message_long;
+	memcpy(serializedPackage + offset, package->message, size_to_send);
+
+	return serializedPackage;
+}
+
+
 
 

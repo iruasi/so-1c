@@ -136,20 +136,26 @@ void* connection_handler(void *socket_desc)
     int stat;
     int bytes_sent;
     char buf[MAXMSJ];
-
+    char msjAEnviar[MAXMSJ];
     clearBuffer(buf, MAXMSJ);
 
-    strcpy(buf, "Hola soy Memoria\n");
-    bytes_sent = send(sock, buf, strlen(buf), 0);
-    printf("Se enviaron: %d bytes a socket nro %d \n", bytes_sent,sock);
 
-
-    while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0)
+    /*while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0)
     {
 
     	printf("%s\n", buf);
     	clearBuffer(buf, MAXMSJ);
-    }
+    }*/
+
+    t_Package package;
+    int status;
+    stat = recieve_and_deserialize(&package,sock);
+    printf("AAA%d\n",stat);
+    strcpy(msjAEnviar, "Hola soy Memoria\n");
+    bytes_sent = send(sock,msjAEnviar, sizeof(msjAEnviar), 0);
+    printf("Se enviaron: %d bytes a socket nro %d \n", bytes_sent,sock);
+
+
 
     if (bytes_sent == -1){
     	printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
@@ -158,12 +164,41 @@ void* connection_handler(void *socket_desc)
 
     if(stat < 0)
     	perror("recv failed");
-
+    while(1);
     puts("Client Disconnected");
-
     close(sock);
     return 0;
 }
 
+int recieve_and_deserialize(t_Package *package, int socketCliente){
+
+	int status;
+	int buffer_size;
+	char *buffer = malloc(buffer_size = sizeof(uint32_t));
+	clearBuffer(buffer,buffer_size);
+
+	uint32_t tipo_de_proceso;
+	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
+	memcpy(&(tipo_de_proceso), buffer, buffer_size);
+	if (!status) return 0;
+
+	uint32_t tipo_de_mensaje;
+	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
+	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
+	if (!status) return 0;
 
 
+	uint32_t message_long;
+	status = recv(socketCliente, buffer, sizeof(package->message_long), 0);
+	memcpy(&(message_long), buffer, buffer_size);
+	if (!status) return 0;
+
+	status = recv(socketCliente, package->message, message_long, 0);
+	if (!status) return 0;
+
+	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
+
+	free(buffer);
+
+	return status;
+}

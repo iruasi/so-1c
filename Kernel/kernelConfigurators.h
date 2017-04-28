@@ -20,8 +20,18 @@ typedef struct{
 	char** sem_init;
 	char** shared_vars;
 	uint8_t stack_size;
-	uint8_t tipo_de_proceso;
+	uint32_t tipo_de_proceso;
 }tKernel;
+
+typedef struct _t_Package {
+	uint32_t tipo_de_proceso;
+	uint32_t tipo_de_mensaje;
+	char* message;
+	uint32_t message_long;
+	uint32_t total_size;			// NOTA: Es calculable
+} t_Package;
+
+char* serializarOperandos(t_Package*);
 
 
 /* Dada una ruta de acceso, crea una estructura configurada para Kernel;
@@ -38,3 +48,4 @@ void mostrarConfiguracion(tKernel *kernel);
 void liberarConfiguracionKernel(tKernel *kernel);
 
 #endif /* KERNEL_H_ */
+

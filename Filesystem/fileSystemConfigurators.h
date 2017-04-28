@@ -14,7 +14,7 @@ typedef struct{
 	char* puerto_entrada;
 	char* punto_montaje;
 	char* ip_kernel;
-	uint8_t tipo_de_proceso;
+	uint32_t tipo_de_proceso;
 }tFileSystem;
 
 tFileSystem *getConfigFS(char*);
