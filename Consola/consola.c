@@ -13,6 +13,8 @@
 #include <string.h>
 #include <netdb.h>
 #include <unistd.h>
+/* #include <sys/stat.h> funciones para obtener el tamaño de un archivo , habilitar luego de la correcta localización del metodo
+#include <errno.h> */
 
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/tiposErrores.h"
@@ -67,3 +69,20 @@ int main(int argc, char* argv[]){
 	liberarConfiguracionConsola(cons_data);
 	return 0;
 }
+
+/*
+ * devuelve el tamaño del archivo en long int
+ * fuente https://goo.gl/cGtLra
+ *
+off_t tamArchivo(char *filename) {
+    struct stat st;
+
+    if (stat(nomArchivo, &st) == 0)
+        return st.st_size;
+
+    fprintf(stderr, "No se puede determinar el tamaño de: %s: %s\n",
+            nomArchivo, strerror(errno));
+
+    return -1;
+}
+*/
