@@ -3,6 +3,7 @@
 
 #include <commons/config.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #endif /* CONSOLA_H_ */
 

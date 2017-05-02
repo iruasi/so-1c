@@ -10,6 +10,9 @@
 #include "cpuConfigurators.h"
 #include "pcb.h"
 
+#include <parser/parser.h>
+#include <parser/metadata_program.h>
+
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
 #define MAX_PORT_LEN 6
 
@@ -116,6 +119,13 @@ int main(int argc, char* argv[]){
 
 
 void ejecutarPrograma(pcb* pcb){
+	FILE* fileProg = fopen("facil.ansisop", "r");
+	char* texto = malloc(5000); //TODO:  DESPUES SE HACE BIEN ESTO
+	fread(texto, 5000,1,fileProg);
+	t_metadata_program* programa = metadata_desde_literal(texto);
+	printf("Cantidad de funciones: %d\n", programa->cantidad_de_funciones);
+	printf("Cantidad de instrucciones: %d\n", programa->instrucciones_size);
+	free(texto);
 	++pcb->pc;
 	ejecutarAsignacion();
 
@@ -124,6 +134,8 @@ void ejecutarPrograma(pcb* pcb){
 void ejecutarAsignacion(){
 	variable* var = malloc(sizeof(variable));
 	obtenerDireccion(var);
+
+
 	/*
 	 * POR AHORA SE HARDCODEA PARA PROBAR UN EJEMPLO DE UNA SUMA SIMPLE
 	 */
@@ -162,6 +174,7 @@ void almacenar(uint32_t pag, uint32_t off, uint32_t size, uint32_t valor){
 	char* buf = malloc(MAXMSJ);
 	sprintf(buf, "Envio valor de variable, pag: %d, offset: %d, size: %d, valor: %d", pag, off, size, valor);
 	send(sock_mem, buf, strlen(buf), 0);
+	free(buf);
 }
 /*
  * ESTAS FUNCIONES QUE VIENEN SE HACEN PARA QUE FUNCIONE, CREO QUE LE TIENE QUE
