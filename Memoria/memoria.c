@@ -18,28 +18,22 @@
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 #define MAX_SIZE 100
 
-
+#define SIZEOF_HMD 5
+#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
+// tal vez no sea necesario que sea hexa
 
 void* connection_handler(void *);
 
+uint8_t *setupMemoria(int quantity, int size);
+uint8_t esReservable(int size, tHeapMeta *heapMetaData);
+uint8_t *reservarBytes(int sizeReserva);
+tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size);
 
-int *setupMemoria(int quant, int size){
+void escribirBytes(int pid, int page, int offset, int size, void* buffer); // todo: escribir implementacion
+uint8_t *leerBytes(int pid, int page, uint8_t offset, int size); // todo: escribir implementacion
 
-	// dividimos la memoria fisica en una cantidad quant de frames de tamanio size
-	int *frames = malloc(quant * size);
-
-	// setteo del Heap MetaData
-	tHeapMeta *hmd = malloc(sizeof hmd->isFree + sizeof hmd->size);
-	hmd->isFree = true;
-	hmd->size = size - 5;
-
-	memcpy(frames, hmd, hmd->size);
-
-	free(hmd);
-	return frames;
-}
-
-
+int sizeFrame, sizeMaxResrv;
+uint8_t *MEM_FIS;
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -55,11 +49,22 @@ int main(int argc, char* argv[]){
 	tMemoria *memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
-	// creamos la "MEMORIA FISICA"
-	int *MEM_FIS = setupMemoria(memoria->marcos, memoria->marco_size);
+	sizeFrame = memoria->marco_size;
+	sizeMaxResrv = sizeFrame - 2 * SIZEOF_HMD;
 
+	// inicializamos la "MEMORIA FISICA"
+	MEM_FIS = setupMemoria(memoria->marcos, memoria->marco_size);
 
-	printf("bytes disponibles en MEM_FIS: %d\n MEM_FIS esta libre: %d\n", *MEM_FIS, (uint8_t) MEM_FIS[1]);
+	// Para ver bien como es que funciona bien este printf, esta bueno meterse con el gdb y mirar la memoria de cerca..
+	printf("bytes disponibles en MEM_FIS: %d\n MEM_FIS esta libre: %d\n",  * (uint16_t*) MEM_FIS, MEM_FIS[4]);
+
+	uint8_t *loc = MEM_FIS;
+	loc = reservarBytes(24);
+	printf("bytes disponibles en loc: %d\n loc esta libre: %d\n",  * (uint16_t*) loc, loc[4]);
+
+	uint8_t *loc2 = MEM_FIS;
+	loc2 = reservarBytes(655);
+	printf("bytes disponibles en loc2: %d\n loc2 esta libre: %d\n",  * (uint16_t*) loc2, loc2[4]);
 
 	//sv multihilo
 
@@ -201,4 +206,105 @@ int recieve_and_deserialize(t_Package *package, int socketCliente){
 	free(buffer);
 
 	return status;
+}
+
+
+/* Retorna un puntero a un espacio de MEM_FIS donde se podran escribir bytes
+ * Retorna NULL si no fue posible reservar espacio
+ */
+uint8_t *reservarBytes(int sizeReserva){
+// por ahora trabaja con la unica pagina que existe
+
+	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
+	int sizeLibre = sizeMaxResrv;
+
+	uint8_t rta = esReservable(sizeReserva, hmd);
+	while(rta != ULTIMO_HMD){
+
+		if (rta == true){
+
+			hmd->size = sizeReserva;
+			hmd->isFree = false;
+
+			sizeLibre -= sizeReserva;
+			uint8_t* dirNew_hmd = (uint8_t *) ((uint32_t) hmd + SIZEOF_HMD + hmd->size);
+			crearNuevoHMD(dirNew_hmd, sizeLibre);
+
+			return (uint8_t *) hmd;
+		}
+
+		sizeLibre -= hmd->size;
+
+		uint8_t* dir = (uint8_t *) ((uint32_t) hmd + SIZEOF_HMD + hmd->size);
+		hmd = (tHeapMeta *) dir;
+		rta = esReservable(sizeReserva, hmd);
+	}
+
+	return NULL; // en esta unica pagina no tuvimos espacio para reservar sizeReserva
+}
+
+/* Esta funcion deberia usarse solamente para crear el HMD al final de una reserva en heap.
+ * Crea un nuevo HMD de tamanio size en una direccion de memoria, y por defecto esta libre
+ */
+tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size){
+
+	tHeapMeta *new_hmd = (tHeapMeta *) dir_mem;
+	new_hmd->size = size;
+	new_hmd->isFree = true;
+
+	return new_hmd;
+}
+
+/* Nos dice, dado un HMD, si su espacio de memoria es reservable por una cantidad size de bytes
+ */
+uint8_t esReservable(int size, tHeapMeta *hmd){
+
+	if(! hmd->isFree || hmd->size < size)
+		return false;
+
+	else if (hmd->size == 0) // esta libre y con espacio cero => es el ultimo MetaData
+		return ULTIMO_HMD;
+
+	return true;
+}
+
+/* Crea una cantidad quant de frames de tamanio size.
+ * Se usa para la configuracion del espacio de memoria inicial
+ */
+uint8_t *setupMemoria(int quant, int size){
+	// dividimos la memoria fisica en una cantidad quant de frames de tamanio size
+
+	uint8_t *frames = malloc(quant * size);
+
+	// setteo del Heap MetaData
+	tHeapMeta *hmd = malloc(sizeof hmd->isFree + sizeof hmd->size);
+	hmd->isFree = true;
+	hmd->size = size - SIZEOF_HMD;
+
+	memcpy(frames, (uint8_t*) hmd, hmd->size);
+
+	free(hmd);
+	return frames;
+}
+
+
+/* Esta es la funcion que en el TP viene a ser "Almacenar Bytes en una Pagina"
+ */
+void escribirBytes(int pid, int page, int offset, int size, void* buffer){
+// De momento tenemos una unica pagina, por lo que solo nos importa usar el offset
+
+	memcpy(MEM_FIS + offset, (uint8_t*) buffer, size);
+}
+
+
+/* Esta es la funcion que en el TP viene a ser "Solicitar Bytes de una Pagina"
+ */
+uint8_t *leerBytes(int pid, int page, uint8_t offset, int size){
+// De momento tenemos una unica pagina, por lo que solo nos importa usar el offset
+// todo: obtener la pagina del pid mediante funcion de hashing
+
+	uint8_t *buffer = malloc(size * sizeof buffer);
+	memcpy(buffer, (uint32_t *) MEM_FIS + (uint32_t) offset, size);
+
+	return buffer;
 }
