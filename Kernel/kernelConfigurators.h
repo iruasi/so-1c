@@ -26,10 +26,11 @@ typedef struct{
 typedef struct _t_Package {
 	uint32_t tipo_de_proceso;
 	uint32_t tipo_de_mensaje;
-	char* message;
-	uint32_t message_long;
+	uint32_t archivo_size;
+	void* archivo_a_enviar;
 	uint32_t total_size;			// NOTA: Es calculable
 } t_Package;
+
 
 char* serializarOperandos(t_Package*);
 

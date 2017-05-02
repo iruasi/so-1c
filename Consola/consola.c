@@ -31,7 +31,7 @@ void Iniciar_Programa();
 void Finalizar_Programa(int process_id);
 void Desconectar_Consola();
 void Limpiar_Mensajes();
-
+void enviarArchivo(FILE*, uint32_t, uint32_t);
 
 int main(int argc, char* argv[]){
 
@@ -52,6 +52,10 @@ int main(int argc, char* argv[]){
 	if (sock_kern < 0)
 		return sock_kern;
 
+	FILE* algo = fopen("config_consola", "r");
+	printf("%s", (char*) algo);
+	enviarArchivo(algo, cons_data->tipo_de_proceso, sock_kern);
+
 	while(!(STR_EQ(buf, "terminar")) && (stat != -1)){
 
 		printf("Ingrese su mensaje:\n");
@@ -62,6 +66,7 @@ int main(int argc, char* argv[]){
 
 		clearBuffer(buf, MAXMSJ);
 	}
+
 
 	printf("Cerrando comunicacion y limpiando proceso...\n");
 
@@ -86,3 +91,46 @@ off_t tamArchivo(char *filename) {
     return -1;
 }
 */
+
+
+char* serializarOperandos(t_Package *package){
+
+	char *serializedPackage = malloc(package->total_size);
+	int offset = 0;
+	int size_to_send;
+
+
+	size_to_send =  sizeof(package->tipo_de_proceso);
+	memcpy(serializedPackage + offset, &(package->tipo_de_proceso), size_to_send);
+	offset += size_to_send;
+
+
+	size_to_send =  sizeof(package->tipo_de_mensaje);
+	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
+	offset += size_to_send;
+
+	size_to_send =  sizeof(package->archivo_size);
+	memcpy(serializedPackage + offset, &(package->archivo_size), size_to_send);
+	offset += size_to_send;
+
+	size_to_send =  package->archivo_size;
+	memcpy(serializedPackage + offset, package->archivo_a_enviar, size_to_send);
+
+	return serializedPackage;
+}
+
+void enviarArchivo(FILE* algo, uint32_t tipo_de_proceso, uint32_t sock_kern){
+	t_Package package;
+			package.tipo_de_proceso = tipo_de_proceso;
+			package.tipo_de_mensaje = 2;
+			//package.message = buf;
+			//package.message_long = strlen(package.message)+1;
+			package.archivo_size = sizeof(algo);
+			package.archivo_a_enviar = algo;
+			package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.archivo_size)+package.archivo_size+sizeof(package.total_size);
+
+			char *serializedPackage;
+			serializedPackage = serializarOperandos(&package);
+
+			send(sock_kern, serializedPackage, package.total_size, 0);
+}

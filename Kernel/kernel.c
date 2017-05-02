@@ -68,10 +68,10 @@ int main(int argc, char* argv[]){
 		//paso estructura dinamica
 		t_Package package;
 		package.tipo_de_proceso = kernel->tipo_de_proceso;
-		package.tipo_de_mensaje = 2;
-		package.message = buf;
-		package.message_long = strlen(package.message)+1;
-		package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_long)+package.message_long+sizeof(package.total_size);
+		package.tipo_de_mensaje = 1;
+		//package.archivo_a_enviar = buf;
+		//package.message_long = strlen(package.message)+1;
+		package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.total_size);
 
 		char *serializedPackage;
 		serializedPackage = serializarOperandos(&package);
@@ -285,12 +285,48 @@ char* serializarOperandos(t_Package *package){
 	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
 	offset += size_to_send;
 
-	size_to_send =  sizeof(package->message_long);
+	/*size_to_send =  sizeof(package->message_long);
 	memcpy(serializedPackage + offset, &(package->message_long), size_to_send);
 	offset += size_to_send;
 
 	size_to_send =  package->message_long;
-	memcpy(serializedPackage + offset, package->message, size_to_send);
+	memcpy(serializedPackage + offset, package->message, size_to_send);*/
 
 	return serializedPackage;
+}
+int recieve_and_deserialize(t_Package *package, int socketCliente){
+
+	int status;
+	int buffer_size;
+	char *buffer = malloc(buffer_size = sizeof(uint32_t));
+	clearBuffer(buffer,buffer_size);
+
+	uint32_t tipo_de_proceso;
+	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
+	memcpy(&(tipo_de_proceso), buffer, buffer_size);
+	if (!status) return 0;
+
+	uint32_t tipo_de_mensaje;
+	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
+	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
+	if (!status) return 0;
+
+
+	uint32_t archivo_size;
+	status = recv(socketCliente, buffer, sizeof(package->archivo_size), 0);
+	memcpy(&(archivo_size), buffer, buffer_size);
+	if (!status) return 0;
+
+	void* algo;
+	status = recv(socketCliente, buffer, archivo_size, 0);
+	memcpy(&(algo), buffer, buffer_size);
+
+	//status = recv(socketCliente, package->message, message_long, 0);
+	//if (!status) return 0;
+
+	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,algo);
+
+	free(buffer);
+
+	return status;
 }

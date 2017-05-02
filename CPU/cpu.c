@@ -142,13 +142,14 @@ void obtenerDireccion(variable* var){
 	var->offset = getOffsetDelIndiceStack(var->id);
 	var->size = getSizeDelIndiceStack(var->id);
 }
-
 uint32_t obtenerValor(uint32_t pag, uint32_t offset, uint32_t size){
 	/*char* buf = malloc(MAXMSJ);
 	char* recibido = malloc(MAXMSJ);
 	sprintf(buf, "Pido valor de variable, pag: %d, offset:%d, size: %d", pag, offset, size);
 	send(sock_mem, buf, strlen(buf), 0);
 	recv(sock_mem, recibido, MAXMSJ, 0);
+	int valor = atoi(recibido);
+	return valor;
 	*/
 	/*
 	 * HABRIA QUE DEFINIR EL PASO DE MENSAJES ENTRE MEMORIA Y CPU

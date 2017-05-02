@@ -13,6 +13,13 @@ typedef struct {
 	char *puerto_kernel;
 	uint32_t tipo_de_proceso;
 } tConsola;
+typedef struct _t_Package {
+	uint32_t tipo_de_proceso;
+	uint32_t tipo_de_mensaje;
+	uint32_t archivo_size;
+	FILE* archivo_a_enviar;
+	uint32_t total_size;			// NOTA: Es calculable
+} t_Package;
 
 /* Carga los datos de configuracion en una estructura.
  */
