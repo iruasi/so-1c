@@ -25,15 +25,24 @@
 void* connection_handler(void *);
 
 uint8_t *setupMemoria(int quantity, int size);
-uint8_t esReservable(int size, tHeapMeta *heapMetaData);
+
 uint8_t *reservarBytes(int sizeReserva);
+uint8_t esReservable(int size, tHeapMeta *heapMetaData);
 tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size);
 
-void escribirBytes(int pid, int page, int offset, int size, void* buffer); // todo: escribir implementacion
-uint8_t *leerBytes(int pid, int page, uint8_t offset, int size); // todo: escribir implementacion
+uint8_t *obtenerFrame(uint32_t pid, uint32_t page);
+
+uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer);
+void escribirBytes(int pid, int frame, int offset, int size, void* buffer); // todo: escribir implementacion
+
+uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size);
+uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size);
 
 int sizeFrame, sizeMaxResrv;
+
+uint8_t *CACHE;
 uint8_t *MEM_FIS;
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -41,17 +50,14 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	char buf[MAXMSJ];
-	int stat;
-	int sock_kern;
-	int bytes_sent;
-
 	tMemoria *memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
 	sizeFrame = memoria->marco_size;
 	sizeMaxResrv = sizeFrame - 2 * SIZEOF_HMD;
 
+	// inicializamos la "CACHE"
+	CACHE = setupMemoria(memoria->marcos, memoria->marco_size);
 	// inicializamos la "MEMORIA FISICA"
 	MEM_FIS = setupMemoria(memoria->marcos, memoria->marco_size);
 
@@ -288,23 +294,53 @@ uint8_t *setupMemoria(int quant, int size){
 }
 
 
+
+
+uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer){
+
+	uint8_t *frame = obtenerFrame(pid, page);
+	escribirBytes(pid, frame, offset, size, buffer);
+}
+
+
 /* Esta es la funcion que en el TP viene a ser "Almacenar Bytes en una Pagina"
  */
-void escribirBytes(int pid, int page, int offset, int size, void* buffer){
+void escribirBytes(int pid, int frame, int offset, int size, void* buffer){
 // De momento tenemos una unica pagina, por lo que solo nos importa usar el offset
 
 	memcpy(MEM_FIS + offset, (uint8_t*) buffer, size);
 }
 
-
-/* Esta es la funcion que en el TP viene a ser "Solicitar Bytes de una Pagina"
+/* Se ejecuta al recibir el del CPU
  */
-uint8_t *leerBytes(int pid, int page, uint8_t offset, int size){
-// De momento tenemos una unica pagina, por lo que solo nos importa usar el offset
-// todo: obtener la pagina del pid mediante funcion de hashing
+uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size){
 
-	uint8_t *buffer = malloc(size * sizeof buffer);
-	memcpy(buffer, (uint32_t *) MEM_FIS + (uint32_t) offset, size);
+	uint8_t *frame = obtenerFrame(pid, page);
+	if (frame == NULL)
+		perror("No se pudo obtener el marco de la pagina. error");
+
+	uint8_t *buffer = leerBytes(pid, frame, offset, size);
+	if (buffer == NULL)
+		perror("No se pudieron leer los bytes de la pagina. error");
 
 	return buffer;
 }
+
+/* Esta es la funcion que en el TP viene a ser "Solicitar Bytes de una Pagina"
+ */
+uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size){
+
+	uint8_t *buffer = malloc(size);
+	memcpy(buffer, (uint32_t) MEM_FIS + offset, size);
+
+	return buffer;
+}
+
+/* Aplica funcion de hashing y encuentra el frame correcto del pid
+ */
+uint8_t *obtenerFrame(uint32_t pid, uint32_t page){
+
+	return MEM_FIS; // por ahora este es el unico frame
+}
+
+//typedef enum {CPU=900, CONSOLA=213} tProceso;
