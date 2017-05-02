@@ -11,6 +11,8 @@
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/tiposErrores.h"
 #include "memoriaConfigurators.h"
+#include "memHandlers.c"
+#include "structsMem.h"
 
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
 #define MAX_PORT_LEN 6
@@ -24,23 +26,34 @@
 
 void* connection_handler(void *);
 
+
 uint8_t *setupMemoria(int quantity, int size);
+tMemEntrada * setupCache(int quantity);
+void wipeCache(uint8_t * cache, uint32_t quant);
+uint8_t *buscarEnCache(uint32_t pid, uint32_t page);
+bool entradaCoincide(tMemEntrada entrada, uint32_t pid, uint32_t page);
+uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page);
+tMemEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame);
 
 uint8_t *reservarBytes(int sizeReserva);
 uint8_t esReservable(int size, tHeapMeta *heapMetaData);
 tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size);
 
 uint8_t *obtenerFrame(uint32_t pid, uint32_t page);
+uint8_t *buscarEnCache(uint32_t pid, uint32_t page);
+void insertarEnCache(tMemEntrada entry);
 
 uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer);
-void escribirBytes(int pid, int frame, int offset, int size, void* buffer); // todo: escribir implementacion
+void escribirBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size, void* buffer); // todo: escribir implementacion
 
 uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size);
 uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size);
 
+
 int sizeFrame, sizeMaxResrv;
 
-uint8_t *CACHE;
+tMemoria *memoria;
+tMemEntrada *CACHE;
 uint8_t *MEM_FIS;
 
 int main(int argc, char* argv[]){
@@ -57,7 +70,8 @@ int main(int argc, char* argv[]){
 	sizeMaxResrv = sizeFrame - 2 * SIZEOF_HMD;
 
 	// inicializamos la "CACHE"
-	CACHE = setupMemoria(memoria->marcos, memoria->marco_size);
+	CACHE = setupCache(memoria->entradas_cache);
+
 	// inicializamos la "MEMORIA FISICA"
 	MEM_FIS = setupMemoria(memoria->marcos, memoria->marco_size);
 
@@ -215,6 +229,8 @@ int recieve_and_deserialize(t_Package *package, int socketCliente){
 }
 
 
+// FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
+
 /* Retorna un puntero a un espacio de MEM_FIS donde se podran escribir bytes
  * Retorna NULL si no fue posible reservar espacio
  */
@@ -278,7 +294,6 @@ uint8_t esReservable(int size, tHeapMeta *hmd){
  * Se usa para la configuracion del espacio de memoria inicial
  */
 uint8_t *setupMemoria(int quant, int size){
-	// dividimos la memoria fisica en una cantidad quant de frames de tamanio size
 
 	uint8_t *frames = malloc(quant * size);
 
@@ -293,19 +308,35 @@ uint8_t *setupMemoria(int quant, int size){
 	return frames;
 }
 
+/* 'Crea' una cantidad quant de frames de tamanio size.
+ * Se usa para la configuracion del espacio de memoria inicial
+ */
+tMemEntrada *setupCache(int quantity){
 
+	tMemEntrada *entradas = malloc(quantity * sizeof *entradas);
+	wipeCache((uint8_t *) entradas, quantity);
 
+	return entradas;
+}
 
+/* es parte del API de Memoria; Realiza el pedido de escritura de CPU
+ */
 uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer){
 
 	uint8_t *frame = obtenerFrame(pid, page);
-	escribirBytes(pid, frame, offset, size, buffer);
+	if (frame == NULL){
+		perror("No se encontro el frame en memoria. error");
+		return MEM_EXCEPTION;
+	}
+
+	escribirBytes(pid, (uint32_t) *frame, offset, size, buffer);
+	return 0;
 }
 
 
 /* Esta es la funcion que en el TP viene a ser "Almacenar Bytes en una Pagina"
  */
-void escribirBytes(int pid, int frame, int offset, int size, void* buffer){
+void escribirBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size, void* buffer){
 // De momento tenemos una unica pagina, por lo que solo nos importa usar el offset
 
 	memcpy(MEM_FIS + offset, (uint8_t*) buffer, size);
@@ -319,7 +350,7 @@ uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 	if (frame == NULL)
 		perror("No se pudo obtener el marco de la pagina. error");
 
-	uint8_t *buffer = leerBytes(pid, frame, offset, size);
+	uint8_t *buffer = leerBytes(pid, (uint32_t) frame, offset, size);
 	if (buffer == NULL)
 		perror("No se pudieron leer los bytes de la pagina. error");
 
@@ -331,16 +362,86 @@ uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size){
 
 	uint8_t *buffer = malloc(size);
-	memcpy(buffer, (uint32_t) MEM_FIS + offset, size);
+	memcpy(buffer, (uint8_t *) ((uint32_t) MEM_FIS + offset), size);
 
 	return buffer;
 }
 
-/* Aplica funcion de hashing y encuentra el frame correcto del pid
+/* Busca el frame en cache o en la memoria principal
  */
 uint8_t *obtenerFrame(uint32_t pid, uint32_t page){
 
-	return MEM_FIS; // por ahora este es el unico frame
+	uint8_t *frame;
+
+	if ((frame = buscarEnCache(pid, page)) != NULL)
+		return frame;
+
+	frame = buscarEnMemoria(pid, page);
+	tMemEntrada new_entry = crearEntrada(pid, page, (uint32_t) frame);
+	insertarEnCache(new_entry);
+
+	return frame; // por ahora este es el unico frame
 }
 
-//typedef enum {CPU=900, CONSOLA=213} tProceso;
+/* recorre secuencialmente CACHE hasta dar con una entrada que tenga el pid y page buscados
+ */
+uint8_t *buscarEnCache(uint32_t pid, uint32_t page){
+
+	tMemEntrada *entradaCache = (tMemEntrada *) CACHE;
+
+	int i;
+	for (i = 0; i < memoria->entradas_cache; i++){
+		if (entradaCoincide(entradaCache[i], pid, page))
+			return (uint8_t *) entradaCache[i].frame;
+	}
+
+	return NULL;
+}
+
+/* obtiene la dir de una entrada reemplazable en cache y la pisa
+ */
+void insertarEnCache(tMemEntrada entry){
+
+	tMemEntrada *entradaAPisar;//todo: algoritmoLRU();
+	entradaAPisar = &entry;
+}
+
+/* nos dice si tenemos un cache hit o miss
+ */
+bool entradaCoincide(tMemEntrada entrada, uint32_t pid, uint32_t page){
+
+	if (entrada.pid != pid || entrada.page != page)
+		return false;
+
+	return true;
+}
+
+/* crea una entrada de tipo tMemEntrada, util para la cache
+ */
+tMemEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
+
+	tMemEntrada entry;
+	entry.pid   = pid;
+	entry.frame = frame;
+	entry.page  = page;
+
+	return entry;
+}
+
+/* limpia toda la cache
+ */
+void wipeCache(uint8_t * cache, uint32_t quant){
+
+	int i;
+	for (i = 0; i < quant; ++i)
+		cache[i] = NULL;
+}
+
+/* mediante la funcion de hash encuentra el frame de la pagina de un proceso
+ */
+uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page){
+
+	uint8_t *frame = MEM_FIS; //hashFunction(pid, page); todo: investigar y ver como hacer una buena funcion de hashing
+
+	return frame;
+}
