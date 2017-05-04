@@ -11,7 +11,6 @@
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/tiposErrores.h"
 #include "memoriaConfigurators.h"
-#include "memHandlers.c"
 #include "structsMem.h"
 
 #define MAX_IP_LEN 16 // Este largo solo es util para IPv4
@@ -25,11 +24,11 @@
 // tal vez no sea necesario que sea hexa
 
 void* connection_handler(void *);
-
+int recieve_and_deserialize(t_Package *package, int socketCliente);
 
 uint8_t *setupMemoria(int quantity, int size);
 tMemEntrada * setupCache(int quantity);
-void wipeCache(uint8_t * cache, uint32_t quant);
+void wipeCache(tMemEntrada *cache, uint32_t quant);
 uint8_t *buscarEnCache(uint32_t pid, uint32_t page);
 bool entradaCoincide(tMemEntrada entrada, uint32_t pid, uint32_t page);
 uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page);
@@ -50,13 +49,14 @@ uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size);
 
 
-int sizeFrame, sizeMaxResrv;
+int sizeFrame;
 
 tMemoria *memoria;
 tMemEntrada *CACHE;
 uint8_t *MEM_FIS;
 
 int main(int argc, char* argv[]){
+
 
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
@@ -67,7 +67,6 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(memoria);
 
 	sizeFrame = memoria->marco_size;
-	sizeMaxResrv = sizeFrame - 2 * SIZEOF_HMD;
 
 	// inicializamos la "CACHE"
 	CACHE = setupCache(memoria->entradas_cache);
@@ -78,48 +77,22 @@ int main(int argc, char* argv[]){
 	// Para ver bien como es que funciona bien este printf, esta bueno meterse con el gdb y mirar la memoria de cerca..
 	printf("bytes disponibles en MEM_FIS: %d\n MEM_FIS esta libre: %d\n",  * (uint16_t*) MEM_FIS, MEM_FIS[4]);
 
-	uint8_t *loc = MEM_FIS;
-	loc = reservarBytes(24);
-	printf("bytes disponibles en loc: %d\n loc esta libre: %d\n",  * (uint16_t*) loc, loc[4]);
-
-	uint8_t *loc2 = MEM_FIS;
-	loc2 = reservarBytes(655);
-	printf("bytes disponibles en loc2: %d\n loc2 esta libre: %d\n",  * (uint16_t*) loc2, loc2[4]);
 
 	//sv multihilo
 
-	int socket_desc , client_sock , c , *new_sock;
-	struct sockaddr_in server , client;
+	int sock_entrada , client_sock , clientSize , *new_sock;
+	struct sockaddr_in client;
+	clientSize = sizeof client;
 
-	//Crea socket
-	socket_desc = socket(AF_INET , SOCK_STREAM , 0);
-	if (socket_desc == -1)
-	{
-	    printf("No pudo crear el socket");
-	 }
-	puts("Socket creado");
 
-	//Prepara la structura innadr
-	server.sin_family = AF_INET;
-	server.sin_addr.s_addr = INADDR_ANY;
-	server.sin_port = htons(5002);
-	//Bind
-	if( bind(socket_desc, (struct sockaddr *) &server , sizeof(server)) < 0)
-	{
-		//imprime error de bind
-		perror("bind fallo. error");
-		return 1;
-	}
-	puts("bind creado");
-
+	sock_entrada = makeListenSock(memoria->puerto_entrada);
 	//Listen
-	listen(socket_desc , 3);
+	listen(sock_entrada , 3);
 
 	//acepta y escucha comunicaiones
 	puts("esperando comunicaciones entrantes...");
-	c = sizeof(struct sockaddr_in);
 
-	while((client_sock = accept(socket_desc, (struct sockaddr*) &client, (socklen_t*) &c)))
+	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)))
 	{
 		puts("Conexion aceptada");
 
@@ -156,43 +129,42 @@ int main(int argc, char* argv[]){
   */
 void* connection_handler(void *socket_desc)
 {
-    //Get the socket descriptor
-    int sock = *(int*) socket_desc;
-    int stat;
-    int bytes_sent;
-    char buf[MAXMSJ];
-    char msjAEnviar[MAXMSJ];
-    clearBuffer(buf, MAXMSJ);
+	//Get the socket descriptor
+	int sock = *(int*) socket_desc;
+	int stat;
+	int bytes_sent;
+	char buf[MAXMSJ];
+	clearBuffer(buf, MAXMSJ);
 
+	t_Package package;
 
-    /*while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0)
-    {
+	stat = recieve_and_deserialize(&package,sock);
+	if (stat == FALLO_RECV)
+		perror("Fallo receive and deserialize con FALLO RECV. error");
 
-    	printf("%s\n", buf);
-    	clearBuffer(buf, MAXMSJ);
-    }*/
+	strcpy(buf, "Hola soy Memoria\n");
+	bytes_sent = send(sock,buf, sizeof(buf), 0);
+	printf("Se enviaron: %d bytes a socket nro %d \n", bytes_sent, sock);
+	clearBuffer(buf, MAXMSJ);
 
-    t_Package package;
-    int status;
-    stat = recieve_and_deserialize(&package,sock);
-    printf("AAA%d\n",stat);
-    strcpy(msjAEnviar, "Hola soy Memoria\n");
-    bytes_sent = send(sock,msjAEnviar, sizeof(msjAEnviar), 0);
-    printf("Se enviaron: %d bytes a socket nro %d \n", bytes_sent,sock);
+	if (bytes_sent == -1){
+		printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
+		return (void *) FALLO_RECV;
+	}
 
+	while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0){
 
+		printf("%s\n", buf);
+		clearBuffer(buf, MAXMSJ);
+	}
+	if (stat < 0){
+		printf("Algo se recibio mal! stat = %d", stat);
+		return FALLO_RECV;
+	}
 
-    if (bytes_sent == -1){
-    	printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
-    	return FALLO_RECV;
-    }
-
-    if(stat < 0)
-    	perror("recv failed");
-    while(1);
-    puts("Client Disconnected");
-    close(sock);
-    return 0;
+	puts("Client Disconnected");
+	close(sock);
+	return 0;
 }
 
 int recieve_and_deserialize(t_Package *package, int socketCliente){
@@ -205,21 +177,21 @@ int recieve_and_deserialize(t_Package *package, int socketCliente){
 	uint32_t tipo_de_proceso;
 	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
 	memcpy(&(tipo_de_proceso), buffer, buffer_size);
-	if (!status) return 0;
+	if (status < 0) return FALLO_RECV;
 
 	uint32_t tipo_de_mensaje;
 	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
 	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
-	if (!status) return 0;
+	if (status < 0) return FALLO_RECV;
 
 
 	uint32_t message_long;
 	status = recv(socketCliente, buffer, sizeof(package->message_long), 0);
 	memcpy(&(message_long), buffer, buffer_size);
-	if (!status) return 0;
+	if (status < 0) return FALLO_RECV;
 
 	status = recv(socketCliente, package->message, message_long, 0);
-	if (!status) return 0;
+	if (status < 0) return FALLO_RECV;
 
 	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
 
@@ -231,14 +203,14 @@ int recieve_and_deserialize(t_Package *package, int socketCliente){
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
-/* Retorna un puntero a un espacio de MEM_FIS donde se podran escribir bytes
+/* Retorna un puntero a un espacio de dir_mem donde se podran escribir bytes
  * Retorna NULL si no fue posible reservar espacio
  */
 uint8_t *reservarBytes(int sizeReserva){
 // por ahora trabaja con la unica pagina que existe
 
 	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
-	int sizeLibre = sizeMaxResrv;
+	int sizeLibre = sizeFrame;
 
 	uint8_t rta = esReservable(sizeReserva, hmd);
 	while(rta != ULTIMO_HMD){
@@ -278,10 +250,11 @@ tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size){
 }
 
 /* Nos dice, dado un HMD, si su espacio de memoria es reservable por una cantidad size de bytes
+ * Si es el ultimo HMD, retorna un valor #definido
  */
 uint8_t esReservable(int size, tHeapMeta *hmd){
 
-	if(! hmd->isFree || hmd->size < size)
+	if(! hmd->isFree || hmd->size - SIZEOF_HMD < size)
 		return false;
 
 	else if (hmd->size == 0) // esta libre y con espacio cero => es el ultimo MetaData
@@ -430,11 +403,13 @@ tMemEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
 
 /* limpia toda la cache
  */
-void wipeCache(uint8_t * cache, uint32_t quant){
+void wipeCache(tMemEntrada *cache, uint32_t quant){
+
+	tMemEntrada nullEntry = {0,0,0};
 
 	int i;
 	for (i = 0; i < quant; ++i)
-		cache[i] = NULL;
+		cache[i] = nullEntry;
 }
 
 /* mediante la funcion de hash encuentra el frame de la pagina de un proceso
@@ -444,4 +419,40 @@ uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page){
 	uint8_t *frame = MEM_FIS; //hashFunction(pid, page); todo: investigar y ver como hacer una buena funcion de hashing
 
 	return frame;
+}
+
+/* deshace la fragmentacion interna del HEAP dado en heap_dir
+ */
+void defragmentarHeap(uint8_t *heap_dir){
+	//para este checkpoint, heap_dir va a ser exactamente MEM_FIS
+
+	uint8_t *head = heap_dir;
+
+	tHeapMeta *head_hmd = (tHeapMeta *) head;
+	uint32_t off = 0;
+
+	bool rta = esReservable(0, head_hmd);
+	int compact = 0;
+
+	while (rta != ULTIMO_HMD){
+		if (rta == true){
+
+			off += head_hmd->size + SIZEOF_HMD;
+			compact++;
+			rta = esReservable(0, (tHeapMeta *) off);
+
+		} else if (compact) { // no es un bloque reservable, pero es compactable
+
+			printf("Se compactan %d bloques de memoria..\n", compact);
+			head_hmd->size = ((uint32_t) head_hmd) + off - SIZEOF_HMD;
+			compact = 0;
+			head_hmd = (tHeapMeta *) off;
+
+		} else { // no es un bloque reservable, ni es compactable
+			head_hmd += head_hmd->size + SIZEOF_HMD;
+		}
+
+		rta = esReservable(0, head_hmd);
+		off = 0;
+	}
 }
