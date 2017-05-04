@@ -27,6 +27,46 @@ uint32_t getPagDelIndiceStack(uint32_t);
 uint32_t getOffsetDelIndiceStack(uint32_t);
 uint32_t getSizeDelIndiceStack(uint32_t);
 
+char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
+
+bool termino = false;
+bool terminoElPrograma(void);
+
+t_puntero definirVariable(t_nombre_variable variable) {
+	printf("definir la variable %c\n", variable);
+	return 20;
+}
+
+t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
+	printf("Obtener posicion de %c\n", variable);
+	return 20;
+}
+
+void finalizar(void){
+	termino = true;
+	printf("Finalizar\n");
+}
+
+t_valor_variable dereferenciar(t_puntero puntero) {
+	printf("Dereferenciar %d y su valor es: %d\n", puntero, 20);
+	return 20;
+}
+
+void asignar(t_puntero puntero, t_valor_variable variable) {
+	printf("Asignando en %d el valor %d\n", puntero, variable);
+}
+
+AnSISOP_funciones functions = {
+		.AnSISOP_definirVariable		= definirVariable,
+		.AnSISOP_obtenerPosicionVariable= obtenerPosicionVariable,
+		.AnSISOP_finalizar 				= finalizar,
+		.AnSISOP_dereferenciar			= dereferenciar,
+		.AnSISOP_asignar				= asignar,
+
+};
+AnSISOP_kernel kernel_functions = { };
+
+
 int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
 
 int main(int argc, char* argv[]){
@@ -87,7 +127,7 @@ int main(int argc, char* argv[]){
 
 	pcb* pcbDePrueba = malloc(sizeof(pcb));
 	pcbDePrueba->id = 1;
-	pcbDePrueba->pc = 1;
+	pcbDePrueba->pc = 0;
 	ejecutarPrograma(pcbDePrueba);
 
 
@@ -125,9 +165,18 @@ void ejecutarPrograma(pcb* pcb){
 	t_metadata_program* programa = metadata_desde_literal(texto);
 	printf("Cantidad de funciones: %d\n", programa->cantidad_de_funciones);
 	printf("Cantidad de instrucciones: %d\n", programa->instrucciones_size);
-	free(texto);
-	++pcb->pc;
-	ejecutarAsignacion();
+	//ejecutarAsignacion();
+	while(!terminoElPrograma()){
+			//LEE LA PROXIMA LINEA DEL PROGRAMA
+			char*  linea = conseguirDatosDeLaMemoria(texto, programa->instrucciones_serializado[pcb->pc].start, programa->instrucciones_serializado[pcb->pc].offset);
+			printf("La linea %d es: %s", (pcb->pc+1), linea);
+			//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
+			analizadorLinea(linea, &functions, &kernel_functions);
+			free(linea);
+			pcb->pc++;
+		};
+		metadata_destruir(programa);
+		free(texto);
 
 }
 
@@ -221,6 +270,12 @@ char* serializarOperandos(t_Package *package){
 	return serializedPackage;
 }
 
+bool terminoElPrograma(void){
+	return false;
+}
 
-
-
+char * conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLaInstruccion, t_size tamanio) {
+	char *aRetornar = calloc(1, 100);
+	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
+	return aRetornar;
+}
