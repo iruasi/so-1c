@@ -30,7 +30,6 @@ uint32_t getSizeDelIndiceStack(uint32_t);
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
 bool termino = false;
-bool terminoElPrograma(void);
 
 t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
@@ -68,6 +67,7 @@ AnSISOP_kernel kernel_functions = { };
 
 
 int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
+int sock_kern;
 
 int main(int argc, char* argv[]){
 
@@ -78,7 +78,6 @@ int main(int argc, char* argv[]){
 
 	char *buf = malloc(MAXMSJ);
 	int stat;
-	int sock_kern;
 	int bytes_sent;
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
@@ -162,11 +161,15 @@ void ejecutarPrograma(pcb* pcb){
 	FILE* fileProg = fopen("facil.ansisop", "r");
 	char* texto = malloc(5000); //TODO:  DESPUES SE HACE BIEN ESTO
 	fread(texto, 5000,1,fileProg);
+	//char* texto = malloc(1000);
+	//recv(sock_kern, texto, 1000, 0); TODO: hacer que reciba el programa del kernel
+	printf("%s\n", texto);
+
 	t_metadata_program* programa = metadata_desde_literal(texto);
 	printf("Cantidad de funciones: %d\n", programa->cantidad_de_funciones);
 	printf("Cantidad de instrucciones: %d\n", programa->instrucciones_size);
 	//ejecutarAsignacion();
-	while(!terminoElPrograma()){
+	while(termino==false){
 			//LEE LA PROXIMA LINEA DEL PROGRAMA
 			char*  linea = conseguirDatosDeLaMemoria(texto, programa->instrucciones_serializado[pcb->pc].start, programa->instrucciones_serializado[pcb->pc].offset);
 			printf("La linea %d es: %s", (pcb->pc+1), linea);
@@ -268,10 +271,6 @@ char* serializarOperandos(t_Package *package){
 	memcpy(serializedPackage + offset, package->message, size_to_send);
 
 	return serializedPackage;
-}
-
-bool terminoElPrograma(void){
-	return false;
 }
 
 char * conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLaInstruccion, t_size tamanio) {
