@@ -24,7 +24,7 @@
 // tal vez no sea necesario que sea hexa
 
 void* connection_handler(void *);
-int recieve_and_deserialize(t_Package *package, int socketCliente);
+
 
 uint8_t *setupMemoria(int quantity, int size);
 tMemEntrada * setupCache(int quantity);
@@ -99,7 +99,7 @@ int main(int argc, char* argv[]){
 		pthread_t sniffer_thread;
 		new_sock = malloc(sizeof client_sock);
 		*new_sock = client_sock;
-
+		connection_handler((void*)new_sock);
 		if( pthread_create(&sniffer_thread ,NULL , (void*) connection_handler ,(void*) new_sock) < 0)
 		{
 			perror("no pudo crear hilo");
@@ -136,7 +136,7 @@ void* connection_handler(void *socket_desc)
 	char buf[MAXMSJ];
 	clearBuffer(buf, MAXMSJ);
 
-	t_Package package;
+	t_PackageRecepcion package;
 
 	stat = recieve_and_deserialize(&package,sock);
 	if (stat == FALLO_RECV)
@@ -167,7 +167,7 @@ void* connection_handler(void *socket_desc)
 	return 0;
 }
 
-int recieve_and_deserialize(t_Package *package, int socketCliente){
+int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
 	int status;
 	int buffer_size;

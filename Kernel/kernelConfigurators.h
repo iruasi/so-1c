@@ -3,7 +3,7 @@
 #ifndef KERNEL_H_
 #define KERNEL_H_
 
-
+#define MAX_MESSAGE_SIZE 5000
 typedef struct{
 
 	char* puerto_cpu;
@@ -23,16 +23,24 @@ typedef struct{
 	uint32_t tipo_de_proceso;
 }tKernel;
 
-typedef struct _t_Package {
+typedef struct _t_PackageEnvio {
 	uint32_t tipo_de_proceso;
 	uint32_t tipo_de_mensaje;
-	uint32_t archivo_size;
-	void* archivo_a_enviar;
+	uint32_t message_size;
+	char* message;
 	uint32_t total_size;			// NOTA: Es calculable
-} t_Package;
+} t_PackageEnvio;
+
+typedef struct _t_PackageRecepcion {
+	uint32_t tipo_de_proceso;
+	uint32_t tipo_de_mensaje;
+	char message[MAX_MESSAGE_SIZE];
+	uint32_t message_size;			// NOTA: Es calculable. Aca lo tenemos por fines didacticos!
+} t_PackageRecepcion;
 
 
-char* serializarOperandos(t_Package*);
+char* serializarOperandos(t_PackageEnvio*);
+int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente);
 
 
 /* Dada una ruta de acceso, crea una estructura configurada para Kernel;

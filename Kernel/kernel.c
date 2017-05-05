@@ -59,27 +59,39 @@ int main(int argc, char* argv[]){
 
 	strcpy(buf, "Hola soy Kernel");
 
-		// Se trata de conectar con Memoria
-		if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
-			printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
-			return FALLO_CONEXION;
-		}
+	// Se trata de conectar con Memoria
+	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
+		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
+		return FALLO_CONEXION;
+	}
 
-		//paso estructura dinamica
-		t_Package package;
-		package.tipo_de_proceso = kernel->tipo_de_proceso;
-		package.tipo_de_mensaje = 1;
-		//package.archivo_a_enviar = buf;
-		//package.message_long = strlen(package.message)+1;
-		package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.total_size);
+	//paso estructura dinamica
+	t_PackageEnvio package;
+	package.tipo_de_proceso = kernel->tipo_de_proceso;
+	package.tipo_de_mensaje = 1;
+	FILE *f = fopen("/home/utnso/Escritorio/Cliente/foo.c", "rb");
+	fseek(f, 0, SEEK_END);
+	long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);  //same as rewind(f);
 
-		char *serializedPackage;
-		serializedPackage = serializarOperandos(&package);
+	char *string = malloc(fsize + 1);
+	package.message = malloc(fsize);
+	fread(string, fsize, 1, f);
+	fclose(f);
+	string[fsize] = 0;
 
-		send(sock_mem, serializedPackage, package.total_size, 0);
-		//fin envio estructura dinamica
-		// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
-		/*while ((bytes_sent = send(sock_mem, buf, strlen(buf), 0)) < 0)
+	strcpy(package.message,string);
+
+	package.message_size = strlen(package.message)+1;
+	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
+
+	char *serializedPackage;
+	serializedPackage = serializarOperandos(&package);
+
+	send(sock_mem, serializedPackage, package.total_size, 0);
+	//fin envio estructura dinamica
+	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
+	/*while ((bytes_sent = send(sock_mem, buf, strlen(buf), 0)) < 0)
 			;
 		printf("Se enviaron: %d bytes a MEMORIA\n", bytes_sent);
 	*/
@@ -166,14 +178,16 @@ int main(int argc, char* argv[]){
 				} else if (fd == sock_lis_con){
 					printf("es de listen_consola!\n");
 
+
 					new_fd = handleNewListened(sock_lis_con, &master_fd);
 					fd_max = MAX(fd_max, new_fd);
 
 				} else if (fd == sock_mem){
 					printf("llego algo desde memoria!\n");
-
+					//t_PackageRecepcion packageRecepcion;
+					//recieve_and_deserialize(&packageRecepcion,sock_mem);
 					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
-
+					printf("%s",buf);
 					/*
 					if ((stat == 0) || (stat == -1)){ // se va MEM
 						printf("recv del Memoria retorno con: %d\nLo sacamos del set master\n", stat);
@@ -203,6 +217,8 @@ int main(int argc, char* argv[]){
 					goto limpieza; // nos vamos del ciclo infinito...
 
 				} else { // es otro tipo de socket
+					t_PackageRecepcion packageRecepcion;
+					recieve_and_deserialize(&packageRecepcion,7);
 
 					if ((stat = recv(fd, buf, MAXMSJ, 0)) < 0){ // recibimos lo que nos mande
 						printf("Error en recepcion de datos!\n Cierro el socket!");
@@ -212,6 +228,7 @@ int main(int argc, char* argv[]){
 						clearAndClose(&fd, &master_fd);
 						continue;
 					}
+					printf("asd4\n");
 					printf("Mandemos algo...\n");
 					stat = sendReceived(stat, buf, socksToSend, ctrlSend);
 					printf("stat: %d\n", stat);
@@ -269,7 +286,7 @@ int handleNewListened(int sock_listen, fd_set *setFD){
 
 	return new_fd;
 }
-char* serializarOperandos(t_Package *package){
+char* serializarOperandos(t_PackageEnvio *package){
 
 	char *serializedPackage = malloc(package->total_size);
 	int offset = 0;
@@ -285,16 +302,16 @@ char* serializarOperandos(t_Package *package){
 	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
 	offset += size_to_send;
 
-	/*size_to_send =  sizeof(package->message_long);
-	memcpy(serializedPackage + offset, &(package->message_long), size_to_send);
+	size_to_send =  sizeof(package->message_size);
+	memcpy(serializedPackage + offset, &(package->message_size), size_to_send);
 	offset += size_to_send;
 
-	size_to_send =  package->message_long;
-	memcpy(serializedPackage + offset, package->message, size_to_send);*/
+	size_to_send =  package->message_size;
+	memcpy(serializedPackage + offset, package->message, size_to_send);
 
 	return serializedPackage;
 }
-int recieve_and_deserialize(t_Package *package, int socketCliente){
+int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketCliente){
 
 	int status;
 	int buffer_size;
@@ -302,29 +319,49 @@ int recieve_and_deserialize(t_Package *package, int socketCliente){
 	clearBuffer(buffer,buffer_size);
 
 	uint32_t tipo_de_proceso;
-	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
+	status = recv(socketCliente, buffer, sizeof(packageRecepcion->tipo_de_proceso), 0);
 	memcpy(&(tipo_de_proceso), buffer, buffer_size);
-	if (!status) return 0;
+	if (status < 0) return FALLO_RECV;
 
 	uint32_t tipo_de_mensaje;
-	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
+	status = recv(socketCliente, buffer, sizeof(packageRecepcion->tipo_de_mensaje), 0);
 	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
-	if (!status) return 0;
+	if (status < 0) return FALLO_RECV;
 
 
-	uint32_t archivo_size;
-	status = recv(socketCliente, buffer, sizeof(package->archivo_size), 0);
-	memcpy(&(archivo_size), buffer, buffer_size);
-	if (!status) return 0;
+	uint32_t message_size;
+	status = recv(socketCliente, buffer, sizeof(packageRecepcion->message_size), 0);
+	memcpy(&(message_size), buffer, buffer_size);
+	if (status < 0) return FALLO_RECV;
 
-	void* algo;
-	status = recv(socketCliente, buffer, archivo_size, 0);
-	memcpy(&(algo), buffer, buffer_size);
+	status = recv(socketCliente, packageRecepcion->message, message_size, 0);
+	if (status < 0) return FALLO_RECV;
 
-	//status = recv(socketCliente, package->message, message_long, 0);
-	//if (!status) return 0;
 
-	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,algo);
+
+	//TIPODEMENSAJE=1 significa reenviar el paquete a memoria
+
+	/*if(tipo_de_mensaje =1 ){
+		printf("\nNos llego un paquete para reenviar a memoria\n");
+		printf("Reenviando..\n");
+		t_PackageEnvio packageEnvio;
+		packageEnvio.tipo_de_proceso = 1;
+
+		//TIPO DE MENSAJE =2 SIGNIFICA ARCHIVO ENVIADO DESDE CONSOLA A KERNEL Y KERNEL REENVIA A MEMORIA
+
+		packageEnvio.tipo_de_mensaje = 2;
+		packageEnvio.message = malloc(message_size);
+		packageEnvio.message_size = message_size;
+		packageEnvio.total_size = sizeof(packageEnvio.tipo_de_mensaje)+sizeof(packageEnvio.tipo_de_proceso)+sizeof(packageEnvio.message_size)+packageEnvio.message_size;
+		strcpy(packageEnvio.message, packageRecepcion->message);
+		char *serializedPackage;
+		serializedPackage = serializarOperandos(&packageEnvio);
+		int enviar;
+		enviar = send(3,serializedPackage,packageEnvio.total_size,0);
+		printf("%n Enviado\n",enviar);
+
+	*/
+	}
 
 	free(buffer);
 

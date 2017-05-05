@@ -51,10 +51,34 @@ int main(int argc, char* argv[]){
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0)
 		return sock_kern;
+//
+	t_PackageEnvio package;
+	package.tipo_de_proceso = cons_data->tipo_de_proceso;
+	package.tipo_de_mensaje = 2;
+	FILE *f = fopen("/home/utnso/Escritorio/Cliente/foo2.c", "rb");
+	fseek(f, 0, SEEK_END);
+	long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);  //same as rewind(f);
 
-	FILE* algo = fopen("config_consola", "r");
-	printf("%s", (char*) algo);
-	enviarArchivo(algo, cons_data->tipo_de_proceso, sock_kern);
+	char *string = malloc(fsize + 1);
+	package.message = malloc(fsize);
+	fread(string, fsize, 1, f);
+	fclose(f);
+	string[fsize] = 0;
+
+	strcpy(package.message,string);
+
+
+
+	package.message_size = strlen(package.message)+1;
+	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
+
+	char *serializedPackage;
+	serializedPackage = serializarOperandos(&package);
+	send(sock_kern, serializedPackage, package.total_size, 0);
+	//
+
+
 
 	while(!(STR_EQ(buf, "terminar")) && (stat != -1)){
 
@@ -93,7 +117,7 @@ off_t tamArchivo(char *filename) {
 */
 
 
-char* serializarOperandos(t_Package *package){
+char* serializarOperandos(t_PackageEnvio *package){
 
 	char *serializedPackage = malloc(package->total_size);
 	int offset = 0;
@@ -109,28 +133,44 @@ char* serializarOperandos(t_Package *package){
 	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
 	offset += size_to_send;
 
-	size_to_send =  sizeof(package->archivo_size);
-	memcpy(serializedPackage + offset, &(package->archivo_size), size_to_send);
+	size_to_send =  sizeof(package->message_size);
+	memcpy(serializedPackage + offset, &(package->message_size), size_to_send);
 	offset += size_to_send;
 
-	size_to_send =  package->archivo_size;
-	memcpy(serializedPackage + offset, package->archivo_a_enviar, size_to_send);
+	size_to_send =  package->message_size;
+	memcpy(serializedPackage + offset, package->message, size_to_send);
 
 	return serializedPackage;
 }
+int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
-void enviarArchivo(FILE* algo, uint32_t tipo_de_proceso, uint32_t sock_kern){
-	t_Package package;
-			package.tipo_de_proceso = tipo_de_proceso;
-			package.tipo_de_mensaje = 2;
-			//package.message = buf;
-			//package.message_long = strlen(package.message)+1;
-			package.archivo_size = sizeof(algo);
-			package.archivo_a_enviar = algo;
-			package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.archivo_size)+package.archivo_size+sizeof(package.total_size);
+	int status;
+	int buffer_size;
+	char *buffer = malloc(buffer_size = sizeof(uint32_t));
+	clearBuffer(buffer,buffer_size);
 
-			char *serializedPackage;
-			serializedPackage = serializarOperandos(&package);
+	uint32_t tipo_de_proceso;
+	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
+	memcpy(&(tipo_de_proceso), buffer, buffer_size);
+	if (!status) return 0;
 
-			send(sock_kern, serializedPackage, package.total_size, 0);
+	uint32_t tipo_de_mensaje;
+	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
+	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
+	if (!status) return 0;
+
+
+	uint32_t message_size;
+	status = recv(socketCliente, buffer, sizeof(package->message_size), 0);
+	memcpy(&(message_size), buffer, buffer_size);
+	if (!status) return 0;
+
+	status = recv(socketCliente, package->message, message_size, 0);
+	if (!status) return 0;
+
+	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
+
+	free(buffer);
+
+	return status;
 }
