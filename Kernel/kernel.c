@@ -31,6 +31,7 @@ int handleNewListened(int socket_listen, fd_set *setFD);
 int sendReceived(int status, char *buffer, int *sockets, int total_sockets);
 void clearAndClose(int *fd, fd_set *setFD);
 
+int handshakeCon(int sock);
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -57,39 +58,16 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(kernel);
 	strcpy(buf, "Hola soy Kernel");
 
-	strcpy(buf, "Hola soy Kernel");
+
 
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
 		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
 		return FALLO_CONEXION;
 	}
-
-	//paso estructura dinamica
-	t_PackageEnvio package;
-	package.tipo_de_proceso = kernel->tipo_de_proceso;
-	package.tipo_de_mensaje = 1;
-	FILE *f = fopen("/home/utnso/Escritorio/Cliente/foo.c", "rb");
-	fseek(f, 0, SEEK_END);
-	long fsize = ftell(f);
-	fseek(f, 0, SEEK_SET);  //same as rewind(f);
-
-	char *string = malloc(fsize + 1);
-	package.message = malloc(fsize);
-	fread(string, fsize, 1, f);
-	fclose(f);
-	string[fsize] = 0;
-
-	strcpy(package.message,string);
-
-	package.message_size = strlen(package.message)+1;
-	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
-
-	char *serializedPackage;
-	serializedPackage = serializarOperandos(&package);
-
-	send(sock_mem, serializedPackage, package.total_size, 0);
-	//fin envio estructura dinamica
+	int sem;
+	sem = handshakeCon(sock_mem); //No deberia dejar avanzar si no hace el handshake con memo
+		//fin envio estructura dinamica
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
 	/*while ((bytes_sent = send(sock_mem, buf, strlen(buf), 0)) < 0)
 			;
@@ -339,17 +317,17 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 
 
 
-	//TIPODEMENSAJE=1 significa reenviar el paquete a memoria
+	//TIPODEMENSAJE=2 significa reenviar el paquete a memoria
 
-	/*if(tipo_de_mensaje =1 ){
+	if(tipo_de_mensaje = 2 ){
 		printf("\nNos llego un paquete para reenviar a memoria\n");
 		printf("Reenviando..\n");
 		t_PackageEnvio packageEnvio;
 		packageEnvio.tipo_de_proceso = 1;
 
-		//TIPO DE MENSAJE =2 SIGNIFICA ARCHIVO ENVIADO DESDE CONSOLA A KERNEL Y KERNEL REENVIA A MEMORIA
+		//
 
-		packageEnvio.tipo_de_mensaje = 2;
+		packageEnvio.tipo_de_mensaje = tipo_de_mensaje;
 		packageEnvio.message = malloc(message_size);
 		packageEnvio.message_size = message_size;
 		packageEnvio.total_size = sizeof(packageEnvio.tipo_de_mensaje)+sizeof(packageEnvio.tipo_de_proceso)+sizeof(packageEnvio.message_size)+packageEnvio.message_size;
@@ -360,10 +338,50 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 		enviar = send(3,serializedPackage,packageEnvio.total_size,0);
 		printf("%n Enviado\n",enviar);
 
-	*/
+
 	}
 
 	free(buffer);
 
 	return status;
 }
+int handshakeCon(sockCliente){
+	int stat;
+
+
+	//paso estructura dinamica
+	t_PackageEnvio package;
+	package.tipo_de_proceso = 1; //Cambar POR KERR
+	package.tipo_de_mensaje = 1;//Mensaje 1 -->Hola
+
+	//esto vuela, kernel ya no manda mas un mensaje a memoria en el handshake
+	/*FILE *f = fopen("/home/utnso/Escritorio/foo.c", "rb");
+	fseek(f, 0, SEEK_END);
+	long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);  //same as rewind(f);
+
+	char *string = malloc(fsize + 1);
+	package.message = malloc(fsize);
+	fread(string, fsize, 1, f);
+	fclose(f);
+	string[fsize] = 0;
+
+	strcpy(package.message,string);
+
+	package.message_size = strlen(package.message)+1;
+	*/
+	package.message_size = 0;
+
+	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
+
+	char *serializedPackage;
+	serializedPackage = serializarOperandos(&package);
+
+	stat = send(sockCliente, serializedPackage, package.total_size, 0);
+
+
+
+	return stat;
+
+}
+
