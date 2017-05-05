@@ -33,6 +33,8 @@ void Desconectar_Consola();
 void Limpiar_Mensajes();
 void enviarArchivo(FILE*, uint32_t, uint32_t);
 
+void readPackage(t_PackageEnvio*, tConsola*, char*);
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -52,8 +54,11 @@ int main(int argc, char* argv[]){
 	if (sock_kern < 0)
 		return sock_kern;
 //
-	t_PackageEnvio package;
-	package.tipo_de_proceso = cons_data->tipo_de_proceso;
+
+
+	t_PackageEnvio* package = malloc(sizeof(t_PackageEnvio));
+	readPackage(package, cons_data, "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/CPU/facil.ansisop");
+	/*package.tipo_de_proceso = cons_data->tipo_de_proceso;
 	package.tipo_de_mensaje = 2;
 	FILE *f = fopen("/home/utnso/Escritorio/Cliente/foo2.c", "rb");
 	fseek(f, 0, SEEK_END);
@@ -72,7 +77,7 @@ int main(int argc, char* argv[]){
 
 	package.message_size = strlen(package.message)+1;
 	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
-
+*/
 	char *serializedPackage;
 	serializedPackage = serializarOperandos(&package);
 	send(sock_kern, serializedPackage, package.total_size, 0);
@@ -174,3 +179,25 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
 	return status;
 }
+
+void readPackage(t_PackageEnvio* package, tConsola* cons_data,char* ruta){
+	package.tipo_de_proceso = cons_data->tipo_de_proceso;
+	package.tipo_de_mensaje = 2;
+	FILE *f = fopen(ruta, "rb");
+	fseek(f, 0, SEEK_END);
+	long fsize = ftell(f);
+	fseek(f, 0, SEEK_SET);  //same as rewind(f);
+
+	char *string = malloc(fsize + 1);
+	package.message = malloc(fsize);
+	fread(string, fsize, 1, f);
+	fclose(f);
+	string[fsize] = 0;
+
+	strcpy(package.message,string);
+
+	package.message_size = strlen(package.message)+1;
+	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
+
+}
+
