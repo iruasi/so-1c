@@ -4,6 +4,7 @@
 
 #include <commons/config.h>
 #include "memoriaConfigurators.h"
+#include "../Compartidas/tiposHeader.h"
 
 tMemoria *getConfigMemoria(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
@@ -20,7 +21,7 @@ tMemoria *getConfigMemoria(char* ruta){
 	memoria->entradas_cache =  config_get_int_value(memoriaConfig, "ENTRADAS_CACHE");
 	memoria->cache_x_proc =    config_get_int_value(memoriaConfig, "CACHE_X_PROC");
 	memoria->retardo_memoria = config_get_int_value(memoriaConfig, "RETARDO_MEMORIA");
-	memoria->tipo_de_proceso = config_get_int_value(memoriaConfig, "TIPO_DE_PROCESO");
+	memoria->tipo_de_proceso = MEM;
 
 	config_destroy(memoriaConfig);
 	return memoria;

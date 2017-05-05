@@ -4,6 +4,7 @@
 
 #include <commons/config.h>
 #include "cpuConfigurators.h"
+#include "../Compartidas/tiposHeader.h"
 
 tCPU *getConfigCPU(char *ruta_config){
 
@@ -21,7 +22,7 @@ tCPU *getConfigCPU(char *ruta_config){
 	strcpy(cpu->ip_kernel,      config_get_string_value(cpu_conf, "IP_KERNEL"));
 	strcpy(cpu->puerto_kernel,  config_get_string_value(cpu_conf, "PUERTO_KERNEL"));
 
-	cpu->tipo_de_proceso = config_get_int_value(cpu_conf,"TIPO_DE_PROCESO");
+	cpu->tipo_de_proceso = CPU;
 
 	config_destroy(cpu_conf);
 	return cpu;

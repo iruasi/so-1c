@@ -11,5 +11,3 @@ PUERTO_MEMORIA=5002
 IP_KERNEL=127.0.0.1
 # En este puerto del Kernel, CPUs se comunican con el.
 PUERTO_KERNEL=5001
-
-TIPO_DE_PROCESO=2

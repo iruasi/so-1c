@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "kernelConfigurators.h"
+#include "../Compartidas/tiposHeader.h"
 #include <commons/config.h>
 #include <commons/string.h>
 
@@ -42,7 +43,7 @@ tKernel *getConfigKernel(char* ruta){
 	kernel->sem_ids         = config_get_array_value(kernelConfig, "SEM_IDS");
 	kernel->sem_init        = config_get_array_value(kernelConfig, "SEM_INIT");
 	kernel->shared_vars     = config_get_array_value(kernelConfig, "SHARED_VARS");
-	kernel->tipo_de_proceso = config_get_int_value(kernelConfig, "TIPO_DE_PROCESO");
+	kernel->tipo_de_proceso = KER;
 
 	config_destroy(kernelConfig);
 	return kernel;

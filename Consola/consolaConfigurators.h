@@ -15,6 +15,7 @@ typedef struct {
 	char *puerto_kernel;
 	uint32_t tipo_de_proceso;
 } tConsola;
+
 typedef struct _t_PackageEnvio {
 	uint32_t tipo_de_proceso;
 	uint32_t tipo_de_mensaje;
