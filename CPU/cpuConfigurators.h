@@ -14,7 +14,6 @@ typedef struct {
 	char *ip_kernel;
 	char *puerto_kernel;
 	uint32_t tipo_de_proceso;
-
 } tCPU;
 
 typedef struct _t_Package {

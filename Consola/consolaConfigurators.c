@@ -1,4 +1,5 @@
 #include "consolaConfigurators.h"
+#include "../Compartidas/tiposHeader.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -20,8 +21,7 @@ tConsola *getConfigConsola(char *ruta){
 
 	strcpy(consola->ip_kernel,     config_get_string_value(consola_conf, "IP_KERNEL"));
 	strcpy(consola->puerto_kernel, config_get_string_value(consola_conf, "PUERTO_KERNEL"));
-
-	consola->tipo_de_proceso = config_get_int_value(consola_conf, "TIPO_DE_PROCESO");
+	consola->tipo_de_proceso = CON;
 
 	config_destroy(consola_conf);
 	return consola;
@@ -31,7 +31,7 @@ void mostrarConfiguracionConsola(tConsola *cons_data){
 
 	printf("%s\n", cons_data->ip_kernel);
 	printf("%s\n", cons_data->puerto_kernel);
-	printf("Tipo de proceso: %d\n", cons_data->tipo_de_proceso);
+	printf("%s\n", cons_data->tipo_de_proceso);
 }
 
 void liberarConfiguracionConsola(tConsola *cons){

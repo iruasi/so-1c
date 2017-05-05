@@ -26,5 +26,3 @@ SEM_INIT=[0, 0, 5 ]
 
 SHARED_VARS=[!Global, !UnaVar, !tiempo3 ]
 STACK_SIZE=2
-
-TIPO_DE_PROCESO=1
