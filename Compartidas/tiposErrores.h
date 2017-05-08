@@ -5,26 +5,26 @@
 #ifndef TIPOSERRORES_H_
 #define TIPOSERRORES_H_
 
-#define RES_INSUF      -1
-#define NOSUCH_FILE    -2
-#define NOREAD_PERM    -3
-#define NOWRITE_PERM   -4
-#define MEM_EXCEPTION  -5
-#define KERN_CONS_EXIT -6
-#define CONS_PROG_EXIT -7
-#define MEM_OVERALLOC  -8
-#define MEM_TOP_PAGES  -9
-#define UNDEFINED_ERR  -20
-
-
-#define FALLO_GRAL          -21
-//#define FALLO_CONFIGURACION -22
-#define FALLO_RECV          -23
-#define FALLO_CONEXION      -24
-#define FALLO_SELECT        -26
-#define ABORTO_FILESYSTEM   -98
-#define ABORTO_MEMORIA      -99
-
+typedef enum {
+  RES_INSUF=            -1
+, NOSUCH_FILE=          -2
+, NOREAD_PERM=          -3
+, NOWRITE_PERM=         -4
+, MEM_EXCEPTION=        -5
+, KERN_CONS_EXIT=       -6
+, CONS_PROG_EXIT=       -7
+, MEM_OVERALLOC=        -8
+, MEM_TOP_PAGES=        -9
+, UNDEFINED_ERR=       -20
+, FALLO_GRAL=          -21
+, FALLO_CONFIGURACION= -22
+, FALLO_RECV=          -23
+, FALLO_SEND=          -24
+, FALLO_CONEXION=      -25
+, FALLO_SELECT=        -26
+, ABORTO_FILESYSTEM=   -98
+, ABORTO_MEMORIA=      -99
+} tErrores;
 
 #endif /* TIPOSERRORES_H_ */
 

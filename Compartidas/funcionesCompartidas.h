@@ -25,5 +25,14 @@ int makeCommSock(int);
  */
 void clearBuffer(char *, int );
 
+/* Atiende una conexion entrante, la agrega al set de relevancia, y vuelve a escuhar mas conexiones;
+ * retorna el nuevo socket producido
+ */
+int handleNewListened(int sock_listen, fd_set *setFD);
+
+/* borra un socket del set indicado y lo cierra
+ */
+void clearAndClose(int *fd, fd_set *setFD);
+
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

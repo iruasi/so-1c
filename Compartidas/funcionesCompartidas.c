@@ -8,6 +8,7 @@
 #include "tiposErrores.h"
 #include "funcionesCompartidas.h"
 
+#define BACKLOG 20
 
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags){
     memset(hints, 0, sizeof *hints);
@@ -73,10 +74,28 @@ int makeCommSock(int socket_in){
 	return sock_comm;
 }
 
+
+/* Atiende una conexion entrante, la agrega al set de relevancia, y vuelve a escuhar mas conexiones;
+ * retorna el nuevo socket producido
+ */
+int handleNewListened(int sock_listen, fd_set *setFD){
+
+	int new_fd = makeCommSock(sock_listen);
+	FD_SET(new_fd, setFD);
+	listen(sock_listen, BACKLOG);
+
+	return new_fd;
+}
+
 void clearBuffer(char * buffer, int bufferLength){
 
 	int i;
 	for (i = 0; i < bufferLength; ++i)
 		buffer[i] = '\0';
 
+}
+
+void clearAndClose(int *fd, fd_set *setFD){
+	FD_CLR(*fd, setFD);
+	close(*fd);
 }
