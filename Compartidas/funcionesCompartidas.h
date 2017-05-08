@@ -1,11 +1,5 @@
-
 #ifndef FUNCIONESCOMPARTIDAS_H_
 #define FUNCIONESCOMPARTIDAS_H_
-
-#define FALLO_GRAL -21
-#define FALLO_CONEXION -24
-
-
 
 /* Recibe una estructura que almacena informacion del propio host;
  * La inicializa con valores utiles, pasados por parametro

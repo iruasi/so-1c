@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include "tiposErrores.h"
 #include "funcionesCompartidas.h"
 
 
@@ -24,7 +25,7 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
 
 	if ((stat = getaddrinfo(ip_dest, port_dest, &hints, &destInfo)) != 0){
-		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(stat));
 		return FALLO_GRAL;
 	}
 
@@ -51,7 +52,7 @@ int makeListenSock(char *port_listen){
 	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, AI_PASSIVE);
 
 	if ((stat = getaddrinfo(NULL, port_listen, &hints, &serverInfo)) != 0){
-		fprintf("getaddrinfo: %s\n", gai_strerror(stat));
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(stat));
 		return FALLO_GRAL;
 	}
 
