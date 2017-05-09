@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <errno.h>
 
-#include "tPacks.c"
+#include "tiposPaquetes.h"
 #include "tiposErrores.h"
 
 #define HEAD_SIZE 8
