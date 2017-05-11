@@ -5,5 +5,3 @@ begin
 	b = 5
 	a = b + 12
 end
-
-

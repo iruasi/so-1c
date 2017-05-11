@@ -1,6 +1,8 @@
 #ifndef FUNCIONESCOMPARTIDAS_H_
 #define FUNCIONESCOMPARTIDAS_H_
 
+#include <sys/select.h>
+
 /* Recibe una estructura que almacena informacion del propio host;
  * La inicializa con valores utiles, pasados por parametro
  */
@@ -15,7 +17,6 @@ int establecerConexion(char *, char *);
  * luego retorna este socket, apto para listen()
  */
 int makeListenSock(char *);
-
 
 /* acepta una conexion entrante, y crea un socket para comunicaciones regulares;
  */

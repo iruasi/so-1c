@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#ifndef KERNEL_H_
-#define KERNEL_H_
+#ifndef KERNELCONFIGURATORS_H_
+#define KERNELCONFIGURATORS_H_
 
 #define MAX_MESSAGE_SIZE 5000
 typedef struct{
@@ -56,5 +56,5 @@ void mostrarConfiguracion(tKernel *kernel);
  */
 void liberarConfiguracionKernel(tKernel *kernel);
 
-#endif /* KERNEL_H_ */
+#endif /* KERNELCONFIGURATORS_H_ */
 

@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
-#include <unistd.h> // biblioteca que tiene el close()
-
+#include <unistd.h>
+#include <errno.h>
 #include <commons/config.h>
 #include <commons/string.h>
 #include <commons/log.h>
@@ -11,15 +11,17 @@
 
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/tiposErrores.h"
+#include "../Compartidas/tiposPaquetes.h"
+#include "../Compartidas/funcionesPaquetes.c"
 #include "kernelConfigurators.h"
 
-#define BACKLOG 20 // cantidad de procesos que pueden enfilar en un solo listen
+#define BACKLOG 20
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
 #define MAXMSJ 100
 
-#define MAXCPUS 10
+
 
 /* MAX(A, B) es un macro que devuelve el mayor entre dos argumentos,
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
@@ -27,11 +29,8 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 
-int handleNewListened(int socket_listen, fd_set *setFD);
-int sendReceived(int status, char *buffer, int *sockets, int total_sockets);
-void clearAndClose(int *fd, fd_set *setFD);
 
-int handshakeCon(int sock);
+int handshakeCon(int sock, int id_sender);
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -39,12 +38,16 @@ int main(int argc, char* argv[]){
 			return EXIT_FAILURE;
 	}
 
+	tPackHeader h;
+	h.tipo_de_mensaje = HSHAKE;
+	h.tipo_de_proceso = KER;
+
+	printf("size msj %d\nsize proc %d\n algo: %d\n", h.tipo_de_mensaje, h.tipo_de_proceso, sizeof h);
+
 	char *buf = malloc(MAXMSJ);
 	int stat, ready_fds;
 	int fd, new_fd;
 	int sock_fs, sock_mem;
-	int *socksToSend = malloc((2 * MAXCPUS ) * sizeof *socksToSend); // aca almacenamos todos los sockets a los que queremos enviar
-	int ctrlSend = 0;
 	int sock_lis_cpu, sock_lis_con;
 	int bytes_sent;
 	int fd_max = -1;
@@ -58,22 +61,19 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(kernel);
 	strcpy(buf, "Hola soy Kernel");
 
-
-
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
 		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
 		return FALLO_CONEXION;
 	}
 	int sem;
-	sem = handshakeCon(sock_mem); //No deberia dejar avanzar si no hace el handshake con memo
-		//fin envio estructura dinamica
+
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
-	/*while ((bytes_sent = send(sock_mem, buf, strlen(buf), 0)) < 0)
-			;
-		printf("Se enviaron: %d bytes a MEMORIA\n", bytes_sent);
-	*/
-		fd_max = MAX(sock_mem, fd_max);
+	while ((sem = handshakeCon(sock_mem, kernel->tipo_de_proceso)) < 0)
+		;
+	printf("Se enviaron: %d bytes a MEMORIA\n", sem);
+
+	fd_max = MAX(sock_mem, fd_max);
 
 	// Se trata de conectar con Filesystem
 	if ((sock_fs  = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
@@ -118,111 +118,133 @@ int main(int argc, char* argv[]){
 	listen(sock_lis_cpu, BACKLOG);
 	listen(sock_lis_con, BACKLOG);
 
-	// Cargamos los valores de los sockets a enviar manualmente...
-	socksToSend[0] = sock_fs;
-	ctrlSend = 1;
 
-
+	tPackHeader *header_tmp  = malloc(HEAD_SIZE);
 	while (1){
+
 		read_fd = master_fd;
 
 		ready_fds = select(fd_max + 1, &read_fd, NULL, NULL, NULL);
-		if (ready_fds == -1)
-			return FALLO_SELECT; // despues vemos de hacerlo lindo...
-
+		if(ready_fds == -1)
+			return FALLO_SELECT;
 
 		for (fd = 0; fd <= fd_max; ++fd){
+		if (FD_ISSET(fd, &read_fd)){
 
-			if (FD_ISSET(fd, &read_fd)){
-				printf("Aca hay uno! el fd es: %d\n", fd);
+			printf("Aca hay uno! el fd es: %d\n", fd);
 
-				// Para luego distinguir un recv() entre diferentes procesos, debemos definir un t_Package
-				// este t_Package tendria un identificador, y un mensaje.
-				if (fd == sock_lis_cpu){
-					printf("es de listen_cpu!\n");
+			if (fd == sock_lis_con){
 
-					new_fd = handleNewListened(sock_lis_cpu, &master_fd);
+				new_fd = handleNewListened(fd, &master_fd);
+				if (new_fd < 0){
+					perror("Fallo en manejar un listen. error");
+					return FALLO_CONEXION;
+				}
+				fd_max = MAX(new_fd, fd_max);
+				break;
+			}
 
-					if(ctrlSend < (MAXCPUS*2 - 1)){
-						socksToSend[ctrlSend] = new_fd;
-						ctrlSend++;
-						fd_max = MAX(fd_max, new_fd);
+			recv(fd, header_tmp, HEAD_SIZE, 0);
 
-					} else {
-						printf("Se llego al tope de CPUS permitidos!\n No aceptamos esta conexion...\n");
-						close(new_fd);
-					}
+			if (header_tmp->tipo_de_mensaje == HSHAKE){
 
-				} else if (fd == sock_lis_con){
-					printf("es de listen_consola!\n");
+				new_fd = handleNewListened(fd, &master_fd);
+				if (new_fd < 0){
+					perror("Fallo en manejar un listen. error");
+					return FALLO_CONEXION;
+				}
+				fd_max = MAX(new_fd, fd_max);
+				break;
+			}
 
 
-					new_fd = handleNewListened(sock_lis_con, &master_fd);
-					fd_max = MAX(fd_max, new_fd);
+			if (header_tmp->tipo_de_mensaje == SRC_CODE){
 
-				} else if (fd == sock_mem){
-					printf("llego algo desde memoria!\n");
-					//t_PackageRecepcion packageRecepcion;
-					//recieve_and_deserialize(&packageRecepcion,sock_mem);
-					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
-					printf("%s",buf);
-					/*
-					if ((stat == 0) || (stat == -1)){ // se va MEM
-						printf("recv del Memoria retorno con: %d\nLo sacamos del set master\n", stat);
-						clearAndClose(&fd, &master_fd);
-					}
+				puts("Alguien (seguramente Consola) quiere enviar codigo fuente!");
+				//ya teniamos el header, ahora recibimos el resto del codigo fuente
 
-					puts("Perdimos conexion con Memoria! Entremos en Panico!\n");
-					return ABORTO_MEMORIA;
-					 */
-				} else if (fd == sock_fs){
-					printf("llego algo desde fs!\n");
+				puts("Recibimos el codigo fuente primero...");
+				tPackSrcCode *pack_src = recvSourceCode(fd);
 
-					stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande, aunque esto no deba suceder todavia
-					/*
-					if ((stat == 0) || (stat == -1)){ // se va FS
-						printf("recv del Filesystem retorno con: %d\nLo sacamos del set master\n", stat);
-						clearAndClose(&fd, &master_fd);
-					}
-					*/
-					puts("Perdimos conexion con Filesystem! Entremos en Panico!\n");
-					return ABORTO_FILESYSTEM;
+				puts("Ahora pisamos la firma, para mandarselo a Memoria...");
+				header_tmp->tipo_de_proceso = KER; // pisamos el tipo de proceso con la firma de Kernel
 
-					//sendReceived(stat, &fd, &master_fd);
+				puts("Lo memcpy() al header del codigo fuente nuesta nueva firma...");
+				memcpy(&pack_src->head, header_tmp, HEAD_SIZE); // con esto tenemos serializado un nuevo paquete para MEM
 
-				} else if (fd == 0){ //socket del stdin
-					printf("Ingreso texto por pantalla!\nCerramos Kernel!\n");
-					goto limpieza; // nos vamos del ciclo infinito...
+				puts("Listo eso..");
+				printf("sender ahora es: %d \ntipo mensaje es: %d\n", pack_src->head.tipo_de_proceso, pack_src->head.tipo_de_mensaje);
 
-				} else { // es otro tipo de socket
-					t_PackageRecepcion packageRecepcion;
-					recieve_and_deserialize(&packageRecepcion,7);
+				puts("Y el codigo fuente es:");
+				puts(pack_src->sourceCode);
 
-					if ((stat = recv(fd, buf, MAXMSJ, 0)) < 0){ // recibimos lo que nos mande
-						printf("Error en recepcion de datos!\n Cierro el socket!");
-						clearAndClose(&fd, &master_fd);
-						continue;
-					} else if (stat == 0){
-						clearAndClose(&fd, &master_fd);
-						continue;
-					}
-					printf("asd4\n");
-					printf("Mandemos algo...\n");
-					stat = sendReceived(stat, buf, socksToSend, ctrlSend);
-					printf("stat: %d\n", stat);
+				int pack_size = HEAD_SIZE + pack_src->sourceLen;
+
+				puts("Lo enviamos a Memoria...");
+				if ((stat = send(sock_mem, pack_src, pack_size, 0))<0){
+					perror("Error en el envio de codigo fuente. error");
+					errno = FALLO_SEND;
 				}
 
+				puts("Listo!");
+				break;
 			}
-		}
 
-		//break; // TODO: ver como salir del ciclo; cuando es necesario??
+			if (fd == sock_mem){
+				printf("llego algo desde memoria!\n");
+				//t_PackageRecepcion packageRecepcion;
+				//recieve_and_deserialize(&packageRecepcion,sock_mem);
+				stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
+				printf("%s",buf);
+				/*
+				if ((stat == 0) || (stat == -1)){ // se va MEM
+					printf("recv del Memoria retorno con: %d\nLo sacamos del set master\n", stat);
+					clearAndClose(&fd, &master_fd);
+				}
+
+				puts("Perdimos conexion con Memoria! Entremos en Panico!\n");
+				return ABORTO_MEMORIA;
+				 */
+			} else if (fd == sock_fs){
+				printf("llego algo desde fs!\n");
+
+				stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande, aunque esto no deba suceder todavia
+				/*
+				if ((stat == 0) || (stat == -1)){ // se va FS
+					printf("recv del Filesystem retorno con: %d\nLo sacamos del set master\n", stat);
+					clearAndClose(&fd, &master_fd);
+				}
+				*/
+				puts("Perdimos conexion con Filesystem! Entremos en Panico!\n");
+				return ABORTO_FILESYSTEM;
+
+			} else if (fd == 0){ //socket del stdin
+				printf("Ingreso texto por pantalla!\nCerramos Kernel!\n");
+				goto limpieza; // nos vamos del ciclo infinito...
+
+			} else { // es otro tipo de socket
+				t_PackageRecepcion packageRecepcion;
+				recieve_and_deserialize(&packageRecepcion,7);
+
+				if ((stat = recv(fd, buf, MAXMSJ, 0)) < 0){ // recibimos lo que nos mande
+					printf("Error en recepcion de datos!\n Cierro el socket!");
+					clearAndClose(&fd, &master_fd);
+					continue;
+				} else if (stat == 0){
+					clearAndClose(&fd, &master_fd);
+					continue;
+				}
+
+				printf("Mandemos algo...(nada en realidad)\n");
+			}
+		}} // aca terminan el for() y el if(FD_ISSET)
 	}
 
 limpieza:
 	// Un poco mas de limpieza antes de cerrar
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
-//	close(sock_mem);
+	close(sock_mem);
 	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
@@ -230,40 +252,7 @@ limpieza:
 	return stat;
 }
 
-/* Reenvia un mensaje a todos los sockets de una lista dada
- */
-int sendReceived(int stat, char *buf, int *socks, int socks_tot){
 
-	int i;
-	for(i = 0; i < socks_tot; ++i){
-		printf("Estoy mandando al socket %d!\n", socks[i]);
-		stat = send(socks[i], buf, MAXMSJ, 0);
-			if (stat < 0)
-				return -28;
-	}
-
-	clearBuffer(buf, MAXMSJ);
-	return stat;
-}
-
-/* borra un socket del set indicado y lo cierra
- */
-void clearAndClose(int *fd, fd_set *setFD){
-	FD_CLR(*fd, setFD);
-	close(*fd);
-}
-
-/* Atiende una conexion entrante, la agrega al set de relevancia, y vuelve a escuhar mas conexiones;
- * retorna el nuevo socket producido
- */
-int handleNewListened(int sock_listen, fd_set *setFD){
-
-	int new_fd = makeCommSock(sock_listen);
-	FD_SET(new_fd, setFD);
-	listen(sock_listen, BACKLOG);
-
-	return new_fd;
-}
 char* serializarOperandos(t_PackageEnvio *package){
 
 	char *serializedPackage = malloc(package->total_size);
@@ -319,7 +308,7 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 
 	//TIPODEMENSAJE=2 significa reenviar el paquete a memoria
 
-	if(tipo_de_mensaje = 2 ){
+	if(tipo_de_mensaje == 2 ){
 		printf("\nNos llego un paquete para reenviar a memoria\n");
 		printf("Reenviando..\n");
 		t_PackageEnvio packageEnvio;
@@ -336,52 +325,13 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 		serializedPackage = serializarOperandos(&packageEnvio);
 		int enviar;
 		enviar = send(3,serializedPackage,packageEnvio.total_size,0);
-		printf("%n Enviado\n",enviar);
+		printf("%d Enviado\n", enviar);
 
 
 	}
 
 	free(buffer);
-
 	return status;
 }
-int handshakeCon(sockCliente){
-	int stat;
 
-
-	//paso estructura dinamica
-	t_PackageEnvio package;
-	package.tipo_de_proceso = 1; //Cambar POR KERR
-	package.tipo_de_mensaje = 1;//Mensaje 1 -->Hola
-
-	//esto vuela, kernel ya no manda mas un mensaje a memoria en el handshake
-	/*FILE *f = fopen("/home/utnso/Escritorio/foo.c", "rb");
-	fseek(f, 0, SEEK_END);
-	long fsize = ftell(f);
-	fseek(f, 0, SEEK_SET);  //same as rewind(f);
-
-	char *string = malloc(fsize + 1);
-	package.message = malloc(fsize);
-	fread(string, fsize, 1, f);
-	fclose(f);
-	string[fsize] = 0;
-
-	strcpy(package.message,string);
-
-	package.message_size = strlen(package.message)+1;
-	*/
-	package.message_size = 0;
-
-	package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_size)+package.message_size+sizeof(package.total_size);
-
-	char *serializedPackage;
-	serializedPackage = serializarOperandos(&package);
-
-	stat = send(sockCliente, serializedPackage, package.total_size, 0);
-
-
-
-	return stat;
-
-}
 

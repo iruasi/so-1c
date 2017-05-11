@@ -12,8 +12,9 @@
 #include "../Compartidas/tiposErrores.h"
 #include "fileSystemConfigurators.h"
 
-#define BACKLOG 10
-
+#ifndef BACKLOG
+#define BACKLOG 20
+#endif
 
 int main(int argc, char* argv[]){
 

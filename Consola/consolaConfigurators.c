@@ -1,5 +1,5 @@
 #include "consolaConfigurators.h"
-#include "../Compartidas/tiposHeader.h"
+#include "../Compartidas/tiposPaquetes.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -31,7 +31,7 @@ void mostrarConfiguracionConsola(tConsola *cons_data){
 
 	printf("%s\n", cons_data->ip_kernel);
 	printf("%s\n", cons_data->puerto_kernel);
-	printf("%s\n", cons_data->tipo_de_proceso);
+	printf("%d\n", cons_data->tipo_de_proceso);
 }
 
 void liberarConfiguracionConsola(tConsola *cons){

@@ -4,6 +4,8 @@
 #include <commons/config.h>
 #include <stdint.h>
 #include <stdio.h>
+
+#include "../Compartidas/tiposPaquetes.h"
 #define MAX_MESSAGE_SIZE 5000
 
 #endif /* CONSOLA_H_ */
@@ -13,15 +15,15 @@ typedef struct {
 
 	char *ip_kernel;
 	char *puerto_kernel;
-	uint32_t tipo_de_proceso;
+	tProceso tipo_de_proceso;
 } tConsola;
+
 
 typedef struct _t_PackageEnvio {
 	uint32_t tipo_de_proceso;
 	uint32_t tipo_de_mensaje;
 	uint32_t message_size;
-	char* message;
-	uint32_t total_size;			// NOTA: Es calculable
+	void* message;
 } t_PackageEnvio;
 
 typedef struct _t_PackageRecepcion {

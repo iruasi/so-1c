@@ -4,7 +4,7 @@
 
 #include <commons/config.h>
 #include "fileSystemConfigurators.h"
-#include "../Compartidas/tiposHeader.h"
+#include "../Compartidas/tiposPaquetes.h"
 
 tFileSystem* getConfigFS(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
@@ -30,7 +30,7 @@ void mostrarConfiguracion(tFileSystem *fileSystem){
 	printf("Puerto: %s\n",           fileSystem->puerto_entrada);
 	printf("Punto de montaje: %s\n", fileSystem->punto_montaje);
 	printf("IP del kernel: %s\n",    fileSystem->ip_kernel);
-	pritnf("Tipo de proceso: %d\n",    fileSystem->tipo_de_proceso);
+	printf("Tipo de proceso: %d\n",    fileSystem->tipo_de_proceso);
 }
 
 void liberarConfiguracionFileSystem(tFileSystem *fileSystem){

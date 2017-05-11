@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #include "kernelConfigurators.h"
-#include "../Compartidas/tiposHeader.h"
+#include "../Compartidas/tiposPaquetes.h"
 #include <commons/config.h>
 #include <commons/string.h>
 

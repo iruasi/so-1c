@@ -9,7 +9,6 @@
 #include "tiposPaquetes.h"
 #include "tiposErrores.h"
 
-#define HEAD_SIZE 8
 
 /* dado un socket e identificador de proceso, le envia un paquete basico de HandShake
  */
@@ -28,33 +27,35 @@ int handshakeCon(int sock_dest, int id_sender){
 /* recibimos codigo fuente del socket de entrada
  * devolvemos un puntero a memoria que lo contiene
  */
-void * recvSourceCode(int sock_in, tProceso sender){
-	tPackSrcCode *srcCode;
+void *recvSourceCode(int sock_in){
+
 	int stat;
-	int payload_size;
+	unsigned long srcCode_size;
+	tPackSrcCode *src_pack = malloc(sizeof *src_pack);
 
-	if ((stat = recv(sock_in, &payload_size, sizeof (uint32_t), 0)) <= 0){
+	// offset hasta donde comienza el codigo fuente posta
+	size_t source_off = sizeof src_pack->head + sizeof src_pack->sourceLen;
+
+	if ((stat = recv(sock_in, &srcCode_size, sizeof (unsigned long), 0)) <= 0){
 		perror("El socket cerro la conexion o hubo fallo de recepcion. error");
 		errno = FALLO_RECV;
 		return NULL;
 	}
 
-	srcCode->sourceCode = malloc(payload_size);
 
-	if ((stat = recv(sock_in, srcCode->sourceCode, payload_size, 0)) <= 0){
+	src_pack->sourceLen = srcCode_size;
+	// extendemos el size de srcCode, para que entre el codigo enviado posta
+	src_pack = realloc(src_pack, sizeof src_pack->head + sizeof src_pack->sourceLen + srcCode_size);
+	src_pack->sourceCode = (char *) (uint32_t) src_pack + source_off;
+
+	// todo: por algun motivo misterioso, si no hacemos alguna asignacion arbitraria al sourceCode, su escritura a memoria falla...
+	*src_pack->sourceCode = 'C';
+
+	if ((stat = recv(sock_in, src_pack->sourceCode, srcCode_size, 0)) <= 0){
 		perror("El socket cerro la conexion o hubo fallo de recepcion. error");
 		errno = FALLO_RECV;
 		return NULL;
 	}
 
-	return srcCode;
+	return src_pack;
 }
-
-
-
-
-
-
-
-
-
