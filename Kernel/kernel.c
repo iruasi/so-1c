@@ -9,10 +9,14 @@
 #include <commons/log.h>
 #include <commons/collections/list.h>
 
+//#include "../Compartidas/funcionesPaquetes.h"
+//#include "../Compartidas/funcionesCompartidas.h"
+#include "../Compartidas/funcionesPaquetes.c"
 #include "../Compartidas/funcionesCompartidas.c"
+
 #include "../Compartidas/tiposErrores.h"
 #include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/funcionesPaquetes.c"
+
 #include "kernelConfigurators.h"
 
 #define BACKLOG 20
@@ -29,20 +33,11 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 
-
-int handshakeCon(int sock, int id_sender);
-
 int main(int argc, char* argv[]){
 	if(argc!=2){
 			printf("Error en la cantidad de parametros\n");
 			return EXIT_FAILURE;
 	}
-
-	tPackHeader h;
-	h.tipo_de_mensaje = HSHAKE;
-	h.tipo_de_proceso = KER;
-
-	printf("size msj %d\nsize proc %d\n algo: %d\n", h.tipo_de_mensaje, h.tipo_de_proceso, sizeof h);
 
 	char *buf = malloc(MAXMSJ);
 	int stat, ready_fds;
@@ -157,31 +152,22 @@ int main(int argc, char* argv[]){
 				break;
 			}
 
-
 			if (header_tmp->tipo_de_mensaje == SRC_CODE){
 
-				puts("Alguien (seguramente Consola) quiere enviar codigo fuente!");
-				//ya teniamos el header, ahora recibimos el resto del codigo fuente
+				int packageSize; // aca guardamos el tamanio total del paquete serializado
 
-				puts("Recibimos el codigo fuente primero...");
-				tPackSrcCode *pack_src = recvSourceCode(fd);
+				puts("Recibimos el codigo fuente, serializandolo primero...");
+				void *pack_src_serial = serializeSrcCodeFromRecv(fd, *header_tmp, &packageSize);
 
 				puts("Ahora pisamos la firma, para mandarselo a Memoria...");
-				header_tmp->tipo_de_proceso = KER; // pisamos el tipo de proceso con la firma de Kernel
+				tProceso p = KER;
+				memcpy(pack_src_serial, &p, sizeof p);
 
-				puts("Lo memcpy() al header del codigo fuente nuesta nueva firma...");
-				memcpy(&pack_src->head, header_tmp, HEAD_SIZE); // con esto tenemos serializado un nuevo paquete para MEM
-
-				puts("Listo eso..");
-				printf("sender ahora es: %d \ntipo mensaje es: %d\n", pack_src->head.tipo_de_proceso, pack_src->head.tipo_de_mensaje);
-
-				puts("Y el codigo fuente es:");
-				puts(pack_src->sourceCode);
-
-				int pack_size = HEAD_SIZE + pack_src->sourceLen;
+				puts("El codigo fuente es:");
+				puts((char*) (uint32_t) pack_src_serial + 12);
 
 				puts("Lo enviamos a Memoria...");
-				if ((stat = send(sock_mem, pack_src, pack_size, 0))<0){
+				if ((stat = send(sock_mem, pack_src_serial, packageSize, 0))<0){
 					perror("Error en el envio de codigo fuente. error");
 					errno = FALLO_SEND;
 				}
@@ -278,6 +264,7 @@ char* serializarOperandos(t_PackageEnvio *package){
 
 	return serializedPackage;
 }
+
 int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketCliente){
 
 	int status;

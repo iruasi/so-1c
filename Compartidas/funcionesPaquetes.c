@@ -10,8 +10,7 @@
 #include "tiposErrores.h"
 #include "funcionesPaquetes.h"
 
-/* dado un socket e identificador de proceso, le envia un paquete basico de HandShake
- */
+
 int handshakeCon(int sock_dest, int id_sender){
 
 	tPackHeader head;
@@ -24,10 +23,6 @@ int handshakeCon(int sock_dest, int id_sender){
 	return send(sock_dest, package, HEAD_SIZE, 0);
 }
 
-/* recibimos codigo fuente del socket de entrada
- * devolvemos un puntero a memoria que lo contiene
- * !! Asumimos que ya se recibio el Header !!
- */
 tPackSrcCode *recvSourceCode(int sock_in){
 
 	int stat;
@@ -62,12 +57,7 @@ tPackSrcCode *recvSourceCode(int sock_in){
 	return src_pack;
 }
 
-/* Recibe de un socket el codigo fuente y lo serializa,
- * copia ademas los contenidos de algun header pasado por parametro
- * retorna un espacio de memoria utilizable para reenviar el codigo fuente.
- * !! Suponemos que ya se recibio antes un tPackHeader u 8 bytes !!
- */
-void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head){
+void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 
 	unsigned long bufferSize;
 	void *bufferCode;
@@ -106,5 +96,8 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head){
 
 	memcpy(src_pack + offset, bufferCode, bufferSize);
 
+	// size total del paquete serializado
+	*packSize = sizeof template->head + sizeof template->sourceLen + bufferSize;
+	free(bufferCode);
 	return src_pack;
 }

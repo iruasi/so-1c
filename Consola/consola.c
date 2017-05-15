@@ -35,6 +35,7 @@ void enviarArchivo(FILE*, uint32_t, uint32_t);
 
 //void readPackage(t_PackageEnvio*, tConsola*, char*);
 
+void *serializarSrcCode(tPackSrcCode *src_code);
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta);
 unsigned long fsize(FILE* f);
 
@@ -64,19 +65,21 @@ int main(int argc, char* argv[]){
 	puts("Creando codigo fuente...");
 	tPackSrcCode *src_code = readFileIntoPack(cons_data->tipo_de_proceso, "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/CPU/facil.ansisop");
 
-	puts("codigo:");
-	puts(src_code->sourceCode);
+	puts("Serializando codigo fuente...");
+	void * paquete_serializado = serializarSrcCode(src_code);
 
 	puts("Enviando codigo fuente...");
-	unsigned long packSize = sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen;
-	if ((stat = send(sock_kern, src_code, packSize, 0)) < 0){
+	int packSize = sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen;
+	if ((stat = send(sock_kern, paquete_serializado, packSize, 0)) < 0){
 		perror("No se pudo enviar codigo fuente a Kernel. error");
 		return FALLO_SEND;
 	}
 
 	printf("Se envio el paquete de codigo fuente...");
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
-//	free(src_code);
+	free(src_code->sourceCode);
+	free(src_code);
+	free(paquete_serializado);
 
 	while(!(STR_EQ(buf, "terminar\n")) && (stat != -1)){
 
@@ -158,7 +161,7 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 	return status;
 }
 
-/* Dado un archivo, lo lee e inserta en un paquete apto para enviarse
+/* Dado un archivo, lo lee e inserta en un paquete de codigo fuente
  */
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 // todo: en la estructura tPackSrcCode podriamos aprovechar mejor el espacio. Sin embargo, funciona bien
@@ -169,19 +172,43 @@ tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 	src_code->head.tipo_de_proceso = sender;
 	src_code->head.tipo_de_mensaje = SRC_CODE;
 
-	unsigned long fileSize = fsize(file);
+	unsigned long fileSize = fsize(file) + 1; // + 1 para el '\0'
+	printf("fsize es %d\n", fileSize);
 
-	src_code = realloc(src_code, sizeof src_code->head + sizeof src_code->sourceLen + fileSize);
 	src_code->sourceLen = fileSize;
-	src_code->sourceCode = (char *) (uint32_t) src_code + sizeof src_code->head + sizeof src_code->sourceLen;
-
-	// todo: por algun motivo misterioso, si no hacemos alguna asignacion arbitraria al sourceCode, su escritura a memoria falla...
-	*src_code->sourceCode = 0;
+	src_code->sourceCode = malloc(src_code->sourceLen);
 
 	fread(src_code->sourceCode, src_code->sourceLen, 1, file);
 	fclose(file);
 
+	// ponemos un '\0' al final porque es probablemente mandatorio para que se lea, send'ee y recv'ee bien despues
+	src_code->sourceCode[src_code->sourceLen - 1] = '\0';
+
 	return src_code;
+}
+
+void *serializarSrcCode(tPackSrcCode *src_code){
+
+	int offset = 0;
+
+	void *serial_src_code = malloc(sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen);
+	if (serial_src_code == NULL){
+		perror("No se pudo mallocar el serial_src_code. error");
+		return NULL;
+	}
+
+	memcpy(serial_src_code, &src_code->head, sizeof src_code->head);
+	offset += sizeof src_code->head;
+
+	memcpy(serial_src_code + offset, &src_code->sourceLen, sizeof src_code->sourceLen);
+	offset += sizeof src_code->sourceLen;
+
+	puts("esto vamos a meter en serializado");
+	puts(src_code->sourceCode);
+
+	memcpy(serial_src_code + offset, src_code->sourceCode, src_code->sourceLen);
+
+	return serial_src_code;
 }
 
 unsigned long fsize(FILE* f){

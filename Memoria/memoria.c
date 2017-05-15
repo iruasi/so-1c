@@ -145,6 +145,7 @@ int main(int argc, char* argv[]){
 	return 0;
 }
 
+
 /* dado el socket de Kernel, maneja las acciones que de este reciba
  */
 void* kernel_handler(void *sock_kernel){
@@ -152,16 +153,14 @@ void* kernel_handler(void *sock_kernel){
 	int *sock_ker = (int *) sock_kernel;
 	int stat;
 	int pid, pageCount;
-	tPackHeader *head = malloc(HEAD_SIZE);
+
+	tPackHeader *head = calloc(HEAD_SIZE, 1);
 	tPackSrcCode *pack_src;
 
-//	// con esto testeamos la primera recepcion de codigo fuente
-//	pack_src = recvSourceCode(sock_ker);
-//	inicializarPrograma(0, 1, pack_src->sourceLen, pack_src->sourceCode);
-//
-//	return NULL;
+	printf("Esperamos que lleguen cosas del socket: %d\n", *sock_ker);
 
 	do {
+		printf("Se hace una pasada\n head tiene: %d y %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
 		switch(head->tipo_de_mensaje){
 
 		case INI_PROG:
@@ -179,6 +178,7 @@ void* kernel_handler(void *sock_kernel){
 			//recv(sock_ker, &pageCount, sizeof (uint32_t), 0);
 			puts("Recibimos el codigo fuente primero...");
 			pack_src = recvSourceCode(*sock_ker);
+
 			puts("Ahora llamamos a inicializarPrograma()...");
 			inicializarPrograma(0, 1, pack_src->sourceLen, pack_src->sourceCode);
 			puts("Listo! Quedo el codigo fuente en MEM_FIS a partid del primer HMD");
