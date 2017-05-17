@@ -18,14 +18,13 @@
 #include "../Compartidas/tiposPaquetes.h"
 
 #include "kernelConfigurators.h"
+#include "auxiliaresKernel.h"
 
 #define BACKLOG 20
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
 #define MAXMSJ 100
-
-
 
 /* MAX(A, B) es un macro que devuelve el mayor entre dos argumentos,
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
@@ -35,17 +34,15 @@
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
-			printf("Error en la cantidad de parametros\n");
-			return EXIT_FAILURE;
+		printf("Error en la cantidad de parametros\n");
+		return EXIT_FAILURE;
 	}
 
-	char *buf = malloc(MAXMSJ);
-	int stat, ready_fds;
+	int sem, stat, ready_fds;
 	int fd, new_fd;
+	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	int bytes_sent;
-	int fd_max = -1;
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
@@ -54,14 +51,12 @@ int main(int argc, char* argv[]){
 
 	tKernel *kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
-	strcpy(buf, "Hola soy Kernel");
 
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
 		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
 		return FALLO_CONEXION;
 	}
-	int sem;
 
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
 	while ((sem = handshakeCon(sock_mem, kernel->tipo_de_proceso)) < 0)
@@ -77,9 +72,9 @@ int main(int argc, char* argv[]){
 	}
 
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Filesystem
-	while ((bytes_sent = send(sock_fs, buf, strlen(buf), 0)) < 0)
+	while ((sem = handshakeCon(sock_fs, kernel->tipo_de_proceso)) < 0)
 		;
-	printf("Se enviaron: %d bytes a FILESYSTEM\n", bytes_sent);
+	printf("Se enviaron: %d bytes a FILESYSTEM\n", sem);
 
 	fd_max = MAX(sock_fs, fd_max);
 
@@ -114,7 +109,7 @@ int main(int argc, char* argv[]){
 	listen(sock_lis_con, BACKLOG);
 
 
-	tPackHeader *header_tmp  = malloc(HEAD_SIZE);
+	tPackHeader *header_tmp  = malloc(HEAD_SIZE); // para almacenar cada recv
 	while (1){
 
 		read_fd = master_fd;
@@ -128,112 +123,80 @@ int main(int argc, char* argv[]){
 
 			printf("Aca hay uno! el fd es: %d\n", fd);
 
-			if (fd == sock_lis_con){
+			// Controlamos el listen de CPU o de Consola
+			if (fd == sock_lis_con || fd == sock_lis_cpu){
 
 				new_fd = handleNewListened(fd, &master_fd);
 				if (new_fd < 0){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
+
 				fd_max = MAX(new_fd, fd_max);
 				break;
 			}
 
-			recv(fd, header_tmp, HEAD_SIZE, 0);
+			// Como no es un listen, recibimos el header de lo que llego
+			if ((stat = recv(fd, header_tmp, HEAD_SIZE, 0)) == -1){
+				perror("Error en recv() de algun socket. error");
+				break;
 
-			if (header_tmp->tipo_de_mensaje == HSHAKE){
-
-				new_fd = handleNewListened(fd, &master_fd);
-				if (new_fd < 0){
-					perror("Fallo en manejar un listen. error");
-					return FALLO_CONEXION;
-				}
-				fd_max = MAX(new_fd, fd_max);
+			} else if (stat == 0){
+				printf("Se desconecto el socket %d\nLo sacamos del set listen...\n", fd);
+				clearAndClose(&fd, &master_fd);
 				break;
 			}
 
+			// Se recibio un header sin conflictos, procedemos con el flujo
 			if (header_tmp->tipo_de_mensaje == SRC_CODE){
 
-				int packageSize; // aca guardamos el tamanio total del paquete serializado
-
-				puts("Recibimos el codigo fuente, serializandolo primero...");
-				void *pack_src_serial = serializeSrcCodeFromRecv(fd, *header_tmp, &packageSize);
-
-				puts("Ahora pisamos la firma, para mandarselo a Memoria...");
-				tProceso p = KER;
-				memcpy(pack_src_serial, &p, sizeof p);
-
-				puts("El codigo fuente es:");
-				puts((char*) (uint32_t) pack_src_serial + 12);
-
-				puts("Lo enviamos a Memoria...");
-				if ((stat = send(sock_mem, pack_src_serial, packageSize, 0))<0){
-					perror("Error en el envio de codigo fuente. error");
-					errno = FALLO_SEND;
-				}
+				puts("Se recibio un paquete de codigo fuente.\nReenviamos a Memoria...");
+				recibirCodYReenviar(header_tmp, fd, sock_mem);
 
 				puts("Listo!");
 				break;
 			}
 
 			if (fd == sock_mem){
-				printf("llego algo desde memoria!\n");
-				//t_PackageRecepcion packageRecepcion;
-				//recieve_and_deserialize(&packageRecepcion,sock_mem);
-				stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande
-				printf("%s",buf);
-				/*
-				if ((stat == 0) || (stat == -1)){ // se va MEM
-					printf("recv del Memoria retorno con: %d\nLo sacamos del set master\n", stat);
-					clearAndClose(&fd, &master_fd);
-				}
+				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				break;
 
-				puts("Perdimos conexion con Memoria! Entremos en Panico!\n");
-				return ABORTO_MEMORIA;
-				 */
 			} else if (fd == sock_fs){
-				printf("llego algo desde fs!\n");
-
-				stat = recv(fd, buf, MAXMSJ, 0); // recibimos lo que nos mande, aunque esto no deba suceder todavia
-				/*
-				if ((stat == 0) || (stat == -1)){ // se va FS
-					printf("recv del Filesystem retorno con: %d\nLo sacamos del set master\n", stat);
-					clearAndClose(&fd, &master_fd);
-				}
-				*/
-				puts("Perdimos conexion con Filesystem! Entremos en Panico!\n");
-				return ABORTO_FILESYSTEM;
+				printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				break;
 
 			} else if (fd == 0){ //socket del stdin
 				printf("Ingreso texto por pantalla!\nCerramos Kernel!\n");
 				goto limpieza; // nos vamos del ciclo infinito...
-
-			} else { // es otro tipo de socket
-				t_PackageRecepcion packageRecepcion;
-				recieve_and_deserialize(&packageRecepcion,7);
-
-				if ((stat = recv(fd, buf, MAXMSJ, 0)) < 0){ // recibimos lo que nos mande
-					printf("Error en recepcion de datos!\n Cierro el socket!");
-					clearAndClose(&fd, &master_fd);
-					continue;
-				} else if (stat == 0){
-					clearAndClose(&fd, &master_fd);
-					continue;
-				}
-
-				printf("Mandemos algo...(nada en realidad)\n");
 			}
+
+			if (header_tmp->tipo_de_proceso == CON){
+				printf("Llego algo desde Consola!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				break;
+			}
+
+			if (header_tmp->tipo_de_proceso == CPU){
+				printf("Llego algo desde CPU!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				break;
+			}
+
+			puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito");
+
 		}} // aca terminan el for() y el if(FD_ISSET)
 	}
 
 limpieza:
 	// Un poco mas de limpieza antes de cerrar
+
+	free(header_tmp);
+
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 	close(sock_mem);
 	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
+
 	liberarConfiguracionKernel(kernel);
 	return stat;
 }
