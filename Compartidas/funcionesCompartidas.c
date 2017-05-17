@@ -11,6 +11,15 @@
 
 #define BACKLOG 20
 
+unsigned long fsize(FILE* f){
+
+    fseek(f, 0, SEEK_END);
+    unsigned long len = (unsigned long) ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    return len;
+}
+
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags){
     memset(hints, 0, sizeof *hints);
 	hints->ai_family = address_family;

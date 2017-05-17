@@ -3,6 +3,10 @@
 
 #include <sys/select.h>
 
+/* Retorna el tamanio de un archivo
+ */
+unsigned long fsize(FILE* f);
+
 /* Recibe una estructura que almacena informacion del propio host;
  * La inicializa con valores utiles, pasados por parametro
  */

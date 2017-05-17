@@ -51,9 +51,6 @@ tPackSrcCode *recvSourceCode(int sock_in){
 		return NULL;
 	}
 
-	puts("El codigo recibido en src_pack->sourceCode es:");
-	puts(src_pack->sourceCode);
-
 	return src_pack;
 }
 
@@ -86,9 +83,13 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 	memcpy(src_pack + offset, &bufferSize, sizeof bufferSize);
 	offset += sizeof bufferSize;
 
-	// recibimos el codigo fuente
-	bufferCode = malloc(bufferSize);
+	if ((bufferCode = malloc(bufferSize)) == NULL){
+		perror("No se pudo almacenar memoria para el buffer del codigo fuente. error");
+		return NULL;
+	}
 
+
+	// recibimos el codigo fuente
 	if ((stat = recv(sock_in, bufferCode, bufferSize, 0)) == -1){
 		perror("No se pudo recibir el size del codigo fuente. error");
 		return NULL;

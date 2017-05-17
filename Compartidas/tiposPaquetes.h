@@ -7,12 +7,14 @@
 typedef enum {KER= 1, CPU= 2, FS= 3, CON= 4, MEM= 5} tProceso;
 
 typedef enum {
-	HSHAKE    = 1,
-	SRC_CODE  = 3,
-	INI_PROG  = 4,
-	FIN_PROG  = 5,
-	ASIGN_PAG = SRC_CODE,
-
+	HSHAKE      = 1,
+	SRC_CODE    = 3,
+	// API Memoria
+	ASIGN_PAG   = SRC_CODE,
+	INI_PROG    = 4,
+	FIN_PROG    = 5,
+	SOLIC_BYTES = 6,
+	ALMAC_BYTES = 7,
 	FIN      = 11
 } tMensaje;
 
