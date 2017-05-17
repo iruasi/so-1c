@@ -7,22 +7,27 @@
 #include "memoriaConfigurators.h"
 
 extern tMemoria *memoria;
-extern tMemEntrada *CACHE;
+extern tCacheEntrada *CACHE;
 extern uint8_t *MEM_FIS;
+
+/* Dumpea lo que hay en MEM_FIS
+ * despues tendria que ampliarse para dumpear el stack
+ */
+void dump(void *memory_location);
 
 /* Crea una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  */
-uint8_t *setupMemoria(int quantity, int size);
+void *setupMemoria(int quantity, int size);
 
 /* 'Crea' una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  */
-tMemEntrada *setupCache(int quantity);
+tCacheEntrada *setupCache(int quantity);
 
 /* limpia toda la cache
  */
-void wipeCache(tMemEntrada *cache, uint32_t quant);
+void wipeCache(tCacheEntrada *cache, uint32_t quant);
 
 /* recorre secuencialmente CACHE hasta dar con una entrada que tenga el pid y page buscados
  */
@@ -30,11 +35,11 @@ uint8_t *buscarEnCache(uint32_t pid, uint32_t page);
 
 /* obtiene la dir de una entrada reemplazable en cache y la pisa
  */
-void insertarEnCache(tMemEntrada entry);
+void insertarEnCache(tCacheEntrada entry);
 
 /* nos dice si tenemos un cache hit o miss
  */
-bool entradaCoincide(tMemEntrada entrada, uint32_t pid, uint32_t page);
+bool entradaCoincide(tCacheEntrada entrada, uint32_t pid, uint32_t page);
 
 /* mediante la funcion de hash encuentra el frame de la pagina de un proceso
  */
@@ -42,14 +47,14 @@ uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page);
 
 /* crea una entrada de tipo tMemEntrada, util para la cache
  */
-tMemEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame);
+tCacheEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame);
 
 /* Dado un PID y una cantidad de paginas, intenta crear las estructuras de administracion necesarias
  * para un programa.
  * De momento retorna un puntero al lugar de memoria que puede afectar o NULL
  * TODO: deberia retornar un int o nada; precisamos la tabla de paginas invertida
  */
-uint8_t *inicializarPrograma(int pid, int page_count, int sourceSize, void *srcCode);
+uint8_t *inicializarProgramaBeta(int pid, int page_count, int sourceSize, void *srcCode);
 
 uint8_t *asignarPaginas(int pid, int page_count);
 
@@ -79,7 +84,7 @@ uint8_t *buscarEnCache(uint32_t pid, uint32_t page);
 
 /* inserta una nueva entrada en CACHE, utiliza el algoritmo LRU
  */
-void insertarEnCache(tMemEntrada entry);
+void insertarEnCache(tCacheEntrada entry);
 
 /* es parte del API de Memoria; Realiza el pedido de escritura de CPU
  * Esta es la funcion que en el TP viene a ser "Almacenar Bytes en una Pagina"

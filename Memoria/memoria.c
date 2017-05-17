@@ -36,7 +36,7 @@ void* cpu_handler(void *sock_cpu);
 
 extern int sizeFrame;
 
-extern tMemEntrada *CACHE;
+extern tCacheEntrada *CACHE;
 extern uint8_t *MEM_FIS;
 
 int main(int argc, char* argv[]){
@@ -176,17 +176,18 @@ void* kernel_handler(void *sock_kernel){
 
 			//recv(sock_ker, &pid, sizeof (uint32_t), 0);
 			//recv(sock_ker, &pageCount, sizeof (uint32_t), 0);
-			puts("Recibimos el codigo fuente primero...");
+			puts("Recibimos el codigo fuente...");
 			pack_src = recvSourceCode(*sock_ker);
 
-			puts("Ahora llamamos a inicializarPrograma()...");
-			inicializarPrograma(0, 1, pack_src->sourceLen, pack_src->sourceCode);
-			puts("Listo! Quedo el codigo fuente en MEM_FIS a partid del primer HMD");
-			puts("Veamos si es cierto:");
+			puts("Ahora llamamos a inicializarProgramaBeta()...");
+			inicializarProgramaBeta(0, 1, pack_src->sourceLen, pack_src->sourceCode);
+			puts("Listo!");
 
-			printf("%s\n", (char *) ((uint32_t) MEM_FIS + SIZEOF_HMD));
+			dump(NULL);
 
 			//uint8_t * heap_proc = asignarPaginas(pid, pageCount);
+			break;
+		case FIN_PROG:
 			break;
 
 		case FIN:
@@ -217,6 +218,16 @@ void* kernel_handler(void *sock_kernel){
 void* cpu_handler(void *sock_ker){
 
 	tPackHeader *head = malloc(HEAD_SIZE);
+
+	switch(head->tipo_de_mensaje){
+	case SOLIC_BYTES:
+		break;
+	case ALMAC_BYTES:
+		break;
+	default:
+		break;
+	}
+
 	return head;
 }
 

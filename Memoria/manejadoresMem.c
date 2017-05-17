@@ -14,19 +14,51 @@
 
 int sizeFrame;
 tMemoria *memoria;
-tMemEntrada *CACHE;
+tCacheEntrada *CACHE;
 uint8_t *MEM_FIS;
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
-uint8_t *inicializarPrograma(int pid, int pageCount, int sourceSize, void *srcCode){
+void dump(void *mem_dir){ // de momento mem_dir no es nada
+
+	void *dumpBuf = NULL;
+	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
+	int i;
+
+	puts("COMIENZO DE DUMP");
+	for(i = 0; i < sizeFrame - SIZEOF_HMD; i += hmd->size + SIZEOF_HMD){
+
+		if (!hmd->isFree){
+
+			printf("Se muestran contenidos en la direccion de MEM_FIS %p:\n", hmd);
+
+			dumpBuf = realloc(dumpBuf, hmd->size);
+			memcpy(dumpBuf, (void *) (int) hmd + SIZEOF_HMD, hmd->size);
+			puts(dumpBuf);
+
+		}
+
+		hmd = (void *) (int) hmd + hmd->size + SIZEOF_HMD;
+	}
+
+	puts("FIN DEL DUMP");
+}
+
+void *inicializarPrograma(int pid, int pageCount){
+
+	return NULL;
+
+}
+
+uint8_t *inicializarProgramaBeta(int pid, int pageCount, int sourceSize, void *srcCode){
 // para este checkpoint pasado, tenemos que almacenar el source_code en MEM_FIS
 
-	printf("inicializarPrograma! Recibimos pid %d y la cantidad de paginas a reservar es de %d\n", pid, pageCount);
+	tSegmentosProg segsProg;
 
-	int offset = SIZEOF_HMD;
-	printf("Copiando %d bytes en MEM_FIS...\n", sourceSize);
-	memcpy((uint8_t *) ((uint32_t) MEM_FIS + offset), srcCode, sourceSize);
+	void *espacio_en_mem = reservarBytes(sourceSize);
+
+	printf("Copiando %d bytes en %p...\n", sourceSize, espacio_en_mem);
+	memcpy((void *) (int) espacio_en_mem + SIZEOF_HMD, srcCode, sourceSize);
 	puts("Hecho!\n");
 
 	return NULL;
@@ -42,7 +74,7 @@ uint8_t *reservarBytes(int sizeReserva){
 // por ahora trabaja con la unica pagina que existe
 
 	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
-	int sizeLibre = sizeFrame;
+	int sizeLibre = sizeFrame - 5;
 
 	uint8_t rta = esReservable(sizeReserva, hmd);
 	while(rta != ULTIMO_HMD){
@@ -90,7 +122,7 @@ uint8_t esReservable(int size, tHeapMeta *hmd){
 	return true;
 }
 
-uint8_t *setupMemoria(int quant, int size){
+void *setupMemoria(int quant, int size){
 
 	uint8_t *frames = malloc(quant * size);
 
@@ -106,9 +138,9 @@ uint8_t *setupMemoria(int quant, int size){
 }
 
 
-tMemEntrada *setupCache(int quantity){
+tCacheEntrada *setupCache(int quantity){
 
-	tMemEntrada *entradas = malloc(quantity * sizeof *entradas);
+	tCacheEntrada *entradas = malloc(quantity * sizeof *entradas);
 	wipeCache(entradas, quantity);
 
 	return entradas;
@@ -162,7 +194,7 @@ uint8_t *obtenerFrame(uint32_t pid, uint32_t page){
 		return frame;
 
 	frame = buscarEnMemoria(pid, page);
-	tMemEntrada new_entry = crearEntrada(pid, page, (uint32_t) frame);
+	tCacheEntrada new_entry = crearEntrada(pid, page, (uint32_t) frame);
 	insertarEnCache(new_entry);
 
 	return frame; // por ahora este es el unico frame
@@ -170,7 +202,7 @@ uint8_t *obtenerFrame(uint32_t pid, uint32_t page){
 
 uint8_t *buscarEnCache(uint32_t pid, uint32_t page){
 
-	tMemEntrada *entradaCache = (tMemEntrada *) CACHE;
+	tCacheEntrada *entradaCache = (tCacheEntrada *) CACHE;
 
 	int i;
 	for (i = 0; i < memoria->entradas_cache; i++){
@@ -181,13 +213,13 @@ uint8_t *buscarEnCache(uint32_t pid, uint32_t page){
 	return NULL;
 }
 
-void insertarEnCache(tMemEntrada entry){
+void insertarEnCache(tCacheEntrada entry){
 
-	tMemEntrada *entradaAPisar;//todo: algoritmoLRU();
+	tCacheEntrada *entradaAPisar;//todo: algoritmoLRU();
 	entradaAPisar = &entry;
 }
 
-bool entradaCoincide(tMemEntrada entrada, uint32_t pid, uint32_t page){
+bool entradaCoincide(tCacheEntrada entrada, uint32_t pid, uint32_t page){
 
 	if (entrada.pid != pid || entrada.page != page)
 		return false;
@@ -195,9 +227,9 @@ bool entradaCoincide(tMemEntrada entrada, uint32_t pid, uint32_t page){
 	return true;
 }
 
-tMemEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
+tCacheEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
 
-	tMemEntrada entry;
+	tCacheEntrada entry;
 	entry.pid   = pid;
 	entry.frame = frame;
 	entry.page  = page;
@@ -205,9 +237,9 @@ tMemEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
 	return entry;
 }
 
-void wipeCache(tMemEntrada *cache, uint32_t quant){
+void wipeCache(tCacheEntrada *cache, uint32_t quant){
 
-	tMemEntrada nullEntry = {0,0,0};
+	tCacheEntrada nullEntry = {0,0,0};
 
 	int i;
 	for (i = 0; i < quant; ++i)

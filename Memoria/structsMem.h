@@ -24,7 +24,16 @@ typedef struct{
 	uint32_t frame;
 	uint32_t pid;
 	uint32_t page;
-} tMemEntrada;
+} tCacheEntrada;
+
+typedef struct{
+
+	void *code;
+	void *stack;
+	void *heap;
+} tSegmentosProg;
+
+
 
 int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente);
 
