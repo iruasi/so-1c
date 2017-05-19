@@ -23,6 +23,41 @@ int handshakeCon(int sock_dest, int id_sender){
 	return send(sock_dest, package, HEAD_SIZE, 0);
 }
 
+
+int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
+
+	int stat;
+
+	tHShakeMemAKer *h_shake = malloc(sizeof *h_shake);
+	h_shake->head.tipo_de_proceso = MEM;
+	h_shake->head.tipo_de_mensaje = MEMINFO;
+	h_shake->marco_size = marco_size;
+	h_shake->marcos = marcos;
+
+	if((stat = send(sock_ker, h_shake, sizeof *h_shake, 0)) == -1)
+		perror("Error de envio informacion Memoria a Kernel. error");
+
+	return stat;
+}
+
+int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
+
+	int stat;
+
+	if ((stat = recv(sock_mem, frames, sizeof frames, 0)) == -1){
+		perror("Error de recepcion de frames desde la Memoria. error");
+		return FALLO_GRAL;
+	}
+
+	if ((stat = recv(sock_mem, frame_size, sizeof frame_size, 0)) == -1){
+		perror("Error de recepcion de frames desde la Memoria. error");
+		return FALLO_GRAL;
+	}
+
+	return stat;
+}
+
+
 tPackSrcCode *recvSourceCode(int sock_in){
 
 	int stat;

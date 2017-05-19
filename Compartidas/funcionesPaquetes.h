@@ -6,6 +6,17 @@
  */
 int handshakeCon(int sock_dest, int id_sender);
 
+/* Solo la usa Memoria, para dar a Kernel informacion relevante de si misma
+ * Retorna la cantidad de bytes enviados, deberian ser 16
+ */
+int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
+
+/* Solo la usa Kernel para recibir de Memoria los frames y el size de estos,
+ * los almacenara en *frames y *frame_size.
+ * Se corresponde reciprocamente con la funcion contestarMemoriaKernel()
+ * !! Asumimos que ya se recibio el Header !!
+ */
+int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 
 /* recibimos codigo fuente del socket de entrada
  * devolvemos un puntero a memoria que lo contiene
