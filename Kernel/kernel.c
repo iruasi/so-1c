@@ -31,6 +31,7 @@
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
+void nuevoPCB();
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -284,4 +285,22 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 	return status;
 }
 
+struct pcb nuevoPCB;
+
+uint32_t globalPID = 0;
+uint32_t pcHarcodeado = 1;
+uint32_t psHarcodeado = 1;
+
+void nuevoPcb(){
+
+	nuevoPCB.id = globalPID;
+	globalPID++;
+	nuevoPCB.pc = pcHarcodeado;
+	pcHarcodeado++;
+	nuevoPCB.referenciaTablaProcesos = 0;
+	nuevoPCB.posicionStack = psHarcodeado;
+	psHarcodeado++;
+	nuevoPCB.exitCode = 0;
+
+}
 
