@@ -8,6 +8,7 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include "../Compartidas/pcb.h"
 
 //#include "../Compartidas/funcionesPaquetes.h"
 //#include "../Compartidas/funcionesCompartidas.h"
@@ -31,7 +32,7 @@
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
-void nuevoPCB();
+
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -152,6 +153,11 @@ int main(int argc, char* argv[]){
 			if (header_tmp->tipo_de_mensaje == SRC_CODE){
 
 				puts("Se recibio un paquete de codigo fuente.\nReenviamos a Memoria...");
+
+				uint32_t cant_pags = kernel->stack_size; // TODO falta sumar la cantidad de pags que requiere el codigo recibido
+
+				pcb PCB = nuevoPcb(cant_pags);
+
 				recibirCodYReenviar(header_tmp, fd, sock_mem);
 
 				puts("Listo!");
@@ -185,6 +191,8 @@ int main(int argc, char* argv[]){
 
 		}} // aca terminan el for() y el if(FD_ISSET)
 	}
+
+
 
 limpieza:
 	// Un poco mas de limpieza antes de cerrar
@@ -279,28 +287,15 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 		printf("%d Enviado\n", enviar);
 
 
+
+
 	}
 
 	free(buffer);
 	return status;
 }
 
-struct pcb nuevoPCB;
 
-uint32_t globalPID = 0;
-uint32_t pcHarcodeado = 1;
-uint32_t psHarcodeado = 1;
 
-void nuevoPcb(){
 
-	nuevoPCB.id = globalPID;
-	globalPID++;
-	nuevoPCB.pc = pcHarcodeado;
-	pcHarcodeado++;
-	nuevoPCB.referenciaTablaProcesos = 0;
-	nuevoPCB.posicionStack = psHarcodeado;
-	psHarcodeado++;
-	nuevoPCB.exitCode = 0;
-
-}
 

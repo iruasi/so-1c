@@ -9,6 +9,9 @@
 #include "../Compartidas/funcionesPaquetes.h"
 #include "../Compartidas/tiposErrores.h"
 #include "../Compartidas/tiposPaquetes.h"
+#include "../Compartidas/pcb.h"
+
+uint32_t globalPID = 0;
 
 int recibirCodYReenviar(tPackHeader *head, int fd_sender, int fd_mem){
 
@@ -33,3 +36,19 @@ int recibirCodYReenviar(tPackHeader *head, int fd_sender, int fd_mem){
 	free(pack_src_serial);
 	return 0;
 }
+
+pcb nuevoPcb(int cant_pags){
+
+	pcb nuevoPCB;
+
+	nuevoPCB.id = globalPID;
+	globalPID++;
+
+	nuevoPCB.pc = 0;
+	nuevoPCB.paginasDeCodigo = cant_pags;
+	nuevoPCB.exitCode = 0;
+
+	return nuevoPCB;
+
+}
+
