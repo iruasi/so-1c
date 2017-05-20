@@ -93,7 +93,6 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 
 	unsigned long bufferSize;
 	void *bufferCode;
-	tPackSrcCode *template;
 	int offset = 0;
 	void *src_pack;
 
@@ -106,7 +105,7 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 	}
 
 	// hacemos espacio para toda la estructura en serie
-	if ((src_pack = malloc(sizeof template->head + sizeof template->sourceLen + bufferSize)) == NULL){
+	if ((src_pack = malloc(HEAD_SIZE + sizeof (unsigned long) + bufferSize)) == NULL){
 		perror("No se pudo mallocar para el src_pack");
 		return NULL;
 	}
@@ -133,7 +132,7 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 	memcpy(src_pack + offset, bufferCode, bufferSize);
 
 	// size total del paquete serializado
-	*packSize = sizeof template->head + sizeof template->sourceLen + bufferSize;
+	*packSize = HEAD_SIZE + sizeof (unsigned long) + bufferSize;
 	free(bufferCode);
 	return src_pack;
 }

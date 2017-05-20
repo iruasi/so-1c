@@ -9,12 +9,21 @@ typedef enum {KER= 1, CPU= 2, FS= 3, CON= 4, MEM= 5} tProceso;
 typedef enum {
 	HSHAKE      = 1,
 	SRC_CODE    = 3,
-	// API Memoria
-	ASIGN_PAG   = SRC_CODE,
-	INI_PROG    = 4,
-	FIN_PROG    = 5,
-	SOLIC_BYTES = 6,
-	ALMAC_BYTES = 7,
+
+	// API Memoria & Mensaje que recibe/envia Memoria
+	ASIGN_PAG   = 50,
+	INI_PROG    = 51,
+	FIN_PROG    = 52,
+	SOLIC_BYTES = 53,
+	ALMAC_BYTES = 54,
+	MEMINFO     = 55,
+
+	// Mensajes que recibe/envia Consola
+	PRINT       = 41,
+	NEWPROG     = 42,
+	KILLPID     = 43,
+	SEND_SRC    = SRC_CODE,
+
 	FIN      = 11
 } tMensaje;
 
@@ -38,5 +47,12 @@ typedef struct {
 	uint32_t pid;
 	uint32_t pageCount;
 } tPackPidPag; // este paquete se utiliza para enviar un pid y una cant de paginas
+
+typedef struct {
+
+	tPackHeader head;
+	int marcos;
+	int marco_size;
+} tHShakeMemAKer;
 
 #endif /* TIPOSPAQUETES_H_ */
