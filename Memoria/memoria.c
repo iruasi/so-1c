@@ -34,6 +34,8 @@ void* connection_handler(void *);
 void* kernel_handler(void *sock_ker);
 void* cpu_handler(void *sock_cpu);
 
+
+
 extern int sizeFrame;
 
 extern tCacheEntrada *CACHE;
@@ -96,8 +98,13 @@ int main(int argc, char* argv[]){
 			if (!kernExists){
 				kernExists = true;
 
-				if( pthread_create(&kern_thread ,NULL , (void*) kernel_handler ,(void*) &new_sock) < 0){
-					perror("no pudo crear hilo. error");
+				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, new_sock)) == -1){
+					puts("No se pudo enviar la informacion relevante a Kernel!");
+					return FALLO_GRAL;
+				}
+
+				if( pthread_create(&kern_thread, NULL, (void*) kernel_handler, (void*) &new_sock) < 0){
+					perror("No pudo crear hilo. error");
 					return FALLO_GRAL;
 				}
 
@@ -167,7 +174,14 @@ void* kernel_handler(void *sock_kernel){
 
 			recv(*sock_ker, &pid, sizeof (uint32_t), 0);
 			recv(*sock_ker, &pageCount, sizeof (uint32_t), 0);
-			//uint8_t * heap_proc = inicializarPrograma(pid, pageCount);
+			void *segs_location = procesarYCrearPrograma(pid, pageCount);
+
+			break;
+
+		case ALMAC_BYTES:
+			puts("Kernel quiere escribir codigo fuente");
+
+
 
 			break;
 
@@ -185,7 +199,7 @@ void* kernel_handler(void *sock_kernel){
 
 			dump(NULL);
 
-			//uint8_t * heap_proc = asignarPaginas(pid, pageCount);
+			uint8_t * heap_proc = asignarPaginas(pid, pageCount);
 			break;
 		case FIN_PROG:
 			break;
@@ -274,6 +288,18 @@ void* connection_handler(void *socket_desc)
 	return 0;
 }
 
+
+void pagInvertida(){ // TODO: estoy re perdido con esto...
+
+	tEntradaPagInv *tabla;
+
+}
+
+
+
+
+
+
 int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
 	int status;
@@ -306,3 +332,4 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
 	return status;
 }
+
