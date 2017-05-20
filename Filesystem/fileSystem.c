@@ -3,13 +3,16 @@
 #include <string.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <errno.h>
+
 #include <commons/config.h>
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
 
-#include "../Compartidas/funcionesCompartidas.c"
+#include "../Compartidas/funcionesCompartidas.h"
 #include "../Compartidas/tiposErrores.h"
+#include "../Compartidas/tiposPaquetes.h"
 #include "fileSystemConfigurators.h"
 
 #ifndef BACKLOG
@@ -23,35 +26,29 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	char buf[MAXMSJ];
+	tPackHeader *head_tmp = malloc(sizeof *head_tmp);
 	int stat;
 
 	tFileSystem* fileSystem = getConfigFS(argv[1]);
 	mostrarConfiguracion(fileSystem);
 
-	//SV SIMPLE PARA QUE SE LE CONECTE KERNEL
 
-	// Creamos sockets listos para send/recv para cada proceso
 	int sock_lis_kern = makeListenSock(fileSystem->puerto_entrada);
 	listen(sock_lis_kern, BACKLOG);
 	int sock_kern = makeCommSock(sock_lis_kern);
 
+	puts("Esperando handshake de Kernel...");
+	while ((stat = recv(sock_kern, head_tmp, sizeof *head_tmp, 0)) > 0){
 
-	while ((stat = recv(sock_kern, buf, MAXMSJ, 0)) > 0){
-
-		printf("%s\n", buf);
-		clearBuffer(buf, MAXMSJ);
+		printf("Se recibieron %d bytes\n", stat);
+		printf("Emisor: %d\nTipo de mensaje: %d", head_tmp->tipo_de_mensaje, head_tmp->tipo_de_mensaje);
 	}
 
-
-	if (stat < 0){
-		printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", stat);
+	if (stat == -1){
+		perror("Error en la realizacion de handshake con Kernel. error");
 		return FALLO_RECV;
 	}
 
-
-
-	//FIN SV SIMPLE
 
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);

@@ -37,7 +37,6 @@ void enviarArchivo(FILE*, uint32_t, uint32_t);
 
 void *serializarSrcCode(tPackSrcCode *src_code);
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta);
-unsigned long fsize(FILE* f);
 
 int main(int argc, char* argv[]){
 
@@ -173,7 +172,7 @@ tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 	src_code->head.tipo_de_mensaje = SRC_CODE;
 
 	unsigned long fileSize = fsize(file) + 1; // + 1 para el '\0'
-	printf("fsize es %d\n", fileSize);
+	printf("fsize es %lu\n", fileSize);
 
 	src_code->sourceLen = fileSize;
 	src_code->sourceCode = malloc(src_code->sourceLen);
@@ -211,14 +210,6 @@ void *serializarSrcCode(tPackSrcCode *src_code){
 	return serial_src_code;
 }
 
-unsigned long fsize(FILE* f){
-
-    fseek(f, 0, SEEK_END);
-    unsigned long len = (unsigned long) ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    return len;
-}
 
 //
 //void readPackage(t_PackageEnvio* package, tConsola* cons_data, char* ruta){

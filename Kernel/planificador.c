@@ -1,0 +1,6 @@
+#include <commons/collections/queue.h>
+
+// TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
+// Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
+void encolarPrograma(nuevoPCB);
+
