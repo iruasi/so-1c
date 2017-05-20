@@ -14,6 +14,7 @@
 #include "../Compartidas/funcionesPaquetes.c"
 #include "../Compartidas/funcionesCompartidas.c"
 
+#include "../Compartidas/pcb.h"
 #include "../Compartidas/tiposErrores.h"
 #include "../Compartidas/tiposPaquetes.h"
 
@@ -31,7 +32,9 @@
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
-void nuevoPCB();
+tPCB *nuevoPCB();
+
+uint32_t globalPID = 0;
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -44,6 +47,7 @@ int main(int argc, char* argv[]){
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
+	int frames, frame_size; // para guardar datos a recibir de Memoria
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
@@ -148,11 +152,11 @@ int main(int argc, char* argv[]){
 				break;
 			}
 
-			// Se recibio un header sin conflictos, procedemos con el flujo
+			// Se recibio un header sin conflictos, procedemos con el flujo..
 			if (header_tmp->tipo_de_mensaje == SRC_CODE){
+				puts("Consola quiere iniciar un programa");
 
-				puts("Se recibio un paquete de codigo fuente.\nReenviamos a Memoria...");
-				recibirCodYReenviar(header_tmp, fd, sock_mem);
+				recibirCodYReenviar(header_tmp, fd, sock_mem, kernel->stack_size);
 
 				puts("Listo!");
 				break;
@@ -160,6 +164,16 @@ int main(int argc, char* argv[]){
 
 			if (fd == sock_mem){
 				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+
+				if (header_tmp->tipo_de_mensaje != MEMINFO)
+					break;
+
+
+				if((stat = recibirInfoMem(fd, &frames, &frame_size)) == -1){
+					puts("No se recibio correctamente informacion de Memoria!");
+					return FALLO_GRAL;
+				}
+
 				break;
 
 			} else if (fd == sock_fs){
@@ -181,7 +195,8 @@ int main(int argc, char* argv[]){
 				break;
 			}
 
-			puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito");
+			puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito...");
+			printf("El valor de header_tmp es: proceso %d \t mensaje: %d", header_tmp->tipo_de_proceso, header_tmp->tipo_de_mensaje);
 
 		}} // aca terminan el for() y el if(FD_ISSET)
 	}
@@ -285,22 +300,23 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 	return status;
 }
 
-struct pcb nuevoPCB;
 
-uint32_t globalPID = 0;
-uint32_t pcHarcodeado = 1;
-uint32_t psHarcodeado = 1;
 
-void nuevoPcb(){
+/*
+ */
+tPCB *nuevoPcb(int pageCount){
 
-	nuevoPCB.id = globalPID;
+	tPCB *new_pcb = malloc(sizeof *new_pcb);
+
+	new_pcb->id = globalPID;
 	globalPID++;
-	nuevoPCB.pc = pcHarcodeado;
-	pcHarcodeado++;
-	nuevoPCB.referenciaTablaProcesos = 0;
-	nuevoPCB.posicionStack = psHarcodeado;
-	psHarcodeado++;
-	nuevoPCB.exitCode = 0;
+	new_pcb->pc = 0;
+	new_pcb->paginasDeCodigo = pageCount;
+	new_pcb->indiceDeCodigo = NULL;
+	new_pcb->indiceDeStack = NULL;
+	new_pcb->indiceDeEtiquetas = NULL;
+	new_pcb->exitCode = 0;
 
+	return new_pcb;
 }
 

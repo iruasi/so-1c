@@ -10,10 +10,11 @@
 #include "../Compartidas/tiposErrores.h"
 #include "../Compartidas/tiposPaquetes.h"
 
-int recibirCodYReenviar(tPackHeader *head, int fd_sender, int fd_mem){
+int recibirCodYReenviar(tPackHeader *head, int fd_sender, int fd_mem, uint8_t stack_size){
 
 	int stat;
 	tProceso proc = KER;
+	tMensaje msj  = INI_PROG;
 
 	int packageSize; // aca guardamos el tamanio total del paquete serializado
 
@@ -23,7 +24,9 @@ int recibirCodYReenviar(tPackHeader *head, int fd_sender, int fd_mem){
 		return FALLO_GRAL;
 	}
 
-	memcpy(pack_src_serial, &proc, sizeof proc);
+	// pisamos el header del paquete serializado
+	memcpy(pack_src_serial              , &proc, sizeof proc);
+	memcpy(pack_src_serial + sizeof proc, &msj, sizeof msj);
 
 	if ((stat = send(fd_mem, pack_src_serial, packageSize, 0)) < 0){
 		perror("Error en el envio de codigo fuente. error");
