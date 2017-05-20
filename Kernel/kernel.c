@@ -8,6 +8,7 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include "../Compartidas/pcb.h"
 
 //#include "../Compartidas/funcionesPaquetes.h"
 //#include "../Compartidas/funcionesCompartidas.h"
@@ -31,10 +32,6 @@
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
-
-tPCB *nuevoPCB();
-
-uint32_t globalPID = 0;
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -156,7 +153,12 @@ int main(int argc, char* argv[]){
 			if (header_tmp->tipo_de_mensaje == SRC_CODE){
 				puts("Consola quiere iniciar un programa");
 
-				recibirCodYReenviar(header_tmp, fd, sock_mem, kernel->stack_size);
+/*				uint32_t cant_pags = kernel->stack_size; // TODO falta sumar la cantidad de pags que requiere el codigo recibido
+				pcb PCB = nuevoPcb(cant_pags);
+				Pruebo delegando estas cosas adentro de recibirCodYReenviar() ya que tenemos ahi el codigo fuente
+*/
+				procesarYCrearPrograma(header_tmp, fd, sock_mem, kernel->stack_size, frame_size);
+
 
 				puts("Listo!");
 				break;
@@ -294,29 +296,10 @@ int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketClie
 		printf("%d Enviado\n", enviar);
 
 
+
+
 	}
 
 	free(buffer);
 	return status;
 }
-
-
-
-/*
- */
-tPCB *nuevoPcb(int pageCount){
-
-	tPCB *new_pcb = malloc(sizeof *new_pcb);
-
-	new_pcb->id = globalPID;
-	globalPID++;
-	new_pcb->pc = 0;
-	new_pcb->paginasDeCodigo = pageCount;
-	new_pcb->indiceDeCodigo = NULL;
-	new_pcb->indiceDeStack = NULL;
-	new_pcb->indiceDeEtiquetas = NULL;
-	new_pcb->exitCode = 0;
-
-	return new_pcb;
-}
-
