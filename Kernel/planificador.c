@@ -48,7 +48,7 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 
 	if ((stat = send(sock_con, pack_pid, sizeof(pack_pid), 0)) == -1)
 		perror("Fallo envio de PID a Consola. error");
-	free(pack_pid);
+	freeAndNULL(pack_pid);
 
 }
 

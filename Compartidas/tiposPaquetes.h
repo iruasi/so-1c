@@ -17,12 +17,14 @@ typedef enum {
 	SOLIC_BYTES = 53,
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
+	INSTR       = 56,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
 	NEWPROG     = 42,
 	RECV_PID    = 43,
 	KILL_PID    = 44,
+	KER_KILLED  = KILL_PID,
 	SEND_SRC    = SRC_CODE,
 
 	FIN      = 11

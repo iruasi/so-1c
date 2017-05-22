@@ -233,6 +233,14 @@ void* cpu_handler(void *sock_ker){
 
 	tPackHeader *head = malloc(HEAD_SIZE);
 
+	int x = (int) sock_ker;
+	x++;
+
+	while(1){
+		printf("%d\n", x);
+		sleep(10);
+	}
+
 	switch(head->tipo_de_mensaje){
 	case SOLIC_BYTES:
 		break;
@@ -291,7 +299,7 @@ void* connection_handler(void *socket_desc)
 
 void pagInvertida(){ // TODO: estoy re perdido con esto...
 
-	tEntradaPagInv *tabla;
+	//tEntradaPagInv *tabla;
 
 }
 

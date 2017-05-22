@@ -15,6 +15,8 @@ typedef enum {
 , CONS_PROG_EXIT=       -7
 , MEM_OVERALLOC=        -8
 , MEM_TOP_PAGES=        -9
+
+// nuestros fallso
 , UNDEFINED_ERR=       -20
 , FALLO_GRAL=          -21
 , FALLO_CONFIGURACION= -22
@@ -23,6 +25,7 @@ typedef enum {
 , FALLO_CONEXION=      -25
 , FALLO_SELECT=        -26
 , CONEX_INVAL=         -40
+, FALLO_MATAR=         -41
 , ABORTO_FILESYSTEM=   -98
 , ABORTO_MEMORIA=      -99
 } tErrores;

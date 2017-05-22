@@ -3,6 +3,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <commons/config.h>
 
 #include "../Compartidas/funcionesCompartidas.c"
