@@ -2,6 +2,10 @@
 #define FUNCIONESCOMPARTIDAS_H_
 
 #include <sys/select.h>
+#include <sys/types.h>
+/* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL
+ */
+void freeAndNULL(void *pointer);
 
 /* Retorna el tamanio de un archivo
  */

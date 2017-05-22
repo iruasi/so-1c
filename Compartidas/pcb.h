@@ -1,6 +1,7 @@
 #ifndef PCB_H_
 #define PCB_H_
 
+#include <stdint.h>
 #include <commons/collections/list.h>
 
 typedef struct{

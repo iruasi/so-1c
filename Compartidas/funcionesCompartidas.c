@@ -11,6 +11,11 @@
 
 #define BACKLOG 20
 
+void freeAndNULL(void *ptr){
+	free(ptr);
+	ptr = NULL;
+}
+
 unsigned long fsize(FILE* f){
 
     fseek(f, 0, SEEK_END);

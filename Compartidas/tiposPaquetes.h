@@ -21,7 +21,8 @@ typedef enum {
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
 	NEWPROG     = 42,
-	KILLPID     = 43,
+	RECV_PID    = 43,
+	KILL_PID    = 44,
 	SEND_SRC    = SRC_CODE,
 
 	FIN      = 11
@@ -47,6 +48,12 @@ typedef struct {
 	uint32_t pid;
 	uint32_t pageCount;
 } tPackPidPag; // este paquete se utiliza para enviar un pid y una cant de paginas
+
+typedef struct {
+
+	tPackHeader head;
+	int pid;
+} tPackPID;
 
 typedef struct {
 

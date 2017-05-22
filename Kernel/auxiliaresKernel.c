@@ -7,6 +7,8 @@
 
 #include "auxiliaresKernel.h"
 
+#include "planificador.h"
+
 #include "../Compartidas/funcionesPaquetes.h"
 #include "../Compartidas/tiposErrores.h"
 #include "../Compartidas/tiposPaquetes.h"
@@ -31,9 +33,10 @@ int procesarYCrearPrograma(tPackHeader *head, int fd_sender, int fd_mem, uint8_t
 	}
 
 	src_size = packageSize - (HEAD_SIZE + sizeof(unsigned long));
-	nuevoPCB((int) ceil((float) src_size + stack_size / frame_size));
+	tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size + stack_size / frame_size));
 
-	//encolarPrograma(nuevoPCB); // TODO: le damos el PCB al planificador a esta altura ya?
+	encolarPrograma(new_pcb, fd_sender);// TODO: le damos el PCB al planificador a esta altura ya?
+
 
 	// pisamos el header del paquete serializado
 	memcpy(pack_src_serial              , &proc, sizeof proc);
