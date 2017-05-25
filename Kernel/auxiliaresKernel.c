@@ -14,16 +14,15 @@
 #include "../Compartidas/tiposPaquetes.h"
 #include "../Compartidas/pcb.h"
 
-uint32_t globalPID = 0;
+uint32_t globalPID;
 
-int procesarYCrearPrograma(tPackHeader *head, int fd_sender, int fd_mem, uint8_t stack_size, int frame_size){
+int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size){
 
 	int stat;
 	tProceso proc = KER;
 	tMensaje msj  = INI_PROG;
 
 	int packageSize; // aca guardamos el tamanio total del paquete serializado
-	int src_size;
 
 
 	void *pack_src_serial = serializeSrcCodeFromRecv(fd_sender, *head, &packageSize);
@@ -32,11 +31,7 @@ int procesarYCrearPrograma(tPackHeader *head, int fd_sender, int fd_mem, uint8_t
 		return FALLO_GRAL;
 	}
 
-	src_size = packageSize - (HEAD_SIZE + sizeof(unsigned long));
-	tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size + stack_size / frame_size));
-
-	encolarPrograma(new_pcb, fd_sender);// TODO: le damos el PCB al planificador a esta altura ya?
-
+	*src_size = packageSize - (HEAD_SIZE + sizeof(unsigned long));
 
 	// pisamos el header del paquete serializado
 	memcpy(pack_src_serial              , &proc, sizeof proc);

@@ -4,6 +4,8 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
+#include <math.h>
+
 #include <commons/config.h>
 #include <commons/string.h>
 #include <commons/log.h>
@@ -21,12 +23,9 @@
 
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
+#include "planificador.h"
 
 #define BACKLOG 20
-
-#define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
-#define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
-#define MAXMSJ 100
 
 /* MAX(A, B) es un macro que devuelve el mayor entre dos argumentos,
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
@@ -153,12 +152,11 @@ int main(int argc, char* argv[]){
 			if (header_tmp->tipo_de_mensaje == SRC_CODE){
 				puts("Consola quiere iniciar un programa");
 
-/*				uint32_t cant_pags = kernel->stack_size; // TODO falta sumar la cantidad de pags que requiere el codigo recibido
-				pcb PCB = nuevoPcb(cant_pags);
-				Pruebo delegando estas cosas adentro de recibirCodYReenviar() ya que tenemos ahi el codigo fuente
-*/
-				procesarYCrearPrograma(header_tmp, fd, sock_mem, kernel->stack_size, frame_size);
+				int src_size;
+				passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
 
+				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size + kernel->stack_size / frame_size));
+				encolarPrograma(new_pcb, fd);
 
 				puts("Listo!");
 				break;
@@ -217,89 +215,4 @@ limpieza:
 
 	liberarConfiguracionKernel(kernel);
 	return stat;
-}
-
-
-char* serializarOperandos(t_PackageEnvio *package){
-
-	char *serializedPackage = malloc(package->total_size);
-	int offset = 0;
-	int size_to_send;
-
-
-	size_to_send =  sizeof(package->tipo_de_proceso);
-	memcpy(serializedPackage + offset, &(package->tipo_de_proceso), size_to_send);
-	offset += size_to_send;
-
-
-	size_to_send =  sizeof(package->tipo_de_mensaje);
-	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
-	offset += size_to_send;
-
-	size_to_send =  sizeof(package->message_size);
-	memcpy(serializedPackage + offset, &(package->message_size), size_to_send);
-	offset += size_to_send;
-
-	size_to_send =  package->message_size;
-	memcpy(serializedPackage + offset, package->message, size_to_send);
-
-	return serializedPackage;
-}
-
-int recieve_and_deserialize(t_PackageRecepcion *packageRecepcion, int socketCliente){
-
-	int status;
-	int buffer_size;
-	char *buffer = malloc(buffer_size = sizeof(uint32_t));
-	clearBuffer(buffer,buffer_size);
-
-	uint32_t tipo_de_proceso;
-	status = recv(socketCliente, buffer, sizeof(packageRecepcion->tipo_de_proceso), 0);
-	memcpy(&(tipo_de_proceso), buffer, buffer_size);
-	if (status < 0) return FALLO_RECV;
-
-	uint32_t tipo_de_mensaje;
-	status = recv(socketCliente, buffer, sizeof(packageRecepcion->tipo_de_mensaje), 0);
-	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
-	if (status < 0) return FALLO_RECV;
-
-
-	uint32_t message_size;
-	status = recv(socketCliente, buffer, sizeof(packageRecepcion->message_size), 0);
-	memcpy(&(message_size), buffer, buffer_size);
-	if (status < 0) return FALLO_RECV;
-
-	status = recv(socketCliente, packageRecepcion->message, message_size, 0);
-	if (status < 0) return FALLO_RECV;
-
-
-
-	//TIPODEMENSAJE=2 significa reenviar el paquete a memoria
-
-	if(tipo_de_mensaje == 2 ){
-		printf("\nNos llego un paquete para reenviar a memoria\n");
-		printf("Reenviando..\n");
-		t_PackageEnvio packageEnvio;
-		packageEnvio.tipo_de_proceso = 1;
-
-		//
-
-		packageEnvio.tipo_de_mensaje = tipo_de_mensaje;
-		packageEnvio.message = malloc(message_size);
-		packageEnvio.message_size = message_size;
-		packageEnvio.total_size = sizeof(packageEnvio.tipo_de_mensaje)+sizeof(packageEnvio.tipo_de_proceso)+sizeof(packageEnvio.message_size)+packageEnvio.message_size;
-		strcpy(packageEnvio.message, packageRecepcion->message);
-		char *serializedPackage;
-		serializedPackage = serializarOperandos(&packageEnvio);
-		int enviar;
-		enviar = send(3,serializedPackage,packageEnvio.total_size,0);
-		printf("%d Enviado\n", enviar);
-
-
-
-
-	}
-
-	free(buffer);
-	return status;
 }
