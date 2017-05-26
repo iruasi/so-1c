@@ -19,14 +19,14 @@ typedef struct _t_PackageRecepcion {
 	uint32_t message_long;			// NOTA: Es calculable. Aca lo tenemos por fines didacticos!
 } t_PackageRecepcion;
 
-typedef struct{
+typedef struct {
 
 	uint32_t frame;
 	uint32_t pid;
 	uint32_t page;
-} tCacheEntrada;
+} tCacheEntrada, tEntradaPagInv;
 
-typedef struct{
+typedef struct {
 
 	void *code;
 	void *stack;

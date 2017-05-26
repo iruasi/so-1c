@@ -14,32 +14,26 @@
 #include "../Compartidas/funcionesCompartidas.c"
 #include "../Compartidas/funcionesPaquetes.c"
 #include "../Compartidas/tiposErrores.h"
+#include "apiMemoria.h"
 #include "manejadoresMem.h"
 #include "memoriaConfigurators.h"
 #include "structsMem.h"
 
-
-#define MAX_IP_LEN 16 // Este largo solo es util para IPv4
-#define MAX_PORT_LEN 6
-
-#define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
-#define MAX_SIZE 100
-
 #define BACKLOG 20
-#define SIZEOF_HMD 5
-#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
-// tal vez no sea necesario que sea hexa
+
 
 void* connection_handler(void *);
 void* kernel_handler(void *sock_ker);
 void* cpu_handler(void *sock_cpu);
 
 
-
-extern int sizeFrame;
+int size_frame;
+int quant_frames;
 
 extern tCacheEntrada *CACHE;
 extern uint8_t *MEM_FIS;
+
+char *mem_ptr;
 
 int main(int argc, char* argv[]){
 
@@ -48,16 +42,27 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
+	int stat;
+
 	tMemoria *memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
-	sizeFrame = memoria->marco_size;
+	size_frame   = memoria->marco_size;
+	quant_frames = memoria->marcos;
 
 	// inicializamos la "CACHE"
 	CACHE = setupCache(memoria->entradas_cache);
 
 	// inicializamos la "MEMORIA FISICA"
-	MEM_FIS = setupMemoria(memoria->marcos, memoria->marco_size);
+	char (*mem)[memoria->marcos][memoria->marco_size];
+//	if ((stat = setupMemoria(memoria->marcos, memoria->marco_size, &mem)) != 0)
+//		return ABORTO_MEMORIA;
+	if ((stat = setupMemoria(3, 4, &mem)) != 0)
+		return ABORTO_MEMORIA;
+
+	mem_ptr = mem;
+
+	escribirBytes(0, 0, 0, 0, 0);
 
 	tHeapMeta *primerHMD = (tHeapMeta *) MEM_FIS;
 	// Para ver bien como es que funciona bien este printf, esta bueno meterse con el gdb y mirar la memoria de cerca..
@@ -68,7 +73,7 @@ int main(int argc, char* argv[]){
 	pthread_t kern_thread;
 	bool kernExists = false;
 	int sock_entrada , client_sock , clientSize , new_sock;
-	int stat;
+
 	struct sockaddr_in client;
 	clientSize = sizeof client;
 
@@ -174,7 +179,7 @@ void* kernel_handler(void *sock_kernel){
 
 			recv(*sock_ker, &pid, sizeof (uint32_t), 0);
 			recv(*sock_ker, &pageCount, sizeof (uint32_t), 0);
-			void *segs_location = procesarYCrearPrograma(pid, pageCount);
+			void *segs_location = inicializarPrograma(pid, pageCount);
 
 			break;
 
@@ -253,91 +258,15 @@ void* cpu_handler(void *sock_ker){
 	return head;
 }
 
-/*
-  Esto maneja las conexiones de cada proceso que se le conecta
-  */
-void* connection_handler(void *socket_desc)
-{
-	//Get the socket descriptor
-	int sock = *(int*) socket_desc;
-	int stat;
-	int bytes_sent;
-	char buf[MAXMSJ];
-	clearBuffer(buf, MAXMSJ);
 
-	t_PackageRecepcion package;
-
-	stat = recieve_and_deserialize(&package,sock);
-	if (stat == FALLO_RECV)
-		perror("Fallo receive and deserialize con FALLO RECV. error");
-
-	strcpy(buf, "Hola soy Memoria\n");
-	bytes_sent = send(sock,buf, sizeof(buf), 0);
-	printf("Se enviaron: %d bytes a socket nro %d \n", bytes_sent, sock);
-	clearBuffer(buf, MAXMSJ);
-
-	if (bytes_sent == -1){
-		printf("Error en la recepcion de datos!\n valor retorno recv: %d \n", bytes_sent);
-		return (void *) FALLO_RECV;
-	}
-
-	while ((stat = recv(sock, buf, MAXMSJ, 0)) > 0){
-
-		printf("%s\n", buf);
-		clearBuffer(buf, MAXMSJ);
-	}
-	if (stat < 0){
-		printf("Algo se recibio mal! stat = %d", stat);
-		return FALLO_RECV;
-	}
-
-	puts("Client Disconnected");
-	close(sock);
-	return 0;
-}
+void pagInvertida(){ // TODO: estoy medio perdido con esto...
 
 
-void pagInvertida(){ // TODO: estoy re perdido con esto...
+
 
 	//tEntradaPagInv *tabla;
 
 }
 
 
-
-
-
-
-int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
-
-	int status;
-	int buffer_size;
-	char *buffer = malloc(buffer_size = sizeof(uint32_t));
-	clearBuffer(buffer,buffer_size);
-
-	uint32_t tipo_de_proceso;
-	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
-	memcpy(&(tipo_de_proceso), buffer, buffer_size);
-	if (status < 0) return FALLO_RECV;
-
-	uint32_t tipo_de_mensaje;
-	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
-	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
-	if (status < 0) return FALLO_RECV;
-
-
-	uint32_t message_long;
-	status = recv(socketCliente, buffer, sizeof(package->message_long), 0);
-	memcpy(&(message_long), buffer, buffer_size);
-	if (status < 0) return FALLO_RECV;
-
-	status = recv(socketCliente, package->message, message_long, 0);
-	if (status < 0) return FALLO_RECV;
-
-	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
-
-	free(buffer);
-
-	return status;
-}
 

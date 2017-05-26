@@ -10,24 +10,18 @@ extern tMemoria *memoria;
 extern tCacheEntrada *CACHE;
 extern uint8_t *MEM_FIS;
 
-/* Dumpea lo que hay en MEM_FIS
- * despues tendria que ampliarse para dumpear el stack
- */
-void dump(void *memory_location);
+#define SIZEOF_HMD 5
+#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
 
 /* Crea una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  */
-void *setupMemoria(int quantity, int size);
-
+int setupMemoria(int frames, int frame_size, char (**mem)[frames][frame_size]);
+char *setupMemoria2(int frames, int frame_size, char (*mem)[frame_size]);
 /* 'Crea' una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  */
 tCacheEntrada *setupCache(int quantity);
-
-/* limpia toda la cache
- */
-void wipeCache(tCacheEntrada *cache, uint32_t quant);
 
 /* recorre secuencialmente CACHE hasta dar con una entrada que tenga el pid y page buscados
  */
@@ -49,14 +43,6 @@ uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page);
  */
 tCacheEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame);
 
-/* Dado un PID y una cantidad de paginas, intenta crear las estructuras de administracion necesarias
- * para un programa.
- * De momento retorna un puntero al lugar de memoria que puede afectar o NULL
- * TODO: deberia retornar un int o nada; precisamos la tabla de paginas invertida
- */
-uint8_t *inicializarProgramaBeta(int pid, int page_count, int sourceSize, void *srcCode);
-
-uint8_t *asignarPaginas(int pid, int page_count);
 
 /* Crea un HMD para un size requerido de reserva. Actualmente trabaja sobre MEM_FIS
  * Retorna un puntero a un espacio de MEM_FIS donde se podran escribir bytes
@@ -69,7 +55,8 @@ uint8_t *reservarBytes(int sizeReserva);
  */
 uint8_t esReservable(int size, tHeapMeta *heapMetaData);
 
-/* Esta funcion deberia usarse solamente para crear el HMD al final de una reserva en heap.
+/* Esta funcion deberia usarse solamente para crear el HMD al final de una reserva en heap,
+ * o para crear el primer HMD al setear la MEMORIA_FISICA...
  * Crea un nuevo HMD de tamanio size en una direccion de memoria, y por defecto esta libre
  */
 tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size);
@@ -86,18 +73,11 @@ uint8_t *buscarEnCache(uint32_t pid, uint32_t page);
  */
 void insertarEnCache(tCacheEntrada entry);
 
-/* es parte del API de Memoria; Realiza el pedido de escritura de CPU
- * Esta es la funcion que en el TP viene a ser "Almacenar Bytes en una Pagina"
- */
-uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer);
 
 /* esta la utiliza `almacenarBytes', una vez que ya conoce en que frame debe almacenar el buffer
  */
 void escribirBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size, void* buffer); // todo: escribir implementacion
 
-/* Se ejecuta al recibir el del CPU
- */
-uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size);
 
 /* Esta es la funcion que en el TP viene a ser "Solicitar Bytes de una Pagina"
  */
