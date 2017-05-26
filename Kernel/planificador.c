@@ -9,17 +9,12 @@
 #include "planificador.h"
 #include "../Compartidas/pcb.h"
 #include "../Compartidas/tiposPaquetes.h"
-
+#include "../Compartidas/funcionesCompartidas.h"
 
 // TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
 // Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
 
 
-t_queue* New;
-t_queue* Ready;
-t_queue* Exec;
-t_queue* Block;
-t_queue* Exit;
 
 /*
  * Se podria manejar la planificacion actuando en base a eventos. Cada vez que un evento sucede,
@@ -27,19 +22,41 @@ t_queue* Exit;
  *
  */
 
-/* Comienza los procedimientos de planificacion, dado un grado de multiprogramacion
+t_queue *New, *Ready, *Exec, *Block, *Exit;
+
+int multiprog;
+char *sched_policy; // algoritmo de planificacion: FIFO || RR
+
+/* Configura las variables que los planificadores van a ir necesitando
  */
-void startScheduling(int multiprog){
+void setupPlanificador(int multiprogramming, char *algorithm){
 
-
-
+	sched_policy = malloc(sizeof *algorithm);
+	sched_policy = algorithm;
+	multiprog = multiprogramming;
 }
 
+
+void largoPlazo(int multiprog){
+
+	if(queue_size(Ready) < multiprog){
+		// controlamos que nadie mas este usando este recurso
+		queue_push(Ready, queue_pop(New));
+
+	} else if(queue_size(Ready) > multiprog){
+		// controlamos que el programa se termine de ejecutar
+		queue_push(Exit, queue_pop(Ready));
+	}
+}
+
+
+void cortoPlazo(){}
 
 void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 
 	int stat;
 	queue_push(New, (void *) nuevoPCB);
+
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
 	pack_pid->head.tipo_de_proceso = KER;
@@ -49,6 +66,12 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	if ((stat = send(sock_con, pack_pid, sizeof(pack_pid), 0)) == -1)
 		perror("Fallo envio de PID a Consola. error");
 	freeAndNULL(pack_pid);
+
+}
+
+void updateQueue(t_queue *Q){
+
+
 
 }
 

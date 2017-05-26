@@ -5,9 +5,10 @@
 
 #include "../Compartidas/pcb.h"
 
-void startScheduling(int multiprog);
-
+void setupPlanificador(int multiprogramming, char *algorithm);
 void encolarPrograma(tPCB *new_PCB, int sock_consola);
+void updateQueue(t_queue *queue);
+
 void freePCBs(t_queue *queue);
 void limpiarPlanificadores(void);
 
