@@ -155,7 +155,7 @@ int main(int argc, char* argv[]){
 				int src_size;
 				passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
 
-				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size + kernel->stack_size / frame_size));
+				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
 				encolarPrograma(new_pcb, fd);
 
 				puts("Listo!");

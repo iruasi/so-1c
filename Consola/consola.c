@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "../Compartidas/funcionesCompartidas.c"
+#include "../Compartidas/funcionesCompartidas.h"
 #include "../Compartidas/funcionesPaquetes.h"
 #include "../Compartidas/tiposPaquetes.h"
 #include "../Compartidas/tiposErrores.h"

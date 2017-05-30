@@ -6,10 +6,13 @@
 #include <stdbool.h>
 #include <commons/config.h>
 
-#include "../Compartidas/funcionesCompartidas.c"
+#include "../Compartidas/funcionesCompartidas.h"
+#include "../Compartidas/funcionesPaquetes.h"
 #include "../Compartidas/tiposErrores.h"
+#include "../Compartidas/tiposPaquetes.h"
 #include "cpuConfigurators.h"
-#include "pcb.h"
+#include "../Compartidas/pcb.h"
+//#include "pcb.h"
 
 #include <parser/parser.h>
 #include <parser/metadata_program.h>
@@ -18,17 +21,20 @@
 #define MAX_PORT_LEN 6
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
-
-void ejecutarPrograma(pcb*);
+int pedirInstruccion(tPCB *pcb, char **linea);
+int ejecutarPrograma(tPCB*);
 void ejecutarAsignacion();
-void obtenerDireccion(variable*);
+void obtenerDireccion(variable*); // TODO: ADAPTAR
 uint32_t obtenerValor(uint32_t, uint32_t, uint32_t);
 void almacenar(uint32_t,uint32_t,uint32_t,uint32_t);
 uint32_t getPagDelIndiceStack(uint32_t);
 uint32_t getOffsetDelIndiceStack(uint32_t);
 uint32_t getSizeDelIndiceStack(uint32_t);
 
+
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
+
+tPCB *recvPCB();
 
 bool termino = false;
 
@@ -87,60 +93,43 @@ int main(int argc, char* argv[]){
 
 	strcpy(buf, "Hola soy CPU");
 
-		// CONECTAR CON MEMORIA...
-		printf("Conectando con memoria...\n");
-		sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
-		if (sock_mem < 0)
-			return sock_mem;
-		//paso estructura dinamica
-		t_Package package;
-		package.tipo_de_proceso = cpu_data->tipo_de_proceso;
-		package.tipo_de_mensaje = 2;
-		package.message = buf;
-		package.message_long = strlen(package.message)+1;
-		package.total_size = sizeof(package.tipo_de_proceso)+sizeof(package.tipo_de_mensaje)+sizeof(package.message_long)+package.message_long+sizeof(package.total_size);
-
-		char *serializedPackage;
-		serializedPackage = serializarOperandos(&package);
-
-		send(sock_mem, serializedPackage, package.total_size, 0);
-
-
-
-
-
-		//fin envio estructura dinamica
-
-
-
-
-		stat = recv(sock_mem, buf, MAXMSJ, 0);
-		printf("%s\n", buf);
-		clearBuffer(buf, MAXMSJ);
-
-		if (stat < 0){
-			printf("Error en la conexion con Memoria! status: %d \n", stat);
-			return FALLO_CONEXION;
-		}
-
-		printf("socket de memoria es: %d\n",sock_mem);
-
-	pcb* pcbDePrueba = malloc(sizeof(pcb));
-	pcbDePrueba->id = 1;
-	pcbDePrueba->pc = 0;
-	ejecutarPrograma(pcbDePrueba);
-
+	// CONECTAR CON MEMORIA...
+	printf("Conectando con memoria...\n");
+	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
+	if (sock_mem < 0){
+		perror("Fallo conexion a Memoria. error");
+		return FALLO_CONEXION;
+	}
 
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
-	if (sock_kern < 0)
-		return sock_kern;
+	if (sock_kern < 0){
+		perror("Fallo conexion a Kernel. error");
+		return FALLO_CONEXION;
+	}
 
 
-	while((stat = recv(sock_kern, buf, MAXMSJ, 0)) > 0){
-		printf("%s\n", buf);
+	tPackHeader *head;
+	tPCB *pcb;
+	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
 
-		clearBuffer(buf, MAXMSJ);
+		if (head->tipo_de_mensaje == FIN){
+			puts("Kernel se va!");
+			liberarConfiguracionCPU(cpu_data);
+
+		} else if (head->tipo_de_mensaje == PCB_EXEC){
+			if((pcb = recvPCB()) == NULL){
+				return FALLO_RECV;
+			}
+
+			ejecutarPrograma(pcb);
+
+
+		} else {
+			return -99;
+		}
+
+
 	}
 
 
@@ -157,31 +146,72 @@ int main(int argc, char* argv[]){
 	return 0;
 }
 
+tPCB *recvPCB(){
 
-void ejecutarPrograma(pcb* pcb){
-	FILE* fileProg = fopen("facil.ansisop", "r");
-	char* texto = malloc(5000); //TODO:  DESPUES SE HACE BIEN ESTO
-	fread(texto, 5000,1,fileProg);
-	//char* texto = malloc(1000);
-	//recv(sock_kern, texto, 1000, 0); TODO: hacer que reciba el programa del kernel
-	printf("%s\n", texto);
+	tPCB *pcb;
+	int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
+	int stat;
+	if((stat = recv(sock_kern, &pcb->id, sizeof pcb->id, 0)) == -1){
+		perror("Fallo recepcion de PCB. error");
+		return NULL;
+	}
+	if((stat = recv(sock_kern, &pcb->pc, sizeof pcb->pc, 0)) == -1){
+		perror("Fallo recepcion de PCB. error");
+		return NULL;
+	}
+	if((stat = recv(sock_kern, &pcb->paginasDeCodigo, sizeof pcb->paginasDeCodigo, 0)) == -1){
+		perror("Fallo recepcion de PCB. error");
+		return NULL;
+	}
+	if((stat = recv(sock_kern, &pcb->exitCode, sizeof pcb->exitCode, 0)) == -1){
+		perror("Fallo recepcion de PCB. error");
+		return NULL;
+	}
 
-	t_metadata_program* programa = metadata_desde_literal(texto);
-	printf("Cantidad de funciones: %d\n", programa->cantidad_de_funciones);
-	printf("Cantidad de instrucciones: %d\n", programa->instrucciones_size);
-	//ejecutarAsignacion();
-	while(termino==false){
-			//LEE LA PROXIMA LINEA DEL PROGRAMA
-			char*  linea = conseguirDatosDeLaMemoria(texto, programa->instrucciones_serializado[pcb->pc].start, programa->instrucciones_serializado[pcb->pc].offset);
-			printf("La linea %d es: %s", (pcb->pc+1), linea);
-			//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
-			analizadorLinea(linea, &functions, &kernel_functions);
-			free(linea);
-			pcb->pc++;
-		};
-		metadata_destruir(programa);
-		free(texto);
+	return pcb;
+}
 
+
+int ejecutarPrograma(tPCB* pcb){
+
+	int stat;
+	char *linea;
+
+	do{
+		//LEE LA PROXIMA LINEA DEL PROGRAMA
+		if ((stat = pedirInstruccion(pcb, &linea)) != 0)
+			return FALLO_GRAL;
+
+		printf("La linea %d es: %s", (pcb->pc+1), linea);
+		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
+		analizadorLinea(linea, &functions, &kernel_functions);
+		free(linea);
+		pcb->pc++;
+	} while(!termino);
+
+	termino = false;
+
+	return EXIT_SUCCESS;
+}
+
+int pedirInstruccion(tPCB *pcb, char **linea){
+
+	tPackSrcCode *line_code;
+
+	tPackPCB *ppcb = malloc(sizeof *ppcb);
+	ppcb->head.tipo_de_proceso = CPU;
+	ppcb->head.tipo_de_mensaje = INSTRUC_GET;
+	ppcb->pid  = pcb->id;
+	ppcb->page = 0;
+	ppcb->offset = pcb->indiceDeCodigo->offsetInicio;
+	ppcb->size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+	send(sock_mem, ppcb, sizeof (tPackPCB), 0);
+
+	line_code = deserializeSrcCode(sock_kern);
+	*linea = malloc(line_code->sourceLen);
+	memcpy(*linea, line_code->sourceCode, line_code->sourceLen);
+
+	return 0;
 }
 
 void ejecutarAsignacion(){

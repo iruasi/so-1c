@@ -10,6 +10,13 @@ typedef enum {
 	HSHAKE      = 1,
 	SRC_CODE    = 3,
 
+	// Mensajes para CPU send/recv...
+	PCB_EXEC    = 21, // serian para Planificador
+	PCB_PREEMPT = 22, // serian para Planificador
+	PCB_SAVE    = PCB_PREEMPT, // serian para Memoria
+	PCB_RESTORE = PCB_EXEC, // serian para Memoria
+	INSTRUC_GET = 23,
+
 	// API Memoria & Mensaje que recibe/envia Memoria
 	ASIGN_PAG   = 50,
 	INI_PROG    = 51,
@@ -17,7 +24,7 @@ typedef enum {
 	SOLIC_BYTES = 53,
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
-	INSTR       = 56,
+	INSTR       = INSTRUC_GET,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
@@ -27,7 +34,7 @@ typedef enum {
 	KER_KILLED  = KILL_PID,
 	SEND_SRC    = SRC_CODE,
 
-	FIN      = 11
+	FIN         = 11
 } tMensaje;
 
 
@@ -56,6 +63,14 @@ typedef struct {
 	tPackHeader head;
 	int pid;
 } tPackPID;
+
+typedef struct {
+	tPackHeader head;
+	int pid;
+	int page;
+	int offset;
+	int size;
+} tPackPCB;
 
 typedef struct {
 

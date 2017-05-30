@@ -238,6 +238,8 @@ void* cpu_handler(void *sock_ker){
 
 	switch(head->tipo_de_mensaje){
 	case SOLIC_BYTES:
+		// TODO: este ya se podria codificar un toque mas
+
 		break;
 	case ALMAC_BYTES:
 		break;
@@ -249,7 +251,7 @@ void* cpu_handler(void *sock_ker){
 }
 
 
-void pagInvertida(){ // TODO: estoy medio perdido con esto...
+void pagInvertida(){
 
 
 

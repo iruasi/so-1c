@@ -89,6 +89,49 @@ tPackSrcCode *recvSourceCode(int sock_in){
 	return src_pack;
 }
 
+
+tPackSrcCode *deserializeSrcCode(int sock_in){
+	unsigned long bufferSize;
+	void *bufferCode;
+	int offset = 0;
+	int stat;
+
+	tPackSrcCode *line_pack;
+
+	// recibimos el valor del largo del codigo fuente
+	if ((stat = recv(sock_in, &bufferSize, sizeof bufferSize, 0)) == -1){
+		perror("No se pudo recibir el size del codigo fuente. error");
+		return NULL;
+	}
+	bufferSize++; // hacemos espacio apra el /0
+
+	// hacemos espacio para toda la estructura en serie
+	if ((line_pack = malloc(HEAD_SIZE + sizeof (int) + bufferSize)) == NULL){
+		perror("No se pudo mallocar para el src_pack");
+		return NULL;
+	}
+
+	offset += sizeof (tPackHeader);
+	memcpy(line_pack + offset, &bufferSize, sizeof bufferSize);
+	offset += sizeof bufferSize;
+
+	if ((bufferCode = malloc(bufferSize)) == NULL){
+		perror("No se pudo almacenar memoria para el buffer del codigo fuente. error");
+		return NULL;
+	}
+
+	// recibimos el codigo fuente
+	if ((stat = recv(sock_in, bufferCode, bufferSize, 0)) == -1){
+		perror("No se pudo recibir el size del codigo fuente. error");
+		return NULL;
+	}
+	bufferCode[bufferSize -1] = '\0';
+
+	memcpy(line_pack + offset, bufferCode, bufferSize);
+
+	return line_pack;
+}
+
 void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 
 	unsigned long bufferSize;

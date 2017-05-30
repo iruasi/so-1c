@@ -92,6 +92,8 @@ uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 
 uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size){
 
+	// TODO:offset + size / memoria->marco_size --> cuantas paginas hay que pasar desde el 0
+
 	uint8_t *frame = obtenerFrame(pid, page);
 	if (frame == NULL)
 		perror("No se pudo obtener el marco de la pagina. error");
