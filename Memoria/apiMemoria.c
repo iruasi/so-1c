@@ -1,16 +1,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "../Compartidas/tiposErrores.h"
 #include "../Compartidas/tiposPaquetes.h"
 #include "manejadoresMem.h"
 #include "apiMemoria.h"
 #include "structsMem.h"
+#include "auxiliaresMemoria.h"
 
-
-extern int size_frame;
-extern uint8_t *MEM_FIS;
+extern tMemoria *memoria;
+extern char *MEM_FIS;
 
 // OPERACIONES DE LA MEMORIA
 
@@ -31,7 +32,7 @@ void dump(void *mem_dir){ // de momento mem_dir no es nada
 	int i;
 
 	puts("COMIENZO DE DUMP");
-	for(i = 0; i < size_frame - SIZEOF_HMD; i += hmd->size + SIZEOF_HMD){
+	for(i = 0; i < memoria->marco_size - SIZEOF_HMD; i += hmd->size + SIZEOF_HMD){
 
 		if (!hmd->isFree){
 
@@ -52,6 +53,12 @@ void dump(void *mem_dir){ // de momento mem_dir no es nada
 // API DE LA MEMORIA
 
 void *inicializarPrograma(int pid, int pageCount){
+
+	int reservadas = reservarCodYStackInv(pid, pageCount);
+	if (reservadas == pageCount)
+		puts("Se reservo bien la cantidad de paginas solicitadas");
+
+
 
 	return NULL;
 }

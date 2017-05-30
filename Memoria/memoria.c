@@ -11,8 +11,8 @@
 #include <errno.h>
 
 #include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/funcionesCompartidas.c"
-#include "../Compartidas/funcionesPaquetes.c"
+#include "../Compartidas/funcionesCompartidas.h"
+#include "../Compartidas/funcionesPaquetes.h"
 #include "../Compartidas/tiposErrores.h"
 #include "apiMemoria.h"
 #include "manejadoresMem.h"
@@ -26,14 +26,9 @@ void* connection_handler(void *);
 void* kernel_handler(void *sock_ker);
 void* cpu_handler(void *sock_cpu);
 
-
-int size_frame;
-int quant_frames;
-
-extern tCacheEntrada *CACHE;
-extern uint8_t *MEM_FIS;
-
-char *mem_ptr;
+tMemoria *memoria;
+tCacheEntrada *CACHE;
+char *MEM_FIS;
 
 int main(int argc, char* argv[]){
 
@@ -47,27 +42,22 @@ int main(int argc, char* argv[]){
 	tMemoria *memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
-	size_frame   = memoria->marco_size;
-	quant_frames = memoria->marcos;
-
 	// inicializamos la "CACHE"
-	CACHE = setupCache(memoria->entradas_cache);
-
-	// inicializamos la "MEMORIA FISICA"
-	char (*mem)[memoria->marcos][memoria->marco_size];
-//	if ((stat = setupMemoria(memoria->marcos, memoria->marco_size, &mem)) != 0)
-//		return ABORTO_MEMORIA;
-	if ((stat = setupMemoria(3, 4, &mem)) != 0)
+	if ((stat = setupCache(memoria->entradas_cache)) != 0)
 		return ABORTO_MEMORIA;
 
-	mem_ptr = mem;
+	// inicializamos la "MEMORIA FISICA"
+	if ((stat = setupMemoria(memoria->marcos, memoria->marco_size)) != 0)
+		return ABORTO_MEMORIA;
 
-	escribirBytes(0, 0, 0, 0, 0);
+	void *g = "Glory to the Lord!";
+	escribirBytes(0, 31, 10, strlen(g), g);
 
-	tHeapMeta *primerHMD = (tHeapMeta *) MEM_FIS;
-	// Para ver bien como es que funciona bien este printf, esta bueno meterse con el gdb y mirar la memoria de cerca..
-	printf("bytes disponibles en MEM_FIS: %d\n MEM_FIS esta libre: %d\n", primerHMD->size, primerHMD->isFree);
+	void *p = leerBytes(0, 31, 10, strlen(g));
+	puts(p);
 
+
+	return 0;
 
 	//sv multihilo
 	pthread_t kern_thread;

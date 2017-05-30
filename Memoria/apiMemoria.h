@@ -3,6 +3,9 @@
 
 #include "structsMem.h"
 
+#define PID_FREE -2 // pid disponible
+#define PID_INV  -1 // pid tabla invertida
+
 // OPERACIONES DE LA MEMORIA
 
 /* Cant de milisegundos de rta de Memoria
