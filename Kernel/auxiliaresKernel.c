@@ -55,8 +55,8 @@ tPCB *nuevoPCB(int cant_pags){
 	nuevoPCB->pc = 0;
 	nuevoPCB->paginasDeCodigo   = cant_pags;
 	nuevoPCB->indiceDeCodigo    = NULL;
-	nuevoPCB->indiceDeEtiquetas = NULL;
-	nuevoPCB->indiceDeStack     = NULL;
+//	nuevoPCB->indiceDeEtiquetas = NULL;
+//	nuevoPCB->indiceDeStack     = NULL;
 	nuevoPCB->exitCode = 0;
 
 	return nuevoPCB;

@@ -122,6 +122,7 @@ int main(int argc, char* argv[]){
 				return FALLO_RECV;
 			}
 
+			puts("Recibimos un PCB para ejecutar...");
 			ejecutarPrograma(pcb);
 
 
@@ -177,6 +178,7 @@ int ejecutarPrograma(tPCB* pcb){
 	int stat;
 	char *linea;
 
+	puts("Empieza a ejecutar...");
 	do{
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
 		if ((stat = pedirInstruccion(pcb, &linea)) != 0)
@@ -189,6 +191,7 @@ int ejecutarPrograma(tPCB* pcb){
 		pcb->pc++;
 	} while(!termino);
 
+	puts("Termino de ejecutar...");
 	termino = false;
 
 	return EXIT_SUCCESS;

@@ -73,6 +73,14 @@ typedef struct {
 } tPackPCB;
 
 typedef struct {
+	tPackHeader head;
+	int pid;
+	int pc;
+	int pages;
+	int exit;
+} tPackPCBaCPU;
+
+typedef struct {
 
 	tPackHeader head;
 	int marcos;

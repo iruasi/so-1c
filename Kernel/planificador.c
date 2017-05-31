@@ -22,6 +22,8 @@
  *
  */
 
+extern int *sock_cpu;
+
 t_queue *New, *Ready, *Exec, *Block, *Exit;
 
 int multiprog;
@@ -55,7 +57,7 @@ void cortoPlazo(){}
 void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 
 	int stat;
-	queue_push(New, (void *) nuevoPCB);
+//	queue_push(New, (void *) nuevoPCB);
 
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
@@ -65,6 +67,19 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 
 	if ((stat = send(sock_con, pack_pid, sizeof(pack_pid), 0)) == -1)
 		perror("Fallo envio de PID a Consola. error");
+
+	tPackPCBaCPU * pcb_enviable = malloc(sizeof *pcb_enviable);
+	pcb_enviable->head.tipo_de_proceso = KER;
+	pcb_enviable->head.tipo_de_mensaje = PCB_EXEC;
+	pcb_enviable->pid = nuevoPCB->id;
+	pcb_enviable->pc = nuevoPCB->pc;
+	pcb_enviable->pages = nuevoPCB->paginasDeCodigo;
+	pcb_enviable->exit = nuevoPCB->exitCode;
+
+	if ((stat = send(sock_cpu[0], pcb_enviable, sizeof *pcb_enviable, 0)) == -1)
+		perror("Fallo envio de PID a Consola. error");
+
+
 	freeAndNULL(pack_pid);
 
 }

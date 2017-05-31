@@ -92,7 +92,7 @@ tPackSrcCode *recvSourceCode(int sock_in){
 
 tPackSrcCode *deserializeSrcCode(int sock_in){
 	unsigned long bufferSize;
-	void *bufferCode;
+	char *bufferCode;
 	int offset = 0;
 	int stat;
 

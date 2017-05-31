@@ -11,21 +11,17 @@
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 // todo: en la estructura tPackSrcCode podriamos aprovechar mejor el espacio. Sin embargo, funciona bien
 
+	puts(ruta);
 	FILE *file = fopen(ruta, "rb");
 	tPackSrcCode *src_code = malloc(sizeof *src_code);
-
 	src_code->head.tipo_de_proceso = sender;
 	src_code->head.tipo_de_mensaje = SRC_CODE;
-
 	unsigned long fileSize = fsize(file) + 1; // + 1 para el '\0'
 	printf("fsize es %lu\n", fileSize);
-
 	src_code->sourceLen = fileSize;
 	src_code->sourceCode = malloc(src_code->sourceLen);
-
 	fread(src_code->sourceCode, src_code->sourceLen, 1, file);
 	fclose(file);
-
 	// ponemos un '\0' al final porque es probablemente mandatorio para que se lea, send'ee y recv'ee bien despues
 	src_code->sourceCode[src_code->sourceLen - 1] = '\0';
 

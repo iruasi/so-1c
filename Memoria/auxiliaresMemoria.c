@@ -83,5 +83,5 @@ void gotoFrameInvertida(int frame_repr, int *fr_inv, int *off_inv){
  */
 	if ((frame_repr * memoria->marco_size) % sizeof(tEntradaInv) != 0){
 //todo: esto lo rompo a proposito para trabajarlo ahora...
-	};dasda
+	}
 }

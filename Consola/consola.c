@@ -54,8 +54,10 @@ int main(int argc, char* argv[]){
 
 	tPathYSock *args = malloc(sizeof *args);
 	args->sock = sock_kern;
-	args->path = "../CPU/facil.ansisop";
-	Iniciar_Programa(args);
+	args->path = "/home/utnso/tp-2017-1c-Flanders-chip-y-asociados/CPU/facil.ansisop";
+	int status = Iniciar_Programa(args);
+
+	printf("El satus es: %d\n",status);
 
 	while(!(STR_EQ(buf, "terminar\n")) && (stat != -1)){
 

@@ -32,12 +32,16 @@
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
+int *sock_cpu;
+int cant_cpus;
 int main(int argc, char* argv[]){
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
+	sock_cpu = malloc(10 * sizeof *sock_cpu);
+	cant_cpus = 0;
 	int sem, stat, ready_fds;
 	int fd, new_fd;
 	int fd_max = -1;
@@ -125,6 +129,10 @@ int main(int argc, char* argv[]){
 			printf("Aca hay uno! el fd es: %d\n", fd);
 
 			// Controlamos el listen de CPU o de Consola
+			if (fd == sock_lis_cpu){
+				sock_cpu[cant_cpus] = fd;
+				cant_cpus++;
+			}
 			if (fd == sock_lis_con || fd == sock_lis_cpu){
 
 				new_fd = handleNewListened(fd, &master_fd);

@@ -81,7 +81,7 @@ int setupMemoria(int frames, int frame_size){
 		return MEM_EXCEPTION;
 	}
 
-	populateInvertidas(frames, frame_size);
+	//populateInvertidas(frames, frame_size);
 
 	return 0;
 }
