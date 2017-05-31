@@ -3,20 +3,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <math.h>
 
 #include "manejadoresMem.h"
+#include "auxiliaresMemoria.h"
 #include "structsMem.h"
 #include "memoriaConfigurators.h"
 #include "apiMemoria.h"
 #include "../Compartidas/tiposErrores.h"
 
-extern int size_frame;
-extern int quant_frames;
-
-tMemoria *memoria;
-tCacheEntrada *CACHE;
-uint8_t *MEM_FIS;
-extern char *mem_ptr;
+int size_inv_total;
+int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
+extern tMemoria *memoria;
+extern tCacheEntrada *CACHE;
+extern char *MEM_FIS;
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
@@ -24,7 +24,7 @@ uint8_t *reservarBytes(int sizeReserva){
 // por ahora trabaja con la unica pagina que existe
 
 	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
-	int sizeLibre = size_frame - 5;
+	int sizeLibre = memoria->marco_size - SIZEOF_HMD;
 
 	uint8_t rta = esReservable(sizeReserva, hmd);
 	while(rta != ULTIMO_HMD){
@@ -73,60 +73,56 @@ uint8_t esReservable(int size, tHeapMeta *hmd){
 }
 
 
-int setupMemoria(int frames, int frame_size, char (**mem_ptr)[frames][frame_size]){
+int setupMemoria(int frames, int frame_size){
 
-	*mem_ptr = malloc(sizeof (char[frames][frame_size]));
-	if (mem_ptr == NULL){
+	MEM_FIS = malloc(frames * frame_size);
+	if (MEM_FIS == NULL){
 		perror("No se pudo crear el espacio de Memoria. error");
 		return MEM_EXCEPTION;
 	}
-	int i,j;
-	for (i = 0; i < 3; i++){
-		for (j = 0; j < 4; j++)
-			(**mem_ptr)[i][j] = 'T';
-	}
+
+	populateInvertidas(frames, frame_size);
 
 	return 0;
 }
 
+void populateInvertidas(int frames, int frame_size){
 
-tCacheEntrada *setupCache(int quantity){
+	int i, off, fr;
 
-	tCacheEntrada *entradas = malloc(quantity * sizeof *entradas);
-	flush(entradas, quantity);
+	tEntradaInv templ = {.pid = -1, .pag = -1};
+	tEntradaInv *invpag_tab = malloc(sizeof *invpag_tab);
 
-	return entradas;
+	size_inv_total = sizeof(tEntradaInv) * frames;
+	marcos_inv = ceil((float) size_inv_total / memoria->marcos);
+
+	for(i = off = fr = 0; i < frames; ++i){
+		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
+		memcpy((void *) invpag_tab + fr * frame_size + off, &templ, marcos_inv);
+	}
+}
+
+int setupCache(int quantity){
+
+	CACHE = malloc(quantity * sizeof *CACHE);
+	if (CACHE == NULL){
+		perror("No se pudo crear el espacio de Cache. error");
+		return MEM_EXCEPTION;
+	}
+
+	flush(CACHE, quantity);
+	return 0;
 }
 
 void escribirBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size, void* buffer){
 
-	int j;
-
-	for (j = 0; j < 12; j++){
-		printf("%c ", mem_ptr[j]);
-		((j +1 ) % 4 == 0)? puts("") : '\0' ;
-	}
-
-	char (*n)[quant_frames][size_frame];
-	n = mem_ptr;
-
-	puts("metodo posta");
-	int i;
-	for(i = 0; i < 3 ; i++){
-		for (j = 0; j < 4; j++)
-			printf("%c ", (*n)[i][j]);
-		puts("");
-	}
-
-	puts("hecho");
-
-	memcpy(MEM_FIS + offset, (uint8_t*) buffer, size);
+	memcpy(MEM_FIS + (frame * memoria->marco_size) + offset, buffer, size);
 }
 
 uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size){
-
-	uint8_t *buffer = malloc(size);
-	memcpy(buffer, (uint8_t *) ((uint32_t) MEM_FIS + offset), size);
+	int size_real = size + 1;
+	uint8_t *buffer = malloc(size_real);
+	memcpy(buffer, MEM_FIS + (frame * memoria->marco_size) + offset, size_real);
 
 	return buffer;
 }
@@ -147,7 +143,7 @@ uint8_t *obtenerFrame(uint32_t pid, uint32_t page){
 
 uint8_t *buscarEnCache(uint32_t pid, uint32_t page){
 
-	tCacheEntrada *entradaCache = (tCacheEntrada *) CACHE;
+	tCacheEntrada *entradaCache = CACHE;
 
 	int i;
 	for (i = 0; i < memoria->entradas_cache; i++){
@@ -182,11 +178,29 @@ tCacheEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
 	return entry;
 }
 
-uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page){
+int buscarEnMemoria(uint32_t pid, uint32_t page){ // todo: investigar y ver como hacer una buena funcion de hashing
+// por ahora la busqueda es secuencial...
 
-	uint8_t *frame = MEM_FIS; //hashFunction(pid, page); todo: investigar y ver como hacer una buena funcion de hashing
+	// frame para recorrer la tabla de invertidas, comienza salteando los frames que sabemos son de la propia tabla invertida
+	int fr = MEM_FIS + marcos_inv * sizeof(tEntradaInv);
+	int i, off; // offset para recorrer la tabla de invertidas
 
-	return frame;
+	int frame_repr = marcos_inv + 1; // frame representativo de la posicion en MEMORIA FISICA posta
+	gotoFrameInvertida(marcos_inv, &fr, &off);
+
+	tEntradaInv *entry = (tEntradaInv *) MEM_FIS;
+	for(i = 0; i < marcos_inv; frame_repr++){
+		gotoFrameInvertida(frame_repr, &fr, &off);
+		entry = (tEntradaInv *) (MEM_FIS + fr * memoria->marco_size + off);
+		if (pid == entry->pid && page == entry->pag)
+			return frame_repr;
+	}
+
+	//inv_marcos;
+
+	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page);
+
+	return 0;// todo:
 }
 
 void defragmentarHeap(uint8_t *heap_dir){

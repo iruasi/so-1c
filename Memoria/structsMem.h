@@ -2,6 +2,7 @@
 #define STRUCTSMEM_H_
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #define MAX_MESSAGE_SIZE 250
 
@@ -24,7 +25,12 @@ typedef struct {
 	uint32_t frame;
 	uint32_t pid;
 	uint32_t page;
-} tCacheEntrada, tEntradaPagInv;
+} tCacheEntrada;
+
+typedef struct {
+	int pid;
+	int pag;
+} tEntradaInv;
 
 typedef struct {
 

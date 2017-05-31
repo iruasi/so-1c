@@ -8,20 +8,22 @@
 
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE;
-extern uint8_t *MEM_FIS;
+extern char *MEM_FIS;
 
 #define SIZEOF_HMD 5
 #define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
 
 /* Crea una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
+ * Ademas escribe la tabla de paginas invertida en sus primeros bytes.
  */
-int setupMemoria(int frames, int frame_size, char (**mem)[frames][frame_size]);
-char *setupMemoria2(int frames, int frame_size, char (*mem)[frame_size]);
+int setupMemoria(int frames, int frame_size);
+void populateInvertidas(int frames, int frame_size);
+
 /* 'Crea' una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  */
-tCacheEntrada *setupCache(int quantity);
+int setupCache(int quantity);
 
 /* recorre secuencialmente CACHE hasta dar con una entrada que tenga el pid y page buscados
  */
@@ -35,9 +37,9 @@ void insertarEnCache(tCacheEntrada entry);
  */
 bool entradaCoincide(tCacheEntrada entrada, uint32_t pid, uint32_t page);
 
-/* mediante la funcion de hash encuentra el frame de la pagina de un proceso
+/* mediante la funcion de hash encuentra el frame que corresponde a la pagina de un proceso
  */
-uint8_t *buscarEnMemoria(uint32_t pid, uint32_t page);
+int buscarEnMemoria(uint32_t pid, uint32_t page);
 
 /* crea una entrada de tipo tMemEntrada, util para la cache
  */

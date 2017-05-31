@@ -85,8 +85,8 @@ void freePCBs(t_queue *queue){
 
 		pcb = (tPCB *) queue_pop(queue);
 		freeAndNULL(pcb->indiceDeCodigo);
-		freeAndNULL(pcb->indiceDeEtiquetas);
-		freeAndNULL(pcb->indiceDeStack);
+		//freeAndNULL(pcb->indiceDeEtiquetas);
+		//freeAndNULL(pcb->indiceDeStack);
 		freeAndNULL(pcb);
 	}
 }

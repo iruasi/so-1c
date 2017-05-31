@@ -25,6 +25,10 @@ int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
  */
 tPackSrcCode *recvSourceCode(int sock_in);
 
+/* Deserializa como Dios manda
+ */
+tPackSrcCode *deserializeSrcCode(int sock_in);
+
 /* Recibe de un socket el codigo fuente y lo serializa,
  * copia ademas los contenidos de algun header pasado por parametro
  * retorna un espacio de memoria utilizable para reenviar el codigo fuente.

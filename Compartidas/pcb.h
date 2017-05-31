@@ -32,10 +32,18 @@ typedef struct {
 	uint32_t pc; // Program Counter
 	uint32_t paginasDeCodigo;
 	indiceCodigo* indiceDeCodigo;
-	indiceEtiquetas* indiceDeEtiquetas;
-	indiceStack* indiceDeStack;
+//	indiceEtiquetas* indiceDeEtiquetas;
+//	indiceStack* indiceDeStack;
 	uint32_t exitCode;
 }tPCB;
 
+
+typedef struct{
+	uint32_t id;
+	uint32_t pag;
+	uint32_t offset;
+	uint32_t size;
+	uint32_t valor;
+}variable; // TODO: SACAR A FUTURO
 
 #endif /* PCB_H_ */
