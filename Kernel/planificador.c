@@ -6,6 +6,7 @@
 
 #include <commons/collections/queue.h>
 
+#include "../Compartidas/tiposErrores.h"
 #include "planificador.h"
 #include "../Compartidas/pcb.h"
 #include "../Compartidas/tiposPaquetes.h"
@@ -13,6 +14,7 @@
 
 // TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
 // Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
+// Crear as funciones para el control de los semaforos de los planificadores
 
 
 
@@ -110,4 +112,134 @@ void limpiarPlanificadores(){
 	freePCBs(Exec);  queue_destroy(Exec);
 	freePCBs(Block); queue_destroy(Block);
 	freePCBs(Exit);  queue_destroy(Exit);
+}
+
+void moverAColaReady(tPCB * proceso){
+
+	int *yaEstaReady;
+	yaEstaReady = malloc(sizeof(int));
+	*yaEstaReady = 0;
+
+	switch(proceso->estado){
+	case NEW:
+//		mutexLock(mutexColaNew);
+		eliminarDeCola(New, proceso);
+//		mutexUnlock(mutexColaNew);
+		break;
+	case READY:
+		*yaEstaReady = 1;
+		break;
+	case EXEC:
+//		mutexLock(mutexColaExec);
+		eliminarDeCola(Exec, proceso);
+//		mutexUnlock(mutexColaExec);
+		break;
+	case BLOCK:
+//		mutexLock(mutexColaBlock);
+		eliminarDeCola(Block, proceso);
+//		mutexUnlock(mutexColaBlock);
+		break;
+	}
+
+	if (*yaEstaReady == 0){
+		proceso->estado = READY;
+//		mutexLock(mutexColaReady);
+		queue_push(Ready, proceso);
+//		mutexUnlock(mutexColaReady);
+	}
+
+	free(yaEstaReady);
+}
+
+void moverAColaExec(tPCB * proceso){
+
+//	mutexLock(mutexColaReady);
+	eliminarDeColaReady(Ready , proceso);
+//	mutexUnlock(mutexColaReady);
+	proceso->estado = EXEC;
+
+//	mutexLock(mutexColaExec);
+	queue_push(Exec , proceso);
+//	mutexUnlock(mutexColaExec);
+
+}
+
+void moverAColaBlock(tPCB* proceso) {
+
+//	mutexLock(mutexColaExec);
+	eliminarDeCola(Exec, proceso);
+//	mutexUnlock(mutexColaExec);
+
+	proceso->estado = BLOCK;
+
+//	mutexLock(mutexColaBlock);44
+	agregarEnCoka(Block, proceso);
+//	mutexUnlock(mutexColaBlock);
+
+}
+
+void moverAColaExit(tPCB *proceso) {
+
+//	mutexLock(mutexColaExec);
+	eliminarDeCola(Exec, programa);
+//	mutexUnlock(mutexColaExec);
+
+	proceso->estado = EXIT;
+
+//	mutexLock(mutexColaExit);
+	queue_push(Exit, proceso);
+//	mutexUnlock(mutexColaExit);
+
+}
+
+void eliminarDeCola(t_queue *cola, tPCB *proceso){
+
+	tPCB *procesoAuxiliar;
+	procesoAuxiliar = malloc(sizeof(tPCB));
+	int *i;
+	i = malloc(sizeof(int));
+
+	for (*i = 0; i < queue_size(cola); *i++){
+
+		procesoAuxiliar = queue_peek(cola); //copiamos el primer elemento
+		queue_pop(cola);//lo sacamos de a cola para luego obtener el proximo
+
+		if(proceso == procesoAuxiliar)
+			i = queue_size(cola); // si es el buscado, sale del for con esto
+		else
+			queue_push(cola , procesoAuxiliar); //si no es el buscado, lo devuelve a la cola
+
+	}
+
+	free(procesoAuxiliar);
+	free(i);
+
+}
+
+int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
+// Al ser FIFO tanto FCFS como RR pasar de READY a EXEC solo sucede con
+// el primer elemento de la lsita, esto comprueba que sea el que solicitamos
+//	caso contrario arroja error
+	tPCB *procesoAuxiliar;
+	procesoAuxiliar = malloc(sizeof(tPCB));
+	int *todoOK;
+	todoOK = malloc(sizeof(int));
+	*procesoAuxiliar = queue_peek(colaReady); //copiamos el primer elemento
+
+		if(proceso == procesoAuxiliar){
+			queue_pop(colaReady);
+			todoOK = 1;
+		}else
+			todoOK = 0;
+
+	free(procesoAuxiliar);
+
+	if (todoOK == 0){
+		free(todoOK);
+		perror("Fallo, el proceso de la cola READY no es el mismo que el solicitado. error");
+		return FALLO_MOVERAEXEC;
+	}else{
+		free(todoOK);
+		return 1;
+	}
 }
