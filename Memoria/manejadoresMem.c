@@ -10,9 +10,10 @@
 #include "structsMem.h"
 #include "memoriaConfigurators.h"
 #include "apiMemoria.h"
-#include "../Compartidas/tiposErrores.h"
 
-int size_inv_total;
+#include <tiposRecursos/tiposErrores.h>
+
+
 int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE;
@@ -93,7 +94,7 @@ void populateInvertidas(int frames, int frame_size){
 	tEntradaInv templ = {.pid = -1, .pag = -1};
 	tEntradaInv *invpag_tab = malloc(sizeof *invpag_tab);
 
-	size_inv_total = sizeof(tEntradaInv) * frames;
+	int size_inv_total = sizeof(tEntradaInv) * frames;
 	marcos_inv = ceil((float) size_inv_total / memoria->marcos);
 
 	for(i = off = fr = 0; i < frames; ++i){
@@ -128,8 +129,9 @@ uint8_t *leerBytes(uint32_t pid, uint32_t frame, uint32_t offset, uint32_t size)
 }
 
 uint8_t *obtenerFrame(uint32_t pid, uint32_t page){
+	// TODO: que retornamos? un frame? o el contenido?... ver desicion...
 
-	uint8_t *frame;
+	int frame;
 
 	if ((frame = buscarEnCache(pid, page)) != NULL)
 		return frame;
@@ -156,8 +158,8 @@ uint8_t *buscarEnCache(uint32_t pid, uint32_t page){
 
 void insertarEnCache(tCacheEntrada entry){
 
-	tCacheEntrada *entradaAPisar;//todo: algoritmoLRU();
-	entradaAPisar = &entry;
+	//tCacheEntrada *entradaAPisar;//todo: algoritmoLRU();
+	//entradaAPisar = &entry;
 }
 
 bool entradaCoincide(tCacheEntrada entrada, uint32_t pid, uint32_t page){
@@ -181,12 +183,10 @@ tCacheEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame){
 int buscarEnMemoria(uint32_t pid, uint32_t page){ // todo: investigar y ver como hacer una buena funcion de hashing
 // por ahora la busqueda es secuencial...
 
-	// frame para recorrer la tabla de invertidas, comienza salteando los frames que sabemos son de la propia tabla invertida
-	int fr = MEM_FIS + marcos_inv * sizeof(tEntradaInv);
-	int i, off; // offset para recorrer la tabla de invertidas
+	int i, off, fr; // frame y offset para recorrer la tabla de invertidas
+	gotoFrameInvertida(marcos_inv, &fr, &off);
 
 	int frame_repr = marcos_inv + 1; // frame representativo de la posicion en MEMORIA FISICA posta
-	gotoFrameInvertida(marcos_inv, &fr, &off);
 
 	tEntradaInv *entry = (tEntradaInv *) MEM_FIS;
 	for(i = 0; i < marcos_inv; frame_repr++){
@@ -195,8 +195,6 @@ int buscarEnMemoria(uint32_t pid, uint32_t page){ // todo: investigar y ver como
 		if (pid == entry->pid && page == entry->pag)
 			return frame_repr;
 	}
-
-	//inv_marcos;
 
 	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page);
 

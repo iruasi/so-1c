@@ -4,7 +4,7 @@
 
 #include <commons/config.h>
 #include "memoriaConfigurators.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <tiposRecursos/tiposPaquetes.h>
 
 tMemoria *getConfigMemoria(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);

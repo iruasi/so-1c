@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "tiposErrores.h"
+#include <tiposRecursos/tiposErrores.h>
 #include "funcionesCompartidas.h"
 
 #define BACKLOG 20

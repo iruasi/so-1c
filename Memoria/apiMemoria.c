@@ -3,8 +3,9 @@
 #include <string.h>
 #include <math.h>
 
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+
 #include "manejadoresMem.h"
 #include "apiMemoria.h"
 #include "structsMem.h"
@@ -23,7 +24,6 @@ void flush(tCacheEntrada *cache, uint32_t quant){
 	for (i = 0; i < quant; ++i)
 		cache[i] = nullEntry;
 }
-
 
 void dump(void *mem_dir){ // de momento mem_dir no es nada
 
@@ -66,8 +66,6 @@ void *inicializarPrograma(int pid, int pageCount){
 // todo: esto no tiene que ser asi, en realidad...
 uint8_t *inicializarProgramaBeta(int pid, int pageCount, int sourceSize, void *srcCode){
 // para este checkpoint pasado, tenemos que almacenar el source_code en MEM_FIS
-
-	tSegmentosProg segsProg;
 
 	void *espacio_en_mem = reservarBytes(sourceSize);
 

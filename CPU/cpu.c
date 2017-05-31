@@ -6,13 +6,13 @@
 #include <stdbool.h>
 #include <commons/config.h>
 
-#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/funcionesPaquetes.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
+
 #include "cpuConfigurators.h"
-#include "../Compartidas/pcb.h"
-//#include "pcb.h"
 
 #include <parser/parser.h>
 #include <parser/metadata_program.h>

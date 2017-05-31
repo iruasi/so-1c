@@ -10,9 +10,10 @@
 #include <commons/log.h>
 #include <commons/collections/list.h>
 
-#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+
 #include "fileSystemConfigurators.h"
 
 #ifndef BACKLOG

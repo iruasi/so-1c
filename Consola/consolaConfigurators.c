@@ -1,9 +1,9 @@
-#include "consolaConfigurators.h"
-#include "../Compartidas/tiposPaquetes.h"
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#include "consolaConfigurators.h"
+#include <tiposRecursos/tiposPaquetes.h>
 
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'

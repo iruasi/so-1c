@@ -2,8 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <tiposRecursos/tiposPaquetes.h>
+
 #include "auxiliaresConsola.h"
 
 /* Dado un archivo, lo lee e inserta en un paquete de codigo fuente

@@ -1,8 +1,9 @@
 #ifndef AUXILIARESKERNEL_H_
 #define AUXILIARESKERNEL_H_
 
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/pcb.h"
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
+
 
 /* Recibe, serializa y reenvia a Memoria el codigo fuente
  * El parametro src_size es un auxiliar para obtener ese dato hasta fuera del proceso

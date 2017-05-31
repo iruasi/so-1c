@@ -2,7 +2,7 @@
 #include <math.h>
 #include <string.h>
 
-#include "../Compartidas/tiposErrores.h"
+#include <tiposRecursos/tiposErrores.h>
 
 #include "apiMemoria.h"
 #include "auxiliaresMemoria.h"
@@ -11,7 +11,6 @@
 
 extern char *MEM_FIS;
 extern tMemoria *memoria;
-extern int size_inv_total;
 extern int marcos_inv;
 
 bool pid_match(int pid, int frame, int off){
@@ -81,7 +80,17 @@ void gotoFrameInvertida(int frame_repr, int *fr_inv, int *off_inv){
  *  Esta funcion tiene que ir 'pasando los frames' hasta llegar al necesario,
  *  y despues ir corriendo el offset hasta que apunta al frame_representativo
  */
-	if ((frame_repr * memoria->marco_size) % sizeof(tEntradaInv) != 0){
-//todo: esto lo rompo a proposito para trabajarlo ahora...
-	};dasda
+
+
+//
+//	if ((frame_repr * sizeof) % sizeof(tEntradaInv) != 0){
+//
+////todo: esto lo rompo a proposito para trabajarlo ahora...
+//	}
 }
+
+
+
+
+
+

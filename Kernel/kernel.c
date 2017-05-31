@@ -10,20 +10,17 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-#include "../Compartidas/pcb.h"
 
-//#include "../Compartidas/funcionesPaquetes.h"
-//#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/funcionesPaquetes.c"
-#include "../Compartidas/funcionesCompartidas.c"
-
-#include "../Compartidas/pcb.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
 
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
+
 
 #define BACKLOG 20
 

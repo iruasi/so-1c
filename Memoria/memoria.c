@@ -10,10 +10,11 @@
 #include <unistd.h>    //write
 #include <errno.h>
 
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/funcionesPaquetes.h"
-#include "../Compartidas/tiposErrores.h"
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
+
 #include "apiMemoria.h"
 #include "manejadoresMem.h"
 #include "memoriaConfigurators.h"

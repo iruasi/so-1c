@@ -32,15 +32,6 @@ typedef struct {
 	int pag;
 } tEntradaInv;
 
-typedef struct {
-
-	void *code;
-	void *stack;
-	void *heap;
-} tSegmentosProg;
-
-
-
 int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente);
 
 

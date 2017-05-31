@@ -7,9 +7,11 @@
 #include <commons/collections/queue.h>
 
 #include "planificador.h"
-#include "../Compartidas/pcb.h"
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/funcionesCompartidas.h"
+
+#include <tiposRecursos/misc/pcb.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
+
 
 // TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
 // Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
