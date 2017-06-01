@@ -13,12 +13,14 @@ extern char *MEM_FIS;
 #define SIZEOF_HMD 5
 #define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
 
+void abortar(int pid);
+
 /* Crea una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  * Ademas escribe la tabla de paginas invertida en sus primeros bytes.
  */
-int setupMemoria(int frames, int frame_size);
-void populateInvertidas(int frames, int frame_size);
+int setupMemoria();
+void populateInvertidas();
 
 /* 'Crea' una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
@@ -46,11 +48,11 @@ int buscarEnMemoria(uint32_t pid, uint32_t page);
 tCacheEntrada crearEntrada(uint32_t pid, uint32_t page, uint32_t frame);
 
 
-/* Crea un HMD para un size requerido de reserva. Actualmente trabaja sobre MEM_FIS
+/* Crea en espacio Heap un HMD para un size requerido de reserva. Actualmente trabaja sobre MEM_FIS de una...
  * Retorna un puntero a un espacio de MEM_FIS donde se podran escribir bytes
  * Retorna NULL si no fue posible reservar el espacio pedido
  */
-uint8_t *reservarBytes(int sizeReserva);
+char *reservarBytes(int sizeReserva);
 
 /* Nos dice, dado un HMD, si su espacio de memoria es reservable por una cantidad size de bytes
  * Si es el ultimo HMD, retorna un valor #definido

@@ -21,7 +21,16 @@ extern char *MEM_FIS;
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
-uint8_t *reservarBytes(int sizeReserva){
+
+/* Esta deberia ser la rutina para destruir cualquier programa en forma abortiva
+ */
+void abortar(int pid){ // TODO: escribir el comportamiento de esta funcion
+	printf("Matamos todo lo que le pertenece al PID: %d", pid);
+}
+
+
+// Se sabe previamente que el frame corresponde a uno de HEAP
+char *reservarBytes(int sizeReserva){
 // por ahora trabaja con la unica pagina que existe
 
 	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
@@ -74,32 +83,31 @@ uint8_t esReservable(int size, tHeapMeta *hmd){
 }
 
 
-int setupMemoria(int frames, int frame_size){
+int setupMemoria(){
 
-	MEM_FIS = malloc(frames * frame_size);
+	MEM_FIS = malloc(memoria->marcos * memoria->marco_size);
 	if (MEM_FIS == NULL){
 		perror("No se pudo crear el espacio de Memoria. error");
 		return MEM_EXCEPTION;
 	}
 
-	populateInvertidas(frames, frame_size);
+	populateInvertidas();
 
 	return 0;
 }
 
-void populateInvertidas(int frames, int frame_size){
+void populateInvertidas(){
 
 	int i, off, fr;
 
 	tEntradaInv templ = {.pid = -1, .pag = -1};
-	tEntradaInv *invpag_tab = malloc(sizeof *invpag_tab);
 
-	int size_inv_total = sizeof(tEntradaInv) * frames;
-	marcos_inv = ceil((float) size_inv_total / memoria->marcos);
+	int size_inv_total = sizeof(tEntradaInv) * memoria->marcos;
+	marcos_inv = ceil((float) size_inv_total / memoria->marco_size);
 
-	for(i = off = fr = 0; i < frames; ++i){
+	for(i = off = fr = 0; i < marcos_inv; ++i){
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
-		memcpy((void *) invpag_tab + fr * frame_size + off, &templ, marcos_inv);
+		memcpy(MEM_FIS + fr * memoria->marco_size + off, &templ, marcos_inv);
 	}
 }
 

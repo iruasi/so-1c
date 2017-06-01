@@ -1,7 +1,7 @@
 #ifndef _AUXILIARESMEMORIA_H_
 #define _AUXILIARESMEMORIA_H_
 
-int reservarCodYStackInv(int pid, int pageCount);
+int reservarPaginas(int pid, int pageCount);
 int pageQuantity(int pid);
 bool frameLibre(int frame, int off);
 bool pid_match(int pid, int frame, int off);

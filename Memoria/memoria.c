@@ -158,51 +158,53 @@ void* kernel_handler(void *sock_kernel){
 	int pid, pageCount;
 
 	tPackHeader *head = calloc(HEAD_SIZE, 1);
-	tPackSrcCode *pack_src;
 
 	printf("Esperamos que lleguen cosas del socket: %d\n", *sock_ker);
 
 	do {
-		printf("Se hace una pasada\n head tiene: %d y %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
 		switch(head->tipo_de_mensaje){
-
 		case INI_PROG:
+			puts("Kernel quiere inicializar un programa.");
 
 			recv(*sock_ker, &pid, sizeof (uint32_t), 0);
 			recv(*sock_ker, &pageCount, sizeof (uint32_t), 0);
-			void *segs_location = inicializarPrograma(pid, pageCount);
+			if ((stat = inicializarPrograma(pid, pageCount)) != 0){
+				puts("No se pudo inicializar el programa. Se aborta el programa.");
+				abortar(pid);
+			}
 
-			break;
+			puts("Recibimos el codigo fuente...");
+			tPackSrcCode *pack_src;
+			if ((pack_src = recvSourceCode(*sock_ker)) == NULL){
+				puts("No se pudo recibir y almacenar el codigo fuente. Se aborta el programa.");
+				abortar(pid);
+			}
 
-		case ALMAC_BYTES:
-			puts("Kernel quiere escribir codigo fuente");
-
-
-
+			freeAndNULL(pack_src);
+			puts("Listo.");
 			break;
 
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
 
-			//recv(sock_ker, &pid, sizeof (uint32_t), 0);
-			//recv(sock_ker, &pageCount, sizeof (uint32_t), 0);
-			puts("Recibimos el codigo fuente...");
-			pack_src = recvSourceCode(*sock_ker);
+			recv(*sock_ker, &pid, sizeof pid, 0);
+			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
 
-			puts("Ahora llamamos a inicializarProgramaBeta()...");
-			inicializarProgramaBeta(0, 1, pack_src->sourceLen, pack_src->sourceCode);
-			puts("Listo!");
+			// TODO: ESTARIA BUENO QUE ESTO ANDE
+			asignarPaginas(pid, pageCount);
 
-			dump(NULL);
-
-			uint8_t * heap_proc = asignarPaginas(pid, pageCount);
 			break;
+
 		case FIN_PROG:
+
+			recv(*sock_ker, &pid, sizeof pid, 0);
+			// TODO: desalojarDatosPrograma(pid)
+
 			break;
 
 		case FIN:
-			//se quiere desconectar el Kernel de forma normal. Vamos a apagarnos aca...
-			//todo: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
+			// se quiere desconectar el Kernel de forma normal. Vamos a apagarnos aca...
+			// TODO: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
 			break;
 
 		default:

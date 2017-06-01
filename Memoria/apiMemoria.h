@@ -30,9 +30,9 @@ void dump(void *memory_location);
 
 // API DE LA MEMORIA
 
-/* Crea los segmentos del programa, segun pueda
+/* Crea las paginas de codigo y stack de un programa
  */
-void *inicializarPrograma(int pid, int pageCount);
+int inicializarPrograma(int pid, int pageCount);
 
 /* Dado un PID y una cantidad de paginas, intenta crear las estructuras de administracion necesarias
  * para un programa.
@@ -48,11 +48,12 @@ uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 
 /* Se ejecuta al recibir el del CPU
  */
-uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size);
+char *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size);
 
-/* AMPLIA la cantidad de paginas ya existnetes para el proceso
+/* (Esta funcion la pide Kernel a Memoria)
+ * AMPLIA la cantidad de paginas de HEAP ya existentes para el proceso
  */
-uint8_t *asignarPaginas(int pid, int page_count);
+void asignarPaginas(int pid, int page_count);
 
 
 #endif // APIMEMORIA_H_
