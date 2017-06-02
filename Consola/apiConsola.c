@@ -34,6 +34,7 @@ int Iniciar_Programa(tPathYSock *args){
 		perror("No pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
+
 	puts("hilo creado");
 
 	return 0;
@@ -127,9 +128,19 @@ void *programa_handler(void *pathYSock){
 		if (head_tmp.tipo_de_mensaje == RECV_PID){
 			puts("recibimos PID");
 			stat = recv(args->sock, &ppid.pid, sizeof ppid.pid, 0);
-
+			//todo: aca hay q agregar el id del proceso q acabamos de crear a una lista o algo asi para poder manejarlo.
 			//agregarPrograma();
 		}
+		//todo: aca vendria otro if cuando kernel tiene q imprimir algo por consola. le manda un mensaje.
+		/*if(head_tmp.tipo_de_mensaje == PRINT){
+			puts("Recibimos info para imprimir");
+			stat = recv(args->sock,Tamanoaimprimir,sizeof(int),0);
+			stat = recv(args->sock,mensaje,tamanoAImprimir,0);
+			puts(mensaje);
+		}*/
+
+
+
 
 		puts("Recibimos info para imprimir");
 	}

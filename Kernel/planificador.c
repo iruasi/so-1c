@@ -79,7 +79,7 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	pcb_enviable->exit = nuevoPCB->exitCode;
 
 	if ((stat = send(sock_cpu[0], pcb_enviable, sizeof *pcb_enviable, 0)) == -1)
-		perror("Fallo envio de PID a Consola. error");
+		perror("Fallo envio de PCB a CPU. error");
 
 
 	freeAndNULL(pack_pid);

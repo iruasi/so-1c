@@ -20,7 +20,7 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 	int stat;
 	tProceso proc = KER;
-	tMensaje msj  = INI_PROG;
+	tMensaje msj  = ASIGN_PAG;
 
 	int packageSize; // aca guardamos el tamanio total del paquete serializado
 

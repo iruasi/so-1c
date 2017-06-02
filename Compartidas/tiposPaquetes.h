@@ -17,6 +17,17 @@ typedef enum {
 	PCB_RESTORE = PCB_EXEC, // serian para Memoria
 	INSTRUC_GET = 23,
 
+	S_WAIT		= 30,
+	S_SIGNAL	= 31,
+	LIBERAR		= 32,
+	ABRIR		= 33,
+	BORRAR		= 34,
+	CERRAR		= 35,
+	MOVERCURSOR	= 36,
+	ESCRIBIR	= 37,
+	LEER		= 38,
+	RESERVAR	= 39,
+
 	// API Memoria & Mensaje que recibe/envia Memoria
 	ASIGN_PAG   = 50,
 	INI_PROG    = 51,

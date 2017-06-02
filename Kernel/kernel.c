@@ -200,6 +200,7 @@ int main(int argc, char* argv[]){
 
 			if (header_tmp->tipo_de_proceso == CPU){
 				printf("Llego algo desde CPU!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				cpu_manejador(fd, header_tmp->tipo_de_mensaje);
 				break;
 			}
 
@@ -223,4 +224,38 @@ limpieza:
 
 	liberarConfiguracionKernel(kernel);
 	return stat;
+}
+
+void cpu_manejador(int sock_cpu, tMensaje msj){
+
+	int stat;
+
+	switch(msj){
+	case S_WAIT:
+		puts("Funcion wait!");
+		break;
+	case S_SIGNAL:
+		puts("Funcion signal!");
+		break;
+	case LIBERAR:
+		puts("Funcion liberar!");
+		break;
+	case ABRIR:
+		break;
+	case BORRAR:
+		break;
+	case CERRAR:
+		break;
+	case MOVERCURSOR:
+		break;
+	case ESCRIBIR:
+		break;
+	case LEER:
+		break;
+	case RESERVAR:
+		break;
+	default:
+		puts("Funcion no reconocida!");
+		break;
+	}
 }

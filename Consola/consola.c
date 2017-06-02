@@ -14,6 +14,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 #include "../Compartidas/funcionesCompartidas.h"
 #include "../Compartidas/funcionesPaquetes.h"
@@ -41,7 +42,6 @@ int main(int argc, char* argv[]){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
-
 	char *buf = malloc(MAXMSJ);
 	int stat = 0;
 	int sock_kern;
@@ -68,17 +68,15 @@ int main(int argc, char* argv[]){
 
 				char *opcion=malloc(MAXMSJ);
 				fgets(opcion,MAXMSJ,stdin);
+				opcion[strlen(opcion) - 1] = '\0';
 				if (strncmp(opcion,"nuevo programa",14)==0)
 				{
 					printf("Iniciar un nuevo programa\n");
-					int longitudRuta;
-					longitudRuta = strlen(opcion) - 15;
-					char *rutaPrograma = malloc(longitudRuta);
-					//Copia los ultimos caracteres (Es decir, t0d0 menos 'nuevo programa ')
-					strncopylast(opcion,rutaPrograma,longitudRuta);
+					char *ruta = opcion+15;
+
 					tPathYSock *args = malloc(sizeof *args);
 					args->sock = sock_kern;
-					args->path = rutaPrograma;
+					args->path = ruta;
 					//TODO: Sacar \0 .. es por eso q rompe cuando lo quiere enviar en programa_handler!
 					printf("Ruta del programa: %s\n",args->path);
 					int status = Iniciar_Programa(args);
@@ -91,7 +89,8 @@ int main(int argc, char* argv[]){
 					strncopylast(opcion,pidString,longitudPid);
 					int pidElegido = atoi(pidString);
 					printf("Eligio finalizar el programa %d\n",pidElegido);
-					//int status = Finalizar_Programa(pidElegido);
+					//TODO: Buscar de la lista de hilos cual sería el q corresponde al pid q queremos matar
+					//int status = Finalizar_Programa(pidElegido,sock_kern,HILOAMATAR);
 				}
 				if(strncmp(opcion,"desconectar",11)==0){
 					//int status = Desconectar_Consola()

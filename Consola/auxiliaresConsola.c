@@ -10,26 +10,18 @@
  */
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 // todo: en la estructura tPackSrcCode podriamos aprovechar mejor el espacio. Sin embargo, funciona bien
-
-	printf("\n%sa\n",ruta);
+//todo: aca rompe pq llega la ruta con el \0 incluido.
 	FILE *file = fopen(ruta, "rb");
-	puts("1");
 	tPackSrcCode *src_code = malloc(sizeof *src_code);
-	puts("2");
 	src_code->head.tipo_de_proceso = sender;
-	puts("3");
 	src_code->head.tipo_de_mensaje = SRC_CODE;
-	puts("4");
+
 	unsigned long fileSize = fsize(file) + 1 ; // + 1 para el '\0'
-	puts("5");
+	puts("1");
 	printf("fsize es %lu\n", fileSize);
-	puts("6");
 	src_code->sourceLen = fileSize;
-	puts("7");
 	src_code->sourceCode = malloc(src_code->sourceLen);
-	puts("8");
 	fread(src_code->sourceCode, src_code->sourceLen, 1, file);
-	puts("9");
 	fclose(file);
 	// ponemos un '\0' al final porque es probablemente mandatorio para que se lea, send'ee y recv'ee bien despues
 	src_code->sourceCode[src_code->sourceLen - 1] = '\0';

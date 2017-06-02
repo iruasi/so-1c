@@ -107,7 +107,10 @@ AnSISOP_funciones functions = {
 //FUNCIONES ANSISOP QUE LE PIDE AL KERNEL
 void wait (t_nombre_semaforo identificador_semaforo){
 	printf("Se pide al kernel un wait para el semaforo %s", identificador_semaforo);
-	//TODO: send al kernel
+	tPackHeader h;
+	h.tipo_de_proceso = CPU;
+	h.tipo_de_mensaje = S_WAIT;
+	send(sock_kern, h, sizeof(h), 0);
 }
 
 void signal (t_nombre_semaforo identificador_semaforo){
@@ -228,6 +231,7 @@ int main(int argc, char* argv[]){
 			return -99;
 		}
 
+		//todo: aca vendria otro if cuando kernel tiene q imprimir algo por consola. le manda un mensaje.
 
 	}
 
