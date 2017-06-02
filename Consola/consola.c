@@ -24,6 +24,11 @@
 
 #define MAXMSJ 100
 
+/*Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
+ */
+void strncopylast(char *,char *,int );
+
+
 /* Con este macro verificamos igualdad de strings;
  * es mas expresivo que strcmp porque devuelve true|false mas humanamente
  */
@@ -51,10 +56,68 @@ int main(int argc, char* argv[]){
 		perror("No se pudo establecer conexion con Kernel. error");
 		return sock_kern;
 	}
+	int finalizar = 0;
+	while(finalizar !=1){
+		printf("\n \n \nIngrese accion a realizar:\n");
+				printf("Para iniciar un programa: 'nuevo programa <ruta>'\n");
+				printf ("Para finlizar un programa: 'finalizar <PID>'\n");
+				printf ("Para desconectar consola: 'desconectar'\n");
+				printf ("Para limpiar mensajes: 'limpiar'\n");
 
-	tPathYSock *args = malloc(sizeof *args);
+
+
+				char *opcion=malloc(MAXMSJ);
+				fgets(opcion,MAXMSJ,stdin);
+				if (strncmp(opcion,"nuevo programa",14)==0)
+				{
+					printf("Iniciar un nuevo programa\n");
+					int longitudRuta;
+					longitudRuta = strlen(opcion) - 15;
+					char *rutaPrograma = malloc(longitudRuta);
+					//Copia los ultimos caracteres (Es decir, t0d0 menos 'nuevo programa ')
+					strncopylast(opcion,rutaPrograma,longitudRuta);
+					tPathYSock *args = malloc(sizeof *args);
+					args->sock = sock_kern;
+					args->path = rutaPrograma;
+					//TODO: Sacar \0 .. es por eso q rompe cuando lo quiere enviar en programa_handler!
+					printf("Ruta del programa: %s\n",args->path);
+					int status = Iniciar_Programa(args);
+
+				}
+				if(strncmp(opcion,"finalizar",9)==0)
+				{
+					char* pidString=malloc(MAXMSJ);
+					int longitudPid = strlen(opcion) - 10;
+					strncopylast(opcion,pidString,longitudPid);
+					int pidElegido = atoi(pidString);
+					printf("Eligio finalizar el programa %d\n",pidElegido);
+					//int status = Finalizar_Programa(pidElegido);
+				}
+				if(strncmp(opcion,"desconectar",11)==0){
+					//int status = Desconectar_Consola()
+					printf("Eligio desconectar esta consola !\n");
+					finalizar = 1;
+				}
+				if(strncmp(opcion,"limpiar",7)==0){
+					//int status = Limpiar_Mensajes();
+					printf("Eligio limpiar esta consola \n");
+				}
+			}
+
+
+
+
+
+
+
+
+
+
+
+
+	/*tPathYSock *args = malloc(sizeof *args);
 	args->sock = sock_kern;
-	args->path = "/home/utnso/tp-2017-1c-Flanders-chip-y-asociados/CPU/facil.ansisop";
+	args->path = "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/CPU/facil.ansisop";
 	int status = Iniciar_Programa(args);
 
 	printf("El satus es: %d\n",status);
@@ -69,7 +132,7 @@ int main(int argc, char* argv[]){
 
 		clearBuffer(buf, MAXMSJ);
 	}
-
+*/
 
 	printf("Cerrando comunicacion y limpiando proceso...\n");
 
@@ -159,4 +222,25 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 //	package->total_size = sizeof(package->tipo_de_proceso)+sizeof(package->tipo_de_mensaje)+sizeof(package->message_size)+package->message_size+sizeof(package->total_size);
 //
 //}
+
+
+//Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
+void strncopylast(char *str1,char *str2,int n)
+{   int i;
+    int l=strlen(str1);
+    if(n>l)
+    {
+        printf("\nCan't extract more characters from a smaller string.\n");
+        exit(1);
+    }
+    for(i=0;i<l-n;i++)
+         str1++;
+    for(i=l-n;i<l;i++)
+    {
+        *str2=*str1;
+         str1++;
+         str2++;
+    }
+    *str2='\0';
+}
 

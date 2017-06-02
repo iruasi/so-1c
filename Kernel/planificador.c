@@ -116,7 +116,7 @@ void limpiarPlanificadores(){
 
 void moverAColaReady(tPCB * proceso){
 
-	int *yaEstaReady;
+/*	int *yaEstaReady;
 	yaEstaReady = malloc(sizeof(int));
 	*yaEstaReady = 0;
 
@@ -148,15 +148,15 @@ void moverAColaReady(tPCB * proceso){
 //		mutexUnlock(mutexColaReady);
 	}
 
-	free(yaEstaReady);
+	*///free(yaEstaReady);
 }
 
 void moverAColaExec(tPCB * proceso){
-
+/*
 //	mutexLock(mutexColaReady);
 	eliminarDeColaReady(Ready , proceso);
 //	mutexUnlock(mutexColaReady);
-	proceso->estado = EXEC;
+	//proceso->estado = EXEC;
 
 //	mutexLock(mutexColaExec);
 	queue_push(Exec , proceso);
@@ -242,4 +242,4 @@ int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
 		free(todoOK);
 		return 1;
 	}
-}
+*/}

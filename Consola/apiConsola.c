@@ -22,6 +22,8 @@ int siguientePID(void){return 1;}
 int Iniciar_Programa(tPathYSock *args){
 
 	handshakeCon(args->sock, CON);
+	puts("hs realizado");
+	printf("hs realizado");
 	pthread_attr_t attr;
 	pthread_t hilo_prog;
 
@@ -32,6 +34,7 @@ int Iniciar_Programa(tPathYSock *args){
 		perror("No pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
+	puts("hilo creado");
 
 	return 0;
 }
@@ -99,10 +102,10 @@ void *programa_handler(void *pathYSock){
 
 	puts("Creando codigo fuente...");
 	tPackSrcCode *src_code = readFileIntoPack(CON, args->path);
-
+	puts("codigo fuente creado");
 	puts("Serializando codigo fuente...");
 	void *paquete_serializado = serializarSrcCode(src_code);
-
+	puts("codigo fuente serializado");
 	puts("Enviando codigo fuente...");
 	int packSize = sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen;
 	if ((stat = send(args->sock, paquete_serializado, packSize, 0)) < 0){

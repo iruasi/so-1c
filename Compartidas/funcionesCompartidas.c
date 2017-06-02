@@ -21,8 +21,8 @@ unsigned long fsize(FILE* f){
     fseek(f, 0, SEEK_END);
     unsigned long len = (unsigned long) ftell(f);
     fseek(f, 0, SEEK_SET);
-
     return len;
+
 }
 
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags){
@@ -77,7 +77,7 @@ int makeListenSock(char *port_listen){
 
 	freeaddrinfo(serverInfo);
 	return sock_listen;
-}
+}void strncopylast(char *,char *,int );
 
 int makeCommSock(int socket_in){
 
@@ -114,3 +114,5 @@ void clearAndClose(int *fd, fd_set *setFD){
 	FD_CLR(*fd, setFD);
 	close(*fd);
 }
+
+
