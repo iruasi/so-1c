@@ -111,6 +111,8 @@ int main(int argc, char* argv[]){
 
 		default:
 			puts("Trato de conectarse algo que no era ni Kernel ni CPU!");
+			printf("El tipo de proceso y mensaje son: %d y %d", head->tipo_de_proceso, head->tipo_de_mensaje);
+			printf("Se recibio esto del socket: %d", client_sock);
 			return CONEX_INVAL;
 		}
 		continue;

@@ -27,7 +27,7 @@ int handshakeCon(int sock_dest, int id_sender){
 
 	if ((stat = send(sock_dest, package, HEAD_SIZE, 0)) == -1){
 		perror("Fallo send de handshake. error");
-		pritnf("Fallo send() al socket: %d\n", sock_dest);
+		printf("Fallo send() al socket: %d\n", sock_dest);
 		return FALLO_SEND;
 	}
 

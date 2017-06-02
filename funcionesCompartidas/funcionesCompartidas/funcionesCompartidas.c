@@ -70,7 +70,6 @@ int establecerConexion(char *ip_dest, char *port_dest){
 int makeListenSock(char *port_listen){
 
 	int stat, sock_listen;
-
 	struct addrinfo hints, *serverInfo;
 
 	setupHints(&hints, AF_INET, SOCK_STREAM, AI_PASSIVE);

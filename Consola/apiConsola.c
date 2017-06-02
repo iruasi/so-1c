@@ -116,8 +116,9 @@ void *programa_handler(void *pathYSock){
 		perror("No se pudo enviar codigo fuente a Kernel. error");
 		return (void *) FALLO_SEND;
 	}
+	printf("Se enviaron %d bytes..\n", stat);
 
-	printf("Se envio el paquete de codigo fuente...");
+	printf("Se envio el paquete de %d bytes en total...", packSize);
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
 	freeAndNULL(src_code->sourceCode);
 	freeAndNULL(src_code);
@@ -126,7 +127,7 @@ void *programa_handler(void *pathYSock){
 	tPackPID ppid;
 	ppid.head = head_tmp;
 
-	while((stat = recv(args->sock, &ppid.head, HEAD_SIZE, 0)) != -1){
+	while((stat = recv(args->sock, &ppid.head, HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == RECV_PID){
 			puts("recibimos PID");
@@ -141,11 +142,6 @@ void *programa_handler(void *pathYSock){
 			stat = recv(args->sock,mensaje,tamanoAImprimir,0);
 			puts(mensaje);
 		}*/
-
-
-
-
-		puts("Recibimos info para imprimir");
 	}
 
 	if (stat == -1){

@@ -72,7 +72,7 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	if ((stat = send(sock_con, pack_pid, sizeof(pack_pid), 0)) == -1)
 		perror("Fallo envio de PID a Consola. error");
 
-	tPackPCBaCPU * pcb_enviable = malloc(sizeof *pcb_enviable);
+	tPackPCBaCPU * pcb_enviable = malloc(sizeof *pcb_enviable); // TODO: renombrar porque es mentira!
 	pcb_enviable->head.tipo_de_proceso = KER;
 	pcb_enviable->head.tipo_de_mensaje = PCB_EXEC;
 	pcb_enviable->pid = nuevoPCB->id;
@@ -80,7 +80,22 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	pcb_enviable->pages = nuevoPCB->paginasDeCodigo;
 	pcb_enviable->exit = nuevoPCB->exitCode;
 
-	if ((stat = send(sock_cpu[0], pcb_enviable, sizeof *pcb_enviable, 0)) == -1)
+	char *buffer = malloc(sizeof *pcb_enviable);
+	int off = 0;
+	memcpy(buffer + off, &pcb_enviable->head.tipo_de_proceso, sizeof (tProceso));
+	off += sizeof (tProceso);
+	memcpy(buffer + off, &pcb_enviable->head.tipo_de_mensaje, sizeof (tMensaje));
+	off += sizeof (tMensaje);
+	memcpy(buffer + off, pcb_enviable->pid, sizeof (pcb_enviable->pid));
+	off += sizeof (pcb_enviable->pid);
+	memcpy(buffer + off, pcb_enviable->pc, sizeof (pcb_enviable->pc));
+	off += sizeof (pcb_enviable->pc);
+	memcpy(buffer + off, pcb_enviable->pages, sizeof (pcb_enviable->pages));
+	off += sizeof (pcb_enviable->pages);
+	memcpy(buffer + off, pcb_enviable->exit, sizeof (pcb_enviable->exit));
+	off += sizeof (pcb_enviable->exit);
+
+	if ((stat = send(sock_cpu[0], buffer, sizeof *buffer, 0)) == -1)
 		perror("Fallo envio de PCB a CPU. error");
 
 
