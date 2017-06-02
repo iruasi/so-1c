@@ -1,8 +1,9 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
 
-#include "../Compartidas/tiposErrores.h"
+#include <tiposRecursos/tiposErrores.h>
 
 #include "apiMemoria.h"
 #include "auxiliaresMemoria.h"
@@ -11,7 +12,6 @@
 
 extern char *MEM_FIS;
 extern tMemoria *memoria;
-extern int size_inv_total;
 extern int marcos_inv;
 
 bool pid_match(int pid, int frame, int off){
@@ -30,38 +30,40 @@ int pageQuantity(int pid){
 	int page_quant = 0;
 
 	for(i = off = fr = 0; i < marcos_inv; ++i){
-		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
 		if (pid_match(pid, fr, off))
 			page_quant++;
+		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
 	}
 
 	return page_quant;
 }
 
-int reservarCodYStackInv(int pid, int pageCount){
+int reservarPaginas(int pid, int pageCount){
 
-	int fr, off, fr_start, off_start;
-	int contig_pages = 0; // paginas contiguas
+	int fr, off;
+	int pag_assign;
 	int max_page = pageQuantity(pid);
 
-	off = fr = 0;
-	while (fr < marcos_inv && contig_pages != pageCount){
+	gotoFrameInvertida(marcos_inv, &fr, &off);
+	pag_assign = 0;
+	while (fr < marcos_inv && pag_assign != pageCount){
 
-		fr_start = fr; off_start = off;
-		for (contig_pages = 0; frameLibre(fr, off) && fr < marcos_inv && contig_pages < pageCount; contig_pages++){
-			nextFrameValue(&fr_start, &off_start, sizeof (tEntradaInv));
+		if (frameLibre(fr, off)){
+			memcpy(MEM_FIS + fr * memoria->marco_size + off, &pid, sizeof pid);
+			nextFrameValue(&fr, &off, sizeof (int));
+			memcpy(MEM_FIS + fr * memoria->marco_size + off, &max_page, sizeof max_page);
+			pag_assign++;
 		}
-		nextFrameValue(&fr_start, &off_start, sizeof (tEntradaInv));
+		nextFrameValue(&fr, &off, sizeof (int));
+
 	}
 
-	for (contig_pages = 0; contig_pages < pageCount; contig_pages++){
-		memcpy(MEM_FIS + fr_start * memoria->marco_size + off_start, &pid, sizeof pid);
-		nextFrameValue(&fr_start, &off_start, sizeof (int));
-		memcpy(MEM_FIS + fr_start * memoria->marco_size + off_start, &max_page, sizeof max_page);
-		nextFrameValue(&fr_start, &off_start, sizeof (int));
+	if (fr == marcos_inv){
+		puts("No hay mas frames disponibles en Memoria para reservar.");
+		return MEMORIA_LLENA;
 	}
 
-	return contig_pages;
+	return 0;
 }
 
 void nextFrameValue(int *fr, int *off, int step_size){
@@ -76,12 +78,12 @@ void nextFrameValue(int *fr, int *off, int step_size){
  * correspondiente en la tabla de paginas invertida...
  */
 void gotoFrameInvertida(int frame_repr, int *fr_inv, int *off_inv){
-
-/*
- *  Esta funcion tiene que ir 'pasando los frames' hasta llegar al necesario,
- *  y despues ir corriendo el offset hasta que apunta al frame_representativo
- */
-	if ((frame_repr * memoria->marco_size) % sizeof(tEntradaInv) != 0){
-//todo: esto lo rompo a proposito para trabajarlo ahora...
-	}
+	*fr_inv  = frame_repr * sizeof(tEntradaInv) / memoria->marco_size;
+	*off_inv = frame_repr * sizeof(tEntradaInv) % memoria->marco_size;
 }
+
+
+
+
+
+

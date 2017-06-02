@@ -14,25 +14,28 @@ unsigned long fsize(FILE* f);
 /* Recibe una estructura que almacena informacion del propio host;
  * La inicializa con valores utiles, pasados por parametro
  */
-void setupHints(struct addrinfo *, int, int, int);
+void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
 
 /* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
  * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea
+ * En caso de fallo retorna valores negativos.
  */
-int establecerConexion(char *, char *);
+int establecerConexion(char *ip_destino, char *port_destino);
 
-/* crea un socket y lo bindea() a un puerto particular,
+/* Crea un socket y lo bindea() a un puerto particular,
  * luego retorna este socket, apto para listen()
+ * En caso de fallo retorna valores negativos.
  */
-int makeListenSock(char *);
+int makeListenSock(char *port_listen);
 
 /* acepta una conexion entrante, y crea un socket para comunicaciones regulares;
+ * En caso de fallo retorna valores negativos.
  */
-int makeCommSock(int);
+int makeCommSock(int socket_in);
 
 /* Limpia un buffer usado por cada proceso para emitir varios mensajes
  */
-void clearBuffer(char *, int );
+void clearBuffer(char *buffer, int bufferSize);
 
 /* Atiende una conexion entrante, la agrega al set de relevancia, y vuelve a escuhar mas conexiones;
  * retorna el nuevo socket producido
@@ -42,6 +45,7 @@ int handleNewListened(int sock_listen, fd_set *setFD);
 /* borra un socket del set indicado y lo cierra
  */
 void clearAndClose(int *fd, fd_set *setFD);
+
 
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

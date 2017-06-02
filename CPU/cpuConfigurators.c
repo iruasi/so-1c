@@ -4,7 +4,9 @@
 
 #include <commons/config.h>
 #include "cpuConfigurators.h"
-#include "../Compartidas/tiposPaquetes.h"
+
+#include <tiposRecursos/tiposPaquetes.h>
+
 
 tCPU *getConfigCPU(char *ruta_config){
 

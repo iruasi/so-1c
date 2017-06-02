@@ -4,7 +4,9 @@
 
 #include <commons/config.h>
 #include "fileSystemConfigurators.h"
-#include "../Compartidas/tiposPaquetes.h"
+
+#include <tiposRecursos/tiposPaquetes.h>
+
 
 tFileSystem* getConfigFS(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);

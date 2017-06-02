@@ -3,8 +3,9 @@
 #include <string.h>
 #include <math.h>
 
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+
 #include "manejadoresMem.h"
 #include "apiMemoria.h"
 #include "structsMem.h"
@@ -23,7 +24,6 @@ void flush(tCacheEntrada *cache, uint32_t quant){
 	for (i = 0; i < quant; ++i)
 		cache[i] = nullEntry;
 }
-
 
 void dump(void *mem_dir){ // de momento mem_dir no es nada
 
@@ -52,30 +52,13 @@ void dump(void *mem_dir){ // de momento mem_dir no es nada
 
 // API DE LA MEMORIA
 
-void *inicializarPrograma(int pid, int pageCount){
+int inicializarPrograma(int pid, int pageCount){
 
-	int reservadas = reservarCodYStackInv(pid, pageCount);
+	int reservadas = reservarPaginas(pid, pageCount);
 	if (reservadas == pageCount)
 		puts("Se reservo bien la cantidad de paginas solicitadas");
 
-
-
-	return NULL;
-}
-
-// todo: esto no tiene que ser asi, en realidad...
-uint8_t *inicializarProgramaBeta(int pid, int pageCount, int sourceSize, void *srcCode){
-// para este checkpoint pasado, tenemos que almacenar el source_code en MEM_FIS
-
-	tSegmentosProg segsProg;
-
-	void *espacio_en_mem = reservarBytes(sourceSize);
-
-	printf("Copiando %d bytes en %p...\n", sourceSize, espacio_en_mem);
-	memcpy((void *) (int) espacio_en_mem + SIZEOF_HMD, srcCode, sourceSize);
-	puts("Hecho!\n");
-
-	return NULL;
+	return 0;
 }
 
 uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer){
@@ -90,7 +73,7 @@ uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 	return 0;
 }
 
-uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size){
+char *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size){
 
 	// TODO:offset + size / memoria->marco_size --> cuantas paginas hay que pasar desde el 0
 
@@ -98,13 +81,26 @@ uint8_t *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t s
 	if (frame == NULL)
 		perror("No se pudo obtener el marco de la pagina. error");
 
-	uint8_t *buffer = leerBytes(pid, (uint32_t) frame, offset, size);
+	char *buffer = leerBytes(pid, (uint32_t) frame, offset, size);
 	if (buffer == NULL)
 		perror("No se pudieron leer los bytes de la pagina. error");
 
 	return buffer;
 }
 
-uint8_t *asignarPaginas(int pid, int page_count){
-	return NULL;
+
+void asignarPaginas(int pid, int page_count){
+
+	int reserva;
+
+	if((reserva = reservarPaginas(pid, page_count)) != 0){
+		printf("No se pudieron reservar paginas para el proceso. error: %d", reserva);
+		abortar(pid);
+	}
+
+	printf("Se reservaron correctamente %d paginas", reserva);
 }
+
+
+
+

@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "../Compartidas/tiposPaquetes.h"
+#include <tiposRecursos/tiposPaquetes.h>
 #define MAX_MESSAGE_SIZE 5000
 
 #endif /* CONSOLA_H_ */

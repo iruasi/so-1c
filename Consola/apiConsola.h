@@ -1,7 +1,7 @@
 #ifndef APICONSOLA_H_
 #define APICONSOLA_H_
 
-#include "../Compartidas/tiposPaquetes.h"
+#include <tiposRecursos/tiposPaquetes.h>
 
 typedef struct {
 	int sock;

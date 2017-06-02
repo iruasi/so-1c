@@ -10,12 +10,15 @@
 #include "apiConsola.h"
 #include "auxiliaresConsola.h"
 #include "consolaConfigurators.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/funcionesPaquetes.h"
-#include "../Compartidas/funcionesCompartidas.h"
 
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
+
+#ifndef HEAD_SIZE
+#define HEAD_SIZE 8
+#endif
 
 int siguientePID(void){return 1;}
 

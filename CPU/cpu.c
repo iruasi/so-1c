@@ -6,13 +6,13 @@
 #include <stdbool.h>
 #include <commons/config.h>
 
-#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/funcionesPaquetes.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
+
 #include "cpuConfigurators.h"
-#include "../Compartidas/pcb.h"
-//#include "pcb.h"
 
 #include <parser/parser.h>
 #include <parser/metadata_program.h>
@@ -21,6 +21,12 @@
 #define MAX_PORT_LEN 6
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
+
+int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
+int sock_kern;
+
+
+
 int pedirInstruccion(tPCB *pcb, char **linea);
 int ejecutarPrograma(tPCB*);
 void ejecutarAsignacion();
@@ -110,7 +116,7 @@ void wait (t_nombre_semaforo identificador_semaforo){
 	tPackHeader h;
 	h.tipo_de_proceso = CPU;
 	h.tipo_de_mensaje = S_WAIT;
-	send(sock_kern, h, sizeof(h), 0);
+	send(sock_kern, &h, sizeof(h), 0);
 }
 
 void signal (t_nombre_semaforo identificador_semaforo){
@@ -174,9 +180,6 @@ AnSISOP_kernel kernel_functions = {
 };
 
 
-int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
-int sock_kern;
-
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -198,14 +201,14 @@ int main(int argc, char* argv[]){
 	printf("Conectando con memoria...\n");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
 	if (sock_mem < 0){
-		perror("Fallo conexion a Memoria. error");
+		puts("Fallo conexion a Memoria");
 		return FALLO_CONEXION;
 	}
 
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0){
-		perror("Fallo conexion a Kernel. error");
+		puts("Fallo conexion a Kernel");
 		return FALLO_CONEXION;
 	}
 
@@ -232,13 +235,12 @@ int main(int argc, char* argv[]){
 		}
 
 		//todo: aca vendria otro if cuando kernel tiene q imprimir algo por consola. le manda un mensaje.
-
 	}
 
 
-	if (stat < 0){
-		printf("Error en la conexion con Kernel! status: %d \n", stat);
-		return FALLO_CONEXION;
+	if (stat == -1){
+		perror("Error en la recepcion con Kernel. error");
+		return FALLO_RECV;
 	}
 
 
@@ -289,7 +291,7 @@ int ejecutarPrograma(tPCB* pcb){
 		printf("La linea %d es: %s", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(linea, &functions, &kernel_functions);
-		free(linea);
+		freeAndNULL(linea);
 		pcb->pc++;
 	} while(!termino);
 

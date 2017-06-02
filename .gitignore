@@ -5,6 +5,7 @@
 
 # Subcarpetas irrelevantes de cada proceso
 */Debug
+*/build
 
 # Object files
 *.o

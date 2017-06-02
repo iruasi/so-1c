@@ -6,13 +6,16 @@
 #include <math.h>
 
 #include "auxiliaresKernel.h"
-
 #include "planificador.h"
 
-#include "../Compartidas/funcionesPaquetes.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/pcb.h"
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
+
+#ifndef HEAD_SIZE
+#define HEAD_SIZE 8
+#endif
 
 uint32_t globalPID;
 
@@ -20,7 +23,7 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 	int stat;
 	tProceso proc = KER;
-	tMensaje msj  = ASIGN_PAG;
+	tMensaje msj  = SRC_CODE;
 
 	int packageSize; // aca guardamos el tamanio total del paquete serializado
 

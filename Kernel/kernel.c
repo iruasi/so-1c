@@ -10,20 +10,20 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
-#include "../Compartidas/pcb.h"
 
-//#include "../Compartidas/funcionesPaquetes.h"
-//#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/funcionesPaquetes.c"
-#include "../Compartidas/funcionesCompartidas.c"
-
-#include "../Compartidas/pcb.h"
-#include "../Compartidas/tiposErrores.h"
-#include "../Compartidas/tiposPaquetes.h"
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
 
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
+
+#ifndef HEAD_SIZE
+#define HEAD_SIZE 8
+#endif
 
 #define BACKLOG 20
 
@@ -42,7 +42,7 @@ int main(int argc, char* argv[]){
 
 	sock_cpu = malloc(10 * sizeof *sock_cpu);
 	cant_cpus = 0;
-	int sem, stat, ready_fds;
+	int stat, ready_fds;
 	int fd, new_fd;
 	int fd_max = -1;
 	int sock_fs, sock_mem;
@@ -59,33 +59,37 @@ int main(int argc, char* argv[]){
 
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
-		printf("Error fatal! No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
+		fprintf(stderr, "No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
 		return FALLO_CONEXION;
 	}
 
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
-	while ((sem = handshakeCon(sock_mem, kernel->tipo_de_proceso)) < 0)
-		;
-	printf("Se enviaron: %d bytes a MEMORIA\n", sem);
+	if ((stat = handshakeCon(sock_mem, kernel->tipo_de_proceso)) < 0){
+		fprintf(stderr, "No se pudo hacer hadshake con Memoria\n");
+		return FALLO_GRAL;
+	}
+	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 
 	fd_max = MAX(sock_mem, fd_max);
 
 	// Se trata de conectar con Filesystem
-	if ((sock_fs  = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
-		printf("Error fatal! No se pudo conectar con el Filesystem! sock_fs: %d\n", sock_fs);
+	if ((sock_fs = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
+		fprintf(stderr, "No se pudo conectar con el Filesystem! sock_fs: %d\n", sock_fs);
 		return FALLO_CONEXION;
 	}
 
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Filesystem
-	while ((sem = handshakeCon(sock_fs, kernel->tipo_de_proceso)) < 0)
-		;
-	printf("Se enviaron: %d bytes a FILESYSTEM\n", sem);
+	if ((stat = handshakeCon(sock_fs, kernel->tipo_de_proceso)) < 0){
+		fprintf(stderr, "No se pudo hacer hadshake con Filesystem\n");
+		return FALLO_GRAL;
+	}
+	printf("Se enviaron: %d bytes a FILESYSTEM\n", stat);
 
 	fd_max = MAX(sock_fs, fd_max);
 
 	// Creamos sockets para hacer listen() de CPUs
 	if ((sock_lis_cpu = makeListenSock(kernel->puerto_cpu)) < 0){
-		printf("No se pudo crear socket para escuchar! sock_lis_cpu: %d\n", sock_lis_cpu);
+		fprintf(stderr, "No se pudo crear socket para escuchar! sock_lis_cpu: %d\n", sock_lis_cpu);
 		return FALLO_CONEXION;
 	}
 
@@ -93,14 +97,11 @@ int main(int argc, char* argv[]){
 
 	// Creamos sockets para hacer listen() de Consolas
 	if ((sock_lis_con = makeListenSock(kernel->puerto_prog)) < 0){
-		printf("No se pudo crear socket para escuchar! sock_lis_con: %d\n", sock_lis_con);
+		fprintf(stderr, "No se pudo crear socket para escuchar! sock_lis_con: %d\n", sock_lis_con);
 		return FALLO_CONEXION;
 	}
 
 	fd_max = MAX(sock_lis_con, fd_max);
-
-	// fd_max ahora va a tener el valor mas alto de los sockets hasta ahora hechos
-	// la implementacion sigue siendo ineficiente.. a futuro se va a hacer algo mas power!
 
 	// Se agregan memoria, fs, listen_cpu, listen_consola y stdin al set master
 	FD_SET(sock_mem, &master_fd);
@@ -109,24 +110,32 @@ int main(int argc, char* argv[]){
 	FD_SET(sock_lis_con, &master_fd);
 	FD_SET(0, &master_fd);
 
+	while ((stat = listen(sock_lis_cpu, BACKLOG)) == -1){
+		perror("Fallo listen a socket CPUs. error");
+		puts("Reintentamos...\n");
+	}
 
-	listen(sock_lis_cpu, BACKLOG);
-	listen(sock_lis_con, BACKLOG);
+	while ((stat = listen(sock_lis_con, BACKLOG)) == -1){
+		perror("Fallo listen a socket CPUs. error");
+		puts("Reintentamos...\n");
+	}
 
 
-	tPackHeader *header_tmp  = malloc(HEAD_SIZE); // para almacenar cada recv
+	tPackHeader *header_tmp = malloc(HEAD_SIZE); // para almacenar cada recv
 	while (1){
 
 		read_fd = master_fd;
 
 		ready_fds = select(fd_max + 1, &read_fd, NULL, NULL, NULL);
-		if(ready_fds == -1)
+		if(ready_fds == -1){
+			perror("Fallo el select(). error");
 			return FALLO_SELECT;
+		}
 
 		for (fd = 0; fd <= fd_max; ++fd){
 		if (FD_ISSET(fd, &read_fd)){
 
-			printf("Aca hay uno! el fd es: %d\n", fd);
+			printf("Hay un socket listo! El fd es: %d\n", fd);
 
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){

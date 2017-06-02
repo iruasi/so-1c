@@ -1,7 +1,7 @@
 #ifndef FUNCIONESPAQUETES_H_
 #define FUNCIONESPAQUETES_H_
 
-#include "tiposPaquetes.h"
+#include <tiposRecursos/tiposPaquetes.h>
 
 /* dado un socket e identificador de proceso, le envia un paquete basico de HandShake
  */

@@ -1,13 +1,3 @@
-/*
- Estos includes los saque de la guia Beej... puede que ni siquiera los precisemos,
- pero los dejo aca para futuro, si algo mas complejo no anda tal vez sirvan...
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <netinet/in.h>
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,10 +6,11 @@
 #include <errno.h>
 #include <time.h>
 
-#include "../Compartidas/funcionesCompartidas.h"
-#include "../Compartidas/funcionesPaquetes.h"
-#include "../Compartidas/tiposPaquetes.h"
-#include "../Compartidas/tiposErrores.h"
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
+#include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
+
 #include "consolaConfigurators.h"
 #include "apiConsola.h"
 

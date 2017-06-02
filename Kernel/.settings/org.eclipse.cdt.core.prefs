@@ -1,0 +1,6 @@
+eclipse.preferences.version=1
+environment/project/cdt.managedbuild.config.gnu.exe.debug.726961304/LD_LIBRARY_PATH/delimiter=\:
+environment/project/cdt.managedbuild.config.gnu.exe.debug.726961304/LD_LIBRARY_PATH/operation=replace
+environment/project/cdt.managedbuild.config.gnu.exe.debug.726961304/LD_LIBRARY_PATH/value=/usr/lib/jvm/java-7-openjdk-i386/jre/lib/i386/client\:/usr/lib/jvm/java-7-openjdk-i386/jre/lib/i386\:/home/utnso/tp-2017-1c-Flanders-chip-y-asociados/Compartidas/\:$LD_LIBRARY_PATH
+environment/project/cdt.managedbuild.config.gnu.exe.debug.726961304/append=true
+environment/project/cdt.managedbuild.config.gnu.exe.debug.726961304/appendContributed=true
