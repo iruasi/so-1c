@@ -13,14 +13,25 @@
 
 int handshakeCon(int sock_dest, int id_sender){
 
+	int stat;
+	char *package;
 	tPackHeader head;
 	head.tipo_de_proceso = id_sender;
 	head.tipo_de_mensaje = HSHAKE;
 
-	void *package = malloc(HEAD_SIZE);
+	if ((package = malloc(HEAD_SIZE)) == NULL){
+		fprintf(stderr, "No se pudo hacer malloc\n");
+		return FALLO_GRAL;
+	}
 	memcpy(package, &head, HEAD_SIZE);
 
-	return send(sock_dest, package, HEAD_SIZE, 0);
+	if ((stat = send(sock_dest, package, HEAD_SIZE, 0)) == -1){
+		perror("Fallo send de handshake. error");
+		pritnf("Fallo send() al socket: %d\n", sock_dest);
+		return FALLO_SEND;
+	}
+
+	return stat;
 }
 
 

@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <errno.h>
 
 #include <tiposRecursos/tiposErrores.h>
 #include "funcionesCompartidas.h"
@@ -45,14 +46,21 @@ int establecerConexion(char *ip_dest, char *port_dest){
 		return FALLO_GRAL;
 	}
 
-	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) < 0)
+	if ((sock_dest = socket(destInfo->ai_family, destInfo->ai_socktype, destInfo->ai_protocol)) == -1){
+		perror("No se pudo crear socket. error.");
 		return FALLO_GRAL;
+	}
 
-	connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen);
+	if ((stat = connect(sock_dest, destInfo->ai_addr, destInfo->ai_addrlen)) == -1){
+		perror("No se pudo establecer conexion, fallo connect(). error");
+		printf("Fallo conexion con destino IP: %s PORT: %s\n", ip_dest, port_dest);
+		return FALLO_CONEXION;
+	}
+
 	freeaddrinfo(destInfo);
 
 	if (sock_dest < 0){
-		printf("Error al tratar de conectar con Kernel!");
+		printf("Error al tratar de conectar con Kernel!\n");
 		return FALLO_CONEXION;
 	}
 
@@ -65,15 +73,22 @@ int makeListenSock(char *port_listen){
 
 	struct addrinfo hints, *serverInfo;
 
-	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, AI_PASSIVE);
+	setupHints(&hints, AF_INET, SOCK_STREAM, AI_PASSIVE);
 
 	if ((stat = getaddrinfo(NULL, port_listen, &hints, &serverInfo)) != 0){
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(stat));
 		return FALLO_GRAL;
 	}
 
-	sock_listen = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol);
-	bind(sock_listen, serverInfo->ai_addr, serverInfo->ai_addrlen);
+	if ((sock_listen = socket(serverInfo->ai_family, serverInfo->ai_socktype, serverInfo->ai_protocol)) == -1){
+		perror("No se pudo crear socket. error.");
+		return FALLO_GRAL;
+	}
+	if ((bind(sock_listen, serverInfo->ai_addr, serverInfo->ai_addrlen)) == -1){
+		perror("Fallo binding con socket. error");
+		printf("Fallo bind() en PORT: %s\n", port_listen);
+		return FALLO_CONEXION;
+	}
 
 	freeaddrinfo(serverInfo);
 	return sock_listen;
@@ -81,23 +96,30 @@ int makeListenSock(char *port_listen){
 
 int makeCommSock(int socket_in){
 
+	int sock_comm;
 	struct sockaddr_in clientAddr;
 	socklen_t clientSize = sizeof(clientAddr);
 
-	int sock_comm = accept(socket_in, (struct sockaddr*) &clientAddr, &clientSize);
+	if ((sock_comm = accept(socket_in, (struct sockaddr*) &clientAddr, &clientSize)) == -1){
+		perror("Fallo accept del socket entrada. error");
+		printf("Fallo accept() en socket_in: %d\n", socket_in);
+		return FALLO_CONEXION;
+	}
 
 	return sock_comm;
 }
 
-
-/* Atiende una conexion entrante, la agrega al set de relevancia, y vuelve a escuhar mas conexiones;
- * retorna el nuevo socket producido
- */
 int handleNewListened(int sock_listen, fd_set *setFD){
 
+	int stat;
 	int new_fd = makeCommSock(sock_listen);
 	FD_SET(new_fd, setFD);
-	listen(sock_listen, BACKLOG);
+
+	if ((stat = listen(sock_listen, BACKLOG)) == -1){
+		perror("Fallo listen al socket. error");
+		printf("Fallo listen() en el sock_listen: %d", sock_listen);
+		return FALLO_GRAL;
+	}
 
 	return new_fd;
 }

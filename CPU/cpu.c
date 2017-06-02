@@ -97,14 +97,14 @@ int main(int argc, char* argv[]){
 	printf("Conectando con memoria...\n");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
 	if (sock_mem < 0){
-		perror("Fallo conexion a Memoria. error");
+		puts("Fallo conexion a Memoria");
 		return FALLO_CONEXION;
 	}
 
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0){
-		perror("Fallo conexion a Kernel. error");
+		puts("Fallo conexion a Kernel");
 		return FALLO_CONEXION;
 	}
 
@@ -128,14 +128,12 @@ int main(int argc, char* argv[]){
 		} else {
 			return -99;
 		}
-
-
 	}
 
 
-	if (stat < 0){
-		printf("Error en la conexion con Kernel! status: %d \n", stat);
-		return FALLO_CONEXION;
+	if (stat == -1){
+		perror("Error en la recepcion con Kernel. error");
+		return FALLO_RECV;
 	}
 
 
@@ -185,7 +183,7 @@ int ejecutarPrograma(tPCB* pcb){
 		printf("La linea %d es: %s", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(linea, &functions, &kernel_functions);
-		free(linea);
+		freeAndNULL(linea);
 		pcb->pc++;
 	} while(!termino);
 

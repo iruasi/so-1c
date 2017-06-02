@@ -34,9 +34,20 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(fileSystem);
 
 
-	int sock_lis_kern = makeListenSock(fileSystem->puerto_entrada);
-	listen(sock_lis_kern, BACKLOG);
-	int sock_kern = makeCommSock(sock_lis_kern);
+	int sock_lis_kern, sock_kern;
+	if ((sock_lis_kern = makeListenSock(fileSystem->puerto_entrada)) < 0){
+		printf("No se pudo crear socket listen en puerto: %s", fileSystem->puerto_entrada);
+	}
+
+	if((stat = listen(sock_lis_kern, BACKLOG)) == -1){
+		perror("Fallo de listen sobre socket Kernel. error");
+		return FALLO_GRAL;
+	}
+
+	if((sock_kern = makeCommSock(sock_lis_kern)) < 0){
+		puts("No se pudo acceptar conexion entrante del Kernel");
+		return FALLO_GRAL;
+	}
 
 	puts("Esperando handshake de Kernel...");
 	while ((stat = recv(sock_kern, head_tmp, sizeof *head_tmp, 0)) > 0){

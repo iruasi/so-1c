@@ -40,7 +40,7 @@ int main(int argc, char* argv[]){
 
 	int stat;
 
-	tMemoria *memoria = getConfigMemoria(argv[1]);
+	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
 	// inicializamos la "CACHE"
@@ -50,15 +50,6 @@ int main(int argc, char* argv[]){
 	// inicializamos la "MEMORIA FISICA"
 	if ((stat = setupMemoria(memoria->marcos, memoria->marco_size)) != 0)
 		return ABORTO_MEMORIA;
-
-	void *g = "Glory to the Lord!";
-	escribirBytes(0, 31, 10, strlen(g), g);
-
-	void *p = leerBytes(0, 31, 10, strlen(g));
-	puts(p);
-
-
-	return 0;
 
 	//sv multihilo
 	pthread_t kern_thread;
