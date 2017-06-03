@@ -12,6 +12,7 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
 
 
 // TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
@@ -26,7 +27,7 @@
  *
  */
 
-extern int *sock_cpu;
+extern int sock_cpu;
 
 t_queue *New, *Ready, *Exec, *Block, *Exit;
 
@@ -59,19 +60,23 @@ void largoPlazo(int multiprog){
 void cortoPlazo(){}
 
 void encolarPrograma(tPCB *nuevoPCB, int sock_con){
-
-	int stat;
+	puts("Se encola el programa");
+	int stat, bytes_sent;
 //	queue_push(New, (void *) nuevoPCB);
-
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
 	pack_pid->head.tipo_de_proceso = KER;
 	pack_pid->head.tipo_de_mensaje = RECV_PID;
 	pack_pid->pid = nuevoPCB->id;
 
-	if ((stat = send(sock_con, pack_pid, sizeof(pack_pid), 0)) == -1)
-		perror("Fallo envio de PID a Consola. error");
+	char *pid_serial = serializePID(pack_pid);
 
+	printf("Aviso al sock consola %d su numero de PID\n", sock_con);
+	if ((stat = send(sock_con, pid_serial, sizeof (tPackPID), 0)) == -1)
+		perror("Fallo envio de PID a Consola. error");
+	printf("Se enviaron %d bytes a Consola\n", stat);
+
+	puts("Creamos memoria para la variable");
 	tPackPCBaCPU * pcb_enviable = malloc(sizeof *pcb_enviable); // TODO: renombrar porque es mentira!
 	pcb_enviable->head.tipo_de_proceso = KER;
 	pcb_enviable->head.tipo_de_mensaje = PCB_EXEC;
@@ -80,27 +85,17 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	pcb_enviable->pages = nuevoPCB->paginasDeCodigo;
 	pcb_enviable->exit = nuevoPCB->exitCode;
 
-	char *buffer = malloc(sizeof *pcb_enviable);
-	int off = 0;
-	memcpy(buffer + off, &pcb_enviable->head.tipo_de_proceso, sizeof (tProceso));
-	off += sizeof (tProceso);
-	memcpy(buffer + off, &pcb_enviable->head.tipo_de_mensaje, sizeof (tMensaje));
-	off += sizeof (tMensaje);
-	memcpy(buffer + off, pcb_enviable->pid, sizeof (pcb_enviable->pid));
-	off += sizeof (pcb_enviable->pid);
-	memcpy(buffer + off, pcb_enviable->pc, sizeof (pcb_enviable->pc));
-	off += sizeof (pcb_enviable->pc);
-	memcpy(buffer + off, pcb_enviable->pages, sizeof (pcb_enviable->pages));
-	off += sizeof (pcb_enviable->pages);
-	memcpy(buffer + off, pcb_enviable->exit, sizeof (pcb_enviable->exit));
-	off += sizeof (pcb_enviable->exit);
+	puts("Comenzamos a serializar el PCB");
+	char *buffer = serializePCB(pcb_enviable);
 
-	if ((stat = send(sock_cpu[0], buffer, sizeof *buffer, 0)) == -1)
-		perror("Fallo envio de PCB a CPU. error");
-
+	puts("Enviamos el PCB");
+	stat = send(sock_cpu, buffer, sizeof (tPackPCBaCPU), 0);
+//	if ((stat = send(sock_cpu, buffer, sizeof *buffer, 0)) <= 0){
+//		perror("Fallo envio de PCB a CPU. error");
+//	}
+	printf("Se enviaron %d/%d bytes a CPU\n", stat, sizeof (tPackPCBaCPU));
 
 	freeAndNULL(pack_pid);
-
 }
 
 void updateQueue(t_queue *Q){

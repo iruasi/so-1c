@@ -59,14 +59,19 @@ int main(int argc, char* argv[]){
 	struct sockaddr_in client;
 	clientSize = sizeof client;
 
-	sock_entrada = makeListenSock(memoria->puerto_entrada);
+	if ((sock_entrada = makeListenSock(memoria->puerto_entrada)) < 0){
+		fprintf(stderr, "No se pudo crear un socket de listen. fallo: %d", sock_entrada);
+		return FALLO_GRAL;
+	};
 	//Listen
-	listen(sock_entrada , BACKLOG);
+	if ((stat = listen(sock_entrada , BACKLOG)) == -1){
+		perror("No se pudo hacer listen del socket. error");
+		return FALLO_GRAL;
+	};
 
 	//acepta y escucha comunicaciones
 	puts("esperando comunicaciones entrantes...");
-
-	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)))
+	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)) != -1)
 	{
 		puts("Conexion aceptada");
 
@@ -111,7 +116,7 @@ int main(int argc, char* argv[]){
 
 		default:
 			puts("Trato de conectarse algo que no era ni Kernel ni CPU!");
-			printf("El tipo de proceso y mensaje son: %d y %d", head->tipo_de_proceso, head->tipo_de_mensaje);
+			printf("El tipo de proceso y mensaje son: %d y %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
 			printf("Se recibio esto del socket: %d", client_sock);
 			return CONEX_INVAL;
 		}
@@ -127,15 +132,8 @@ int main(int argc, char* argv[]){
 		puts("Handler assignado");
 	}
 
-	if (client_sock < 0)
-	{
-		perror("accept fallo\n");
-		puts("Deberia considerarse una posible INTR al momento de accept()..\n");
-		return FALLO_GRAL;
-	}
-
-	//fin sv multihilo
-
+	// Si salio del ciclo es porque fallo el accept()
+	perror("Fallo el accept(). error");
 
 	liberarConfiguracionMemoria(memoria);
 	return 0;

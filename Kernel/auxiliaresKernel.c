@@ -27,7 +27,7 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 	int packageSize; // aca guardamos el tamanio total del paquete serializado
 
-
+	puts("Entremos a serializeSrcCodeFromRecv");
 	void *pack_src_serial = serializeSrcCodeFromRecv(fd_sender, *head, &packageSize); // TODO: debug
 	if (pack_src_serial == NULL){
 		puts("Fallo al recibir y serializar codigo fuente");

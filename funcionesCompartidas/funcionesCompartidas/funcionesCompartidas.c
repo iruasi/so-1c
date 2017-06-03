@@ -39,7 +39,7 @@ int establecerConexion(char *ip_dest, char *port_dest){
 	int sock_dest; // file descriptor para el socket del destino a conectar
 	struct addrinfo hints, *destInfo;
 
-	setupHints(&hints, AF_UNSPEC, SOCK_STREAM, 0);
+	setupHints(&hints, AF_INET, SOCK_STREAM, 0);
 
 	if ((stat = getaddrinfo(ip_dest, port_dest, &hints, &destInfo)) != 0){
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(stat));

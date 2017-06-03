@@ -32,16 +32,15 @@
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
-int *sock_cpu;
-int cant_cpus;
+void cpu_manejador(int sock_cpu, tMensaje msj);
+
+int sock_cpu;
 int main(int argc, char* argv[]){
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
-	sock_cpu = malloc(10 * sizeof *sock_cpu);
-	cant_cpus = 0;
 	int stat, ready_fds;
 	int fd, new_fd;
 	int fd_max = -1;
@@ -139,10 +138,16 @@ int main(int argc, char* argv[]){
 
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
-				sock_cpu[cant_cpus] = fd;
-				cant_cpus++;
-			}
-			if (fd == sock_lis_con || fd == sock_lis_cpu){
+				new_fd = handleNewListened(fd, &master_fd);
+				if (new_fd < 0){
+					perror("Fallo en manejar un listen. error");
+					return FALLO_CONEXION;
+				}
+
+				fd_max = MAX(new_fd, fd_max);
+				break;
+
+			} else if (fd == sock_lis_con){
 
 				new_fd = handleNewListened(fd, &master_fd);
 				if (new_fd < 0){
@@ -170,6 +175,7 @@ int main(int argc, char* argv[]){
 				puts("Consola quiere iniciar un programa");
 
 				int src_size;
+				puts("Entremos a passSrcCodeFromRecv");
 				passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
 
 				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
@@ -236,8 +242,6 @@ limpieza:
 }
 
 void cpu_manejador(int sock_cpu, tMensaje msj){
-
-	int stat;
 
 	switch(msj){
 	case S_WAIT:

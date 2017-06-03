@@ -216,6 +216,7 @@ int main(int argc, char* argv[]){
 	tPackHeader *head;
 	tPCB *pcb;
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
+		puts("Se recibio un paquete de Kernel");
 
 		if (head->tipo_de_mensaje == FIN){
 			puts("Kernel se va!");

@@ -190,3 +190,55 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 	free(bufferCode);
 	return src_pack;
 }
+
+char *serializePID(tPackPID *ppid){
+
+	int off = 0;
+	char *pid_serial;
+	if ((pid_serial = malloc(sizeof *ppid)) == NULL){
+		perror("No se pudo crear espacio de memoria para PID serial. error");
+		return NULL;
+	}
+
+	memcpy(pid_serial + off, &ppid->head.tipo_de_proceso, sizeof ppid->head.tipo_de_proceso);
+	off += sizeof ppid->head.tipo_de_proceso;
+	memcpy(pid_serial + off, &ppid->head.tipo_de_mensaje, sizeof ppid->head.tipo_de_mensaje);
+	off += sizeof ppid->head.tipo_de_mensaje;
+	memcpy(pid_serial + off, &ppid->pid, sizeof ppid->pid);
+	off += sizeof ppid->pid;
+
+	return pid_serial;
+}
+
+char *serializePCB(tPackPCBaCPU *ppcb){
+
+	char *pcb_serial;
+	if ((pcb_serial = malloc(sizeof *ppcb)) == NULL){
+		perror("No se pudo crear espacio de memoria para PCB serial. error");
+		return NULL;
+	}
+
+	int off = 0;
+	memcpy(pcb_serial + off, &ppcb->head.tipo_de_proceso, sizeof (ppcb->head.tipo_de_proceso));
+	off += sizeof ppcb->head.tipo_de_proceso;
+	memcpy(pcb_serial + off, &ppcb->head.tipo_de_mensaje, sizeof (ppcb->head.tipo_de_mensaje));
+	off += sizeof ppcb->head.tipo_de_mensaje;
+	memcpy(pcb_serial + off, &ppcb->pid, sizeof (ppcb->pid));
+	off += sizeof ppcb->pid;
+	memcpy(pcb_serial + off, &ppcb->pc, sizeof (ppcb->pc));
+	off += sizeof ppcb->pc;
+	memcpy(pcb_serial + off, &ppcb->pages, sizeof (ppcb->pages));
+	off += sizeof ppcb->pages;
+	memcpy(pcb_serial + off, &ppcb->exit, sizeof (ppcb->exit));
+	off += sizeof ppcb->exit;
+
+	return pcb_serial;
+}
+
+
+
+
+
+
+
+

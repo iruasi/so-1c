@@ -36,4 +36,16 @@ tPackSrcCode *deserializeSrcCode(int sock_in);
  */
 void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *serialized_pack_size);
 
+/* Serializa el un tPackPCB dado.
+ * Retorna el buffer serializado;
+ * retorna NULL si falla
+ */
+char *serializePCB(tPackPCBaCPU *ppcb);
+
+/* Serializa el un tPackPCB dado.
+ * Retorna el buffer serializado;
+ * retorna NULL si falla
+ */
+char *serializePID(tPackPID *ppid);
+
 #endif /* FUNCIONESPAQUETES_H_ */
