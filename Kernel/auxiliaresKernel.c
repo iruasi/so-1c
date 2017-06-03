@@ -66,3 +66,32 @@ tPCB *nuevoPCB(int cant_pags){
 
 }
 
+void *serializarPCBACpu(tPackPCBaCPU *pcb){
+
+	int offset = 0;
+
+	void *serial_pcb = malloc(sizeof pcb->head + sizeof pcb->exit+ sizeof pcb->pages+ sizeof pcb->pid+ sizeof pcb->pc);
+	if (serial_pcb == NULL){
+		perror("No se pudo mallocar el serial_pcb. error");
+		return NULL;
+	}
+
+	memcpy(serial_pcb, &pcb->head, sizeof pcb->head);
+	offset += sizeof pcb->head;
+
+	memcpy(serial_pcb + offset, &pcb->pid, sizeof pcb->pid);
+	offset += sizeof pcb->pid;
+	memcpy(serial_pcb + offset, &pcb->pc, sizeof pcb->pc);
+	offset += sizeof pcb->pc;
+	memcpy(serial_pcb + offset, &pcb->pages, sizeof pcb->pages);
+	offset += sizeof pcb->pages;
+	memcpy(serial_pcb + offset, &pcb->exit, sizeof pcb->exit);
+	offset += sizeof pcb->exit;
+
+
+
+
+
+	return serial_pcb;
+}
+

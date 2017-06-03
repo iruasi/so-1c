@@ -61,7 +61,7 @@ void cortoPlazo(){}
 
 void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
-	int stat, bytes_sent;
+	int stat;
 //	queue_push(New, (void *) nuevoPCB);
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
@@ -86,10 +86,20 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	pcb_enviable->exit = nuevoPCB->exitCode;
 
 	puts("Comenzamos a serializar el PCB");
-	char *buffer = serializePCB(pcb_enviable);
+//	char *buffer = serializePCB(pcb_enviable); // esta funcion es practicamente identica a serializarPCBACpu(pcb_enviable), pero un poquito peor...
+
+	char *pcb_serializado = serializarPCBACpu(pcb_enviable);
+	int packSize = sizeof pcb_enviable->head + sizeof pcb_enviable->exit+ sizeof pcb_enviable->pages+ sizeof pcb_enviable->pid+ sizeof pcb_enviable->pc;
+
+//	printf("%d",sock_cpu[0]); // esto yo lo cambie por un solo int sock_cpu, para facilitar un tramite
+
+//	if ((stat = send(6, pcb_serializado, packSize, 0)) < 0){ // de momento evito este hardcoding
+//		printf("%d",stat);
+		//perror("No se pudo enviar pcb a CPU a Kernel. error");
+	//}
 
 	puts("Enviamos el PCB");
-	stat = send(sock_cpu, buffer, sizeof (tPackPCBaCPU), 0);
+	stat = send(sock_cpu, pcb_serializado, sizeof (tPackPCBaCPU), 0);
 //	if ((stat = send(sock_cpu, buffer, sizeof *buffer, 0)) <= 0){
 //		perror("Fallo envio de PCB a CPU. error");
 //	}

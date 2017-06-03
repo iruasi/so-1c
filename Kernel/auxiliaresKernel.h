@@ -14,4 +14,9 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
  */
 tPCB *nuevoPCB(int cant_pags);
 
+/*serializa el pcb para enviar a CPU
+ *
+ */
+void *serializarPCBACpu(tPackPCBaCPU *pcb);
+
 #endif // AUXILIARESKERNEL_H_
