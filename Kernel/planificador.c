@@ -80,23 +80,34 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	pcb_enviable->pages = nuevoPCB->paginasDeCodigo;
 	pcb_enviable->exit = nuevoPCB->exitCode;
 
-	char *buffer = malloc(sizeof *pcb_enviable);
+	void *pcb_serializado = serializarPCBACpu(pcb_enviable);
+	int packSize = sizeof pcb_enviable->head + sizeof pcb_enviable->exit+ sizeof pcb_enviable->pages+ sizeof pcb_enviable->pid+ sizeof pcb_enviable->pc;
+
+/*	int pcbSize = sizeof(tProceso) + sizeof(tMensaje) + sizeof(nuevoPCB->id) + sizeof(nuevoPCB->pc)+sizeof(nuevoPCB->paginasDeCodigo)+ sizeof(nuevoPCB->exitCode);
+
+	char *buffer = malloc(pcbSize);
+
 	int off = 0;
 	memcpy(buffer + off, &pcb_enviable->head.tipo_de_proceso, sizeof (tProceso));
 	off += sizeof (tProceso);
 	memcpy(buffer + off, &pcb_enviable->head.tipo_de_mensaje, sizeof (tMensaje));
 	off += sizeof (tMensaje);
-	memcpy(buffer + off, pcb_enviable->pid, sizeof (pcb_enviable->pid));
+	memcpy(buffer + off, &(pcb_enviable->pid), sizeof (pcb_enviable->pid));
 	off += sizeof (pcb_enviable->pid);
-	memcpy(buffer + off, pcb_enviable->pc, sizeof (pcb_enviable->pc));
+	memcpy(buffer + off, &(pcb_enviable->pc), sizeof (pcb_enviable->pc));
 	off += sizeof (pcb_enviable->pc);
-	memcpy(buffer + off, pcb_enviable->pages, sizeof (pcb_enviable->pages));
+	memcpy(buffer + off, &(pcb_enviable->pages), sizeof (pcb_enviable->pages));
 	off += sizeof (pcb_enviable->pages);
-	memcpy(buffer + off, pcb_enviable->exit, sizeof (pcb_enviable->exit));
+	memcpy(buffer + off, &(pcb_enviable->exit), sizeof (pcb_enviable->exit));
 	off += sizeof (pcb_enviable->exit);
+*/
+	printf("%d",sock_cpu[0]);
 
-	if ((stat = send(sock_cpu[0], buffer, sizeof *buffer, 0)) == -1)
-		perror("Fallo envio de PCB a CPU. error");
+	if ((stat = send(6, pcb_serializado, packSize, 0)) < 0){
+		printf("%d",stat);
+		//perror("No se pudo enviar pcb a CPU a Kernel. error");
+
+		}
 
 
 	freeAndNULL(pack_pid);
