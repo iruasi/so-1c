@@ -145,6 +145,8 @@ int main(int argc, char* argv[]){
 				}
 
 				fd_max = MAX(new_fd, fd_max);
+
+
 				break;
 
 			} else if (fd == sock_lis_con){

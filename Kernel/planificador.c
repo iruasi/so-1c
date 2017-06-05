@@ -98,12 +98,13 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 		//perror("No se pudo enviar pcb a CPU a Kernel. error");
 	//}
 
-	puts("Enviamos el PCB");
+	puts("Enviamos el PCB a CPU");
 	stat = send(sock_cpu, pcb_serializado, sizeof (tPackPCBaCPU), 0);
-//	if ((stat = send(sock_cpu, buffer, sizeof *buffer, 0)) <= 0){
-//		perror("Fallo envio de PCB a CPU. error");
-//	}
-	printf("Se enviaron %d/%d bytes a CPU\n", stat, sizeof (tPackPCBaCPU));
+	//if (stat <= 0){
+	//	perror("Fallo envio de PCB a CPU. error");
+	//
+	//}
+	printf("Se enviaron %d de %d bytes a CPU\n", stat, sizeof (tPackPCBaCPU));
 
 	freeAndNULL(pack_pid);
 }
