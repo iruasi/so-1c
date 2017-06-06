@@ -3,7 +3,9 @@
 
 #include <sys/select.h>
 #include <sys/types.h>
-/* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL
+
+/* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL,
+ * de esta manera, si se usare accidentalmente a futuro, es mas seguro que no toque nada critico
  */
 void freeAndNULL(void *pointer);
 
@@ -15,6 +17,11 @@ unsigned long fsize(FILE* f);
  * La inicializa con valores utiles, pasados por parametro
  */
 void setupHints(struct addrinfo *hints, int address_family, int socket_type, int flags);
+
+/* dado un socket e identificador de proceso, le envia un paquete basico de HandShake
+ */
+int handshakeCon(int sock_dest, int id_sender);
+
 
 /* Dados un ip y puerto de destino, se crea, conecta y retorna socket apto para comunicacion
  * La deberia utilizar unicamente Iniciar_Programa, por cada nuevo hilo para un script que se crea

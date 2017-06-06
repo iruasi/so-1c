@@ -8,6 +8,7 @@
 #include <errno.h>
 
 #include <tiposRecursos/tiposErrores.h>
+#include <tiposRecursos/tiposPaquetes.h>
 #include "funcionesCompartidas.h"
 
 #define BACKLOG 20
@@ -31,6 +32,29 @@ void setupHints(struct addrinfo *hints, int address_family, int socket_type, int
 	hints->ai_family = address_family;
 	hints->ai_socktype = socket_type;
 	hints->ai_flags = flags;
+}
+
+int handshakeCon(int sock_dest, int id_sender){
+
+	int stat;
+	char *package;
+	tPackHeader head;
+	head.tipo_de_proceso = id_sender;
+	head.tipo_de_mensaje = HSHAKE;
+
+	if ((package = malloc(HEAD_SIZE)) == NULL){
+		fprintf(stderr, "No se pudo hacer malloc\n");
+		return FALLO_GRAL;
+	}
+	memcpy(package, &head, HEAD_SIZE);
+
+	if ((stat = send(sock_dest, package, HEAD_SIZE, 0)) == -1){
+		perror("Fallo send de handshake. error");
+		printf("Fallo send() al socket: %d\n", sock_dest);
+		return FALLO_SEND;
+	}
+
+	return stat;
 }
 
 int establecerConexion(char *ip_dest, char *port_dest){

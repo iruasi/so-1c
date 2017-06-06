@@ -8,32 +8,18 @@
 
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
 #include "funcionesPaquetes.h"
 
+/*
+ * funcionesPaquetes es el modulo que retiene el gruso de las funciones
+ * que se utilizaran para operar con serializacion y deserializacion de
+ * estructuras, el envio de informaciones particulares en los diferentes
+ * handshakes entre procesos, y funciones respecto de paquetes en general
+ */
 
-int handshakeCon(int sock_dest, int id_sender){
 
-	int stat;
-	char *package;
-	tPackHeader head;
-	head.tipo_de_proceso = id_sender;
-	head.tipo_de_mensaje = HSHAKE;
-
-	if ((package = malloc(HEAD_SIZE)) == NULL){
-		fprintf(stderr, "No se pudo hacer malloc\n");
-		return FALLO_GRAL;
-	}
-	memcpy(package, &head, HEAD_SIZE);
-
-	if ((stat = send(sock_dest, package, HEAD_SIZE, 0)) == -1){
-		perror("Fallo send de handshake. error");
-		printf("Fallo send() al socket: %d\n", sock_dest);
-		return FALLO_SEND;
-	}
-
-	return stat;
-}
-
+/****** Definiciones de Handshakes ******/
 
 int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
 
@@ -69,6 +55,8 @@ int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
 }
 
 
+/****** Definiciones de [De]Serializaciones ******/
+
 tPackSrcCode *recvSourceCode(int sock_in){
 
 	int stat;
@@ -102,11 +90,11 @@ tPackSrcCode *recvSourceCode(int sock_in){
 
 
 tPackSrcCode *deserializeSrcCode(int sock_in){
+
 	unsigned long bufferSize;
 	char *bufferCode;
 	int offset = 0;
 	int stat;
-
 	tPackSrcCode *line_pack;
 
 	// recibimos el valor del largo del codigo fuente
@@ -114,7 +102,7 @@ tPackSrcCode *deserializeSrcCode(int sock_in){
 		perror("No se pudo recibir el size del codigo fuente. error");
 		return NULL;
 	}
-	bufferSize++; // hacemos espacio apra el /0
+	bufferSize++; // hacemos espacio para el '\0'
 
 	// hacemos espacio para toda la estructura en serie
 	if ((line_pack = malloc(HEAD_SIZE + sizeof (int) + bufferSize)) == NULL){
@@ -210,35 +198,42 @@ char *serializePID(tPackPID *ppid){
 	return pid_serial;
 }
 
-char *serializePCB(tPackPCBaCPU *ppcb){
+void *serializarPCBACpu(tPackPCBSimul *pcb){
 
-	char *pcb_serial;
-	if ((pcb_serial = malloc(sizeof *ppcb)) == NULL){
-		perror("No se pudo crear espacio de memoria para PCB serial. error");
+	int offset = 0;
+
+	void *serial_pcb = malloc(sizeof pcb->head + sizeof pcb->exit+ sizeof pcb->pages+ sizeof pcb->pid+ sizeof pcb->pc);
+	if (serial_pcb == NULL){
+		perror("No se pudo mallocar el serial_pcb. error");
 		return NULL;
 	}
 
-	int off = 0;
-	memcpy(pcb_serial + off, &ppcb->head.tipo_de_proceso, sizeof (ppcb->head.tipo_de_proceso));
-	off += sizeof ppcb->head.tipo_de_proceso;
-	memcpy(pcb_serial + off, &ppcb->head.tipo_de_mensaje, sizeof (ppcb->head.tipo_de_mensaje));
-	off += sizeof ppcb->head.tipo_de_mensaje;
-	memcpy(pcb_serial + off, &ppcb->pid, sizeof (ppcb->pid));
-	off += sizeof ppcb->pid;
-	memcpy(pcb_serial + off, &ppcb->pc, sizeof (ppcb->pc));
-	off += sizeof ppcb->pc;
-	memcpy(pcb_serial + off, &ppcb->pages, sizeof (ppcb->pages));
-	off += sizeof ppcb->pages;
-	memcpy(pcb_serial + off, &ppcb->exit, sizeof (ppcb->exit));
-	off += sizeof ppcb->exit;
+	memcpy(serial_pcb, &pcb->head, sizeof pcb->head);
+	offset += sizeof pcb->head;
+	memcpy(serial_pcb + offset, &pcb->pid, sizeof pcb->pid);
+	offset += sizeof pcb->pid;
+	memcpy(serial_pcb + offset, &pcb->pc, sizeof pcb->pc);
+	offset += sizeof pcb->pc;
+	memcpy(serial_pcb + offset, &pcb->pages, sizeof pcb->pages);
+	offset += sizeof pcb->pages;
+	memcpy(serial_pcb + offset, &pcb->exit, sizeof pcb->exit);
+	offset += sizeof pcb->exit;
 
-	return pcb_serial;
+	return serial_pcb;
 }
 
 
+/****** Funciones generales sobre Paquetes ******/
 
+tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb){
 
+	tPackPCBSimul *pack_pcb = malloc(sizeof *pack_pcb);
+	pack_pcb->head.tipo_de_proceso = KER;
+	pack_pcb->head.tipo_de_mensaje = PCB_EXEC;
+	pack_pcb->pid   = pcb->id;
+	pack_pcb->pc    = pcb->pc;
+	pack_pcb->pages = pcb->paginasDeCodigo;
+	pack_pcb->exit  = pcb->exitCode;
 
-
-
-
+	return pack_pcb;
+}

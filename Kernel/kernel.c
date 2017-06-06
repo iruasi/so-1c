@@ -21,6 +21,10 @@
 #include "auxiliaresKernel.h"
 #include "planificador.h"
 
+#ifndef SIZEOF_HMD
+#define SIZEOF_HMD 5
+#endif
+
 #ifndef HEAD_SIZE
 #define HEAD_SIZE 8
 #endif
@@ -34,6 +38,7 @@
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
 
+int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int sock_cpu;
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -138,13 +143,13 @@ int main(int argc, char* argv[]){
 
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
-				new_fd = handleNewListened(fd, &master_fd);
-				if (new_fd < 0){
+				sock_cpu = handleNewListened(fd, &master_fd);
+				if (sock_cpu < 0){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
 
-				fd_max = MAX(new_fd, fd_max);
+				fd_max = MAX(sock_cpu, fd_max);
 				break;
 
 			} else if (fd == sock_lis_con){
@@ -196,6 +201,8 @@ int main(int argc, char* argv[]){
 					puts("No se recibio correctamente informacion de Memoria!");
 					return FALLO_GRAL;
 				}
+
+				MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
 
 				break;
 

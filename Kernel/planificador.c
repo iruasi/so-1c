@@ -77,35 +77,21 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	printf("Se enviaron %d bytes a Consola\n", stat);
 
 	puts("Creamos memoria para la variable");
-	tPackPCBaCPU * pcb_enviable = malloc(sizeof *pcb_enviable); // TODO: renombrar porque es mentira!
-	pcb_enviable->head.tipo_de_proceso = KER;
-	pcb_enviable->head.tipo_de_mensaje = PCB_EXEC;
-	pcb_enviable->pid = nuevoPCB->id;
-	pcb_enviable->pc = nuevoPCB->pc;
-	pcb_enviable->pages = nuevoPCB->paginasDeCodigo;
-	pcb_enviable->exit = nuevoPCB->exitCode;
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC};
+	tPackPCBSimul *pcb = empaquetarPCBconStruct(head, nuevoPCB);
 
 	puts("Comenzamos a serializar el PCB");
-//	char *buffer = serializePCB(pcb_enviable); // esta funcion es practicamente identica a serializarPCBACpu(pcb_enviable), pero un poquito peor...
-
-	char *pcb_serializado = serializarPCBACpu(pcb_enviable);
-	int packSize = sizeof pcb_enviable->head + sizeof pcb_enviable->exit+ sizeof pcb_enviable->pages+ sizeof pcb_enviable->pid+ sizeof pcb_enviable->pc;
-
-//	printf("%d",sock_cpu[0]); // esto yo lo cambie por un solo int sock_cpu, para facilitar un tramite
-
-//	if ((stat = send(6, pcb_serializado, packSize, 0)) < 0){ // de momento evito este hardcoding
-//		printf("%d",stat);
-		//perror("No se pudo enviar pcb a CPU a Kernel. error");
-	//}
+	char *pcb_serial = serializarPCBACpu(pcb);
 
 	puts("Enviamos el PCB");
-	stat = send(sock_cpu, pcb_serializado, sizeof (tPackPCBaCPU), 0);
-//	if ((stat = send(sock_cpu, buffer, sizeof *buffer, 0)) <= 0){
-//		perror("Fallo envio de PCB a CPU. error");
-//	}
-	printf("Se enviaron %d/%d bytes a CPU\n", stat, sizeof (tPackPCBaCPU));
+
+	if ((stat = send(sock_cpu, pcb_serial, sizeof *pcb, 0)) == -1)
+		perror("Fallo envio de PCB a CPU. error");
+
+	printf("Se enviaron %d/%d bytes a CPU\n", stat, sizeof *pcb);
 
 	freeAndNULL(pack_pid);
+	freeAndNULL(pcb);
 }
 
 void updateQueue(t_queue *Q){

@@ -254,7 +254,7 @@ int main(int argc, char* argv[]){
 
 tPCB *recvPCB(){
 
-	tPCB *pcb;
+	tPCB *pcb = malloc(sizeof *pcb);
 	int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
 	int stat;
 	if((stat = recv(sock_kern, &pcb->id, sizeof pcb->id, 0)) == -1){
@@ -306,14 +306,14 @@ int pedirInstruccion(tPCB *pcb, char **linea){
 
 	tPackSrcCode *line_code;
 
-	tPackPCB *ppcb = malloc(sizeof *ppcb);
-	ppcb->head.tipo_de_proceso = CPU;
-	ppcb->head.tipo_de_mensaje = INSTRUC_GET;
-	ppcb->pid  = pcb->id;
-	ppcb->page = 0;
-	ppcb->offset = pcb->indiceDeCodigo->offsetInicio;
-	ppcb->size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
-	send(sock_mem, ppcb, sizeof (tPackPCB), 0);
+	tPackByteReq *pbrq = malloc(sizeof *pbrq);
+	pbrq->head.tipo_de_proceso = CPU;
+	pbrq->head.tipo_de_mensaje = INSTRUC_GET;
+	pbrq->pid  = pcb->id;
+	pbrq->page = 0;
+	pbrq->offset = pcb->indiceDeCodigo->offsetInicio;
+	pbrq->size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+	send(sock_mem, pbrq, sizeof (tPackByteReq), 0);
 
 	line_code = deserializeSrcCode(sock_kern);
 	*linea = malloc(line_code->sourceLen);

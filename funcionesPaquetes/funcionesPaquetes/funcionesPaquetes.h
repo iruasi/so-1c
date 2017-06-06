@@ -2,10 +2,7 @@
 #define FUNCIONESPAQUETES_H_
 
 #include <tiposRecursos/tiposPaquetes.h>
-
-/* dado un socket e identificador de proceso, le envia un paquete basico de HandShake
- */
-int handshakeCon(int sock_dest, int id_sender);
+#include <tiposRecursos/misc/pcb.h>
 
 /* Solo la usa Memoria, para dar a Kernel informacion relevante de si misma
  * Retorna la cantidad de bytes enviados, deberian ser 16
@@ -25,7 +22,7 @@ int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
  */
 tPackSrcCode *recvSourceCode(int sock_in);
 
-/* Deserializa como Dios manda
+/* Dado un socket de recepcion, recibe y deserializa codigo fuente
  */
 tPackSrcCode *deserializeSrcCode(int sock_in);
 
@@ -36,13 +33,17 @@ tPackSrcCode *deserializeSrcCode(int sock_in);
  */
 void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *serialized_pack_size);
 
-/* Serializa el un tPackPCB dado.
+/* Dados un PCB y un header, construye el paquete PCB Simulado (es decir, el incompleto)
+ */
+tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb);
+
+/* Serializa un tPackPCBaCPU dado.
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
-char *serializePCB(tPackPCBaCPU *ppcb);
+void *serializarPCBACpu(tPackPCBSimul *ppcb);
 
-/* Serializa el un tPackPCB dado.
+/* Serializa un tPackPID dado.
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
