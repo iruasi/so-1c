@@ -90,8 +90,8 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, sizeof *pcb);
 
-	freeAndNULL(pack_pid);
-	freeAndNULL(pcb);
+	freeAndNULL((void **) &pack_pid);
+	freeAndNULL((void **) &pcb);
 }
 
 void updateQueue(t_queue *Q){
@@ -107,10 +107,10 @@ void freePCBs(t_queue *queue){
 	while(queue_size(queue) > 0){
 
 		pcb = (tPCB *) queue_pop(queue);
-		freeAndNULL(pcb->indiceDeCodigo);
+		freeAndNULL((void **) &pcb->indiceDeCodigo);
 		//freeAndNULL(pcb->indiceDeEtiquetas);
 		//freeAndNULL(pcb->indiceDeStack);
-		freeAndNULL(pcb);
+		freeAndNULL((void **) &pcb);
 	}
 }
 

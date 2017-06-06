@@ -167,6 +167,7 @@ int main(int argc, char* argv[]){
 			// Como no es un listen, recibimos el header de lo que llego
 			if ((stat = recv(fd, header_tmp, HEAD_SIZE, 0)) == -1){
 				perror("Error en recv() de algun socket. error");
+				fprintf(stderr, "El socket asociado al fallo es: %d\n", fd);
 				break;
 
 			} else if (stat == 0){

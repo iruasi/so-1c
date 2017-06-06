@@ -25,6 +25,8 @@ int siguientePID(void){return 1;}
 
 int Iniciar_Programa(tPathYSock *args){
 
+	int stat, *retval;
+
 	handshakeCon(args->sock, CON);
 	puts("handshake realizado");
 
@@ -41,6 +43,12 @@ int Iniciar_Programa(tPathYSock *args){
 
 	puts("hilo creado");
 
+	if ((stat = pthread_join(hilo_prog, &retval)) < 0){
+		fprintf(stderr, "pthread joineo de forma erronea. status: %d\n", stat);
+		return FALLO_HILO_JOIN;
+	}
+
+	printf("El hilo retorno con valor retorno: %d\n", *retval);
 	return 0;
 }
 
@@ -120,9 +128,9 @@ void *programa_handler(void *pathYSock){
 
 
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
-	freeAndNULL(src_code->sourceCode);
-	freeAndNULL(src_code);
-	freeAndNULL(paquete_serializado);
+	freeAndNULL((void **) &src_code->sourceCode);
+	freeAndNULL((void **) &src_code);
+	freeAndNULL((void **) &paquete_serializado);
 
 	tPackPID ppid;
 	ppid.head = head_tmp;

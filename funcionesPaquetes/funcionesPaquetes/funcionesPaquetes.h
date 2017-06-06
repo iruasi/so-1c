@@ -16,6 +16,10 @@ int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
  */
 int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 
+/* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
+ */
+char *serializeByteRequest(tPCB *pcb, int *pack_size);
+
 /* recibimos codigo fuente del socket de entrada
  * devolvemos un puntero a memoria que lo contiene
  * !! Asumimos que ya se recibio el Header !!
@@ -41,7 +45,7 @@ tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb);
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
-void *serializarPCBACpu(tPackPCBSimul *ppcb);
+char *serializarPCBACpu(tPackPCBSimul *ppcb);
 
 /* Serializa un tPackPID dado.
  * Retorna el buffer serializado;

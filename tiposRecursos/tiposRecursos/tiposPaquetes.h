@@ -44,6 +44,7 @@ typedef enum {
 	KILL_PID    = 44,
 	KER_KILLED  = KILL_PID,
 	SEND_SRC    = SRC_CODE,
+	SEND_BYTES  = SEND_SRC,
 
 	FIN         = 11
 } tMensaje;
@@ -81,7 +82,14 @@ typedef struct {
 	int page;
 	int offset;
 	int size;
-} tPackByteReq; // pedido de bytes a Memoria
+} tPackByteReq; // Solicitud de Bytes a Memoria
+
+typedef struct {
+
+	tPackHeader head;
+	int bytelen;
+	char *bytes;
+} tPackBytes; // este paquete se utiliza para responder una Solicitud de Bytes
 
 typedef struct {
 	tPackHeader head;

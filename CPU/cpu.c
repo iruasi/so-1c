@@ -26,8 +26,9 @@ int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
 int sock_kern;
 
 
+int pedirInstruccion(tPCB *pcb);
+int recibirInstruccion(char **linea, int instr_size);
 
-int pedirInstruccion(tPCB *pcb, char **linea);
 int ejecutarPrograma(tPCB*);
 void ejecutarAsignacion();
 void obtenerDireccion(variable*); // TODO: ADAPTAR
@@ -187,36 +188,42 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	char *buf = malloc(MAXMSJ);
 	int stat;
-	int bytes_sent;
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
 
-
-
-
-	// CONECTAR CON MEMORIA...
 	printf("Conectando con memoria...\n");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
 	if (sock_mem < 0){
 		puts("Fallo conexion a Memoria");
 		return FALLO_CONEXION;
 	}
-	//todo: no habría q hacer un handshake aca?
+
+	if ((stat = handshakeCon(sock_mem, cpu_data->tipo_de_proceso)) < 0){
+		fprintf(stderr, "No se pudo hacer hadshake con Memoria\n");
+		return FALLO_GRAL;
+	}
+	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 	puts("Me conecte a memoria!");
+
+
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0){
 		puts("Fallo conexion a Kernel");
 		return FALLO_CONEXION;
 	}
-	//todo: no habría q hacer un handshake aca?
+
+	if ((stat = handshakeCon(sock_kern, cpu_data->tipo_de_proceso)) < 0){
+		fprintf(stderr, "No se pudo hacer hadshake con Kernel\n");
+		return FALLO_GRAL;
+	}
+	printf("Se enviaron: %d bytes a KERNEL\n", stat);
 	puts("Me conecte a kernel");
 
 
-	tPackHeader *head;
+	tPackHeader *head = malloc(sizeof *head);
 	tPCB *pcb;
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
 		puts("Se recibio un paquete de Kernel");
@@ -231,7 +238,10 @@ int main(int argc, char* argv[]){
 			}
 
 			puts("Recibimos un PCB para ejecutar...");
-			ejecutarPrograma(pcb);
+			if ((stat = ejecutarPrograma(pcb)) != 0){
+				fprintf(stderr, "Fallo ejecucion de programa. status: %d\n", stat);
+				puts("No se continua con la ejecucion del pcb");
+			}
 
 
 		} else {
@@ -255,10 +265,14 @@ int main(int argc, char* argv[]){
 	return 0;
 }
 
-tPCB *recvPCB(){
+/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
+ * por lo tanto hay que recibir el resto del paquete...
+ */
+tPCB *recvPCB(void){
 
 	tPCB *pcb = malloc(sizeof *pcb);
-	int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
+	//int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
+
 	int stat;
 	if((stat = recv(sock_kern, &pcb->id, sizeof pcb->id, 0)) == -1){
 		perror("Fallo recepcion de PCB. error");
@@ -280,47 +294,80 @@ tPCB *recvPCB(){
 	return pcb;
 }
 
-
 int ejecutarPrograma(tPCB* pcb){
 
-	int stat;
+	int stat, instr_size;
 	char *linea;
 
 	puts("Empieza a ejecutar...");
 	do{
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		if ((stat = pedirInstruccion(pcb, &linea)) != 0)
+		if ((stat = pedirInstruccion(pcb)) != 0){
+			fprintf(stderr, "Fallo pedido de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
+		}
+
+		instr_size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+		if ((stat = recibirInstruccion(&linea, instr_size)) != 0){
+			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
+			return FALLO_GRAL;
+		}
 
 		printf("La linea %d es: %s", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(linea, &functions, &kernel_functions);
-		freeAndNULL(linea);
+		freeAndNULL((void **) &linea);
 		pcb->pc++;
+
 	} while(!termino);
 
 	puts("Termino de ejecutar...");
 	termino = false;
 
+	freeAndNULL((void **) &linea);
 	return EXIT_SUCCESS;
 }
 
-int pedirInstruccion(tPCB *pcb, char **linea){
+int pedirInstruccion(tPCB *pcb){
+	puts("Pide instruccion");
 
-	tPackSrcCode *line_code;
+	int stat, pack_size;
 
-	tPackByteReq *pbrq = malloc(sizeof *pbrq);
-	pbrq->head.tipo_de_proceso = CPU;
-	pbrq->head.tipo_de_mensaje = INSTRUC_GET;
-	pbrq->pid  = pcb->id;
-	pbrq->page = 0;
-	pbrq->offset = pcb->indiceDeCodigo->offsetInicio;
-	pbrq->size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
-	send(sock_mem, pbrq, sizeof (tPackByteReq), 0);
+	char *bytereq_serial = serializeByteRequest(pcb, &pack_size);
 
-	line_code = deserializeSrcCode(sock_kern);
-	*linea = malloc(line_code->sourceLen);
-	memcpy(*linea, line_code->sourceCode, line_code->sourceLen);
+	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
+		perror("Fallo envio de paquete de pedido de bytes. error");
+		return FALLO_SEND;
+	}
+
+	freeAndNULL((void **) &bytereq_serial);
+	return 0;
+}
+
+int recibirInstruccion(char **linea, int instr_size){
+
+	int stat;
+	tPackHeader head;
+	if ((*linea = realloc(*linea, instr_size)) == NULL){
+		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
+		return FALLO_GRAL;
+	}
+
+	if ((stat = recv(sock_mem, &head, sizeof head, 0)) == -1){
+		perror("Fallo recepcion de header. error");
+		return FALLO_RECV;
+	}
+
+	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != SEND_BYTES){
+		fprintf(stderr, "Error de comunicacion. Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
+				head.tipo_de_proceso, head.tipo_de_mensaje);
+		return FALLO_GRAL;
+	}
+
+	if ((stat = recv(sock_mem, *linea, instr_size, 0)) == -1){
+		perror("Fallo recepcion de instruccion. error");
+		return FALLO_RECV;
+	}
 
 	return 0;
 }

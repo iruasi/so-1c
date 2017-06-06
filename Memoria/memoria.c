@@ -163,7 +163,7 @@ void* kernel_handler(void *sock_kernel){
 				abortar(pid);
 			}
 
-			freeAndNULL(pack_src);
+			freeAndNULL((void **) &pack_src);
 			puts("Listo.");
 			break;
 
@@ -213,7 +213,9 @@ void* cpu_handler(void *socket_cpu){
 
 	tPackHeader *head = malloc(HEAD_SIZE);
 	int stat;
-	int sock_cpu = (int) socket_cpu;
+	int *sock_cpu = (int*) socket_cpu;
+
+	printf("Esperamos que lleguen cosas del socket: %d\n", *sock_cpu);
 
 	do {
 		switch(head->tipo_de_mensaje){
@@ -230,13 +232,13 @@ void* cpu_handler(void *socket_cpu){
 			puts("Se recibio un mensaje no considerado");
 			break;
 		}
-	} while((stat = recv(sock_cpu, head, sizeof *head, 0)) > 0);
+	} while((stat = recv(*sock_cpu, head, sizeof *head, 0)) > 0);
 
 	if (stat == -1){
 		perror("Fallo el recv de un mensaje desde CPU. error");
 		return NULL;
 	}
 
-	printf("El CPU de socket %d cerro su conexion. Cerramos el thread\n", sock_cpu);
+	printf("El CPU de socket %d cerro su conexion. Cerramos el thread\n", *sock_cpu);
 	return NULL;
 }

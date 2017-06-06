@@ -24,8 +24,9 @@ typedef enum {
 , FALLO_SEND=          -24
 , FALLO_CONEXION=      -25
 , FALLO_SELECT=        -26
-, CONEX_INVAL=         -40
-, FALLO_MATAR=         -41
+, CONEX_INVAL=         -27
+, FALLO_MATAR=         -28
+, FALLO_HILO_JOIN=     -29
 
 , MEMORIA_LLENA=       -50
 , FRAME_NOT_FOUND=     -51

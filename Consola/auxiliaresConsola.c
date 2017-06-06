@@ -46,9 +46,6 @@ void *serializarSrcCode(tPackSrcCode *src_code){
 	memcpy(serial_src_code + offset, &src_code->sourceLen, sizeof src_code->sourceLen);
 	offset += sizeof src_code->sourceLen;
 
-	puts("esto vamos a meter en serializado");
-	puts(src_code->sourceCode);
-
 	memcpy(serial_src_code + offset, src_code->sourceCode, src_code->sourceLen);
 
 	return serial_src_code;

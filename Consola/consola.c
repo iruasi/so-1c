@@ -36,8 +36,7 @@ int main(int argc, char* argv[]){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
-	char *buf = malloc(MAXMSJ);
-	int stat = 0;
+
 	int sock_kern;
 	//Creo lista de programas para ir agregando a medida q vayan iniciandose.
 
@@ -246,7 +245,7 @@ void strncopylast(char *str1,char *str2,int n)
 int agregarAListaDeProgramas(int pid){
 
 	int tamanioAntes = list_size(listaProgramas);
-	list_add(listaProgramas,pid);
+	list_add(listaProgramas, &pid);
 	int tamanioDespues = list_size(listaProgramas);
 	if(tamanioDespues != (tamanioAntes + 1)){
 		puts("error al agregar el pid a la lista");

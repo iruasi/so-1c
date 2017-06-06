@@ -7,7 +7,7 @@
 /* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL,
  * de esta manera, si se usare accidentalmente a futuro, es mas seguro que no toque nada critico
  */
-void freeAndNULL(void *pointer);
+void freeAndNULL(void **pointer);
 
 /* Retorna el tamanio de un archivo
  */
