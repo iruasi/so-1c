@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <commons/collections/list.h>
 
 #include "apiConsola.h"
 #include "auxiliaresConsola.h"
@@ -25,8 +26,8 @@ int siguientePID(void){return 1;}
 int Iniciar_Programa(tPathYSock *args){
 
 	handshakeCon(args->sock, CON);
-	puts("hs realizado");
-	printf("hs realizado");
+	puts("handshake realizado");
+
 	pthread_attr_t attr;
 	pthread_t hilo_prog;
 
@@ -92,16 +93,15 @@ void Desconectar_Consola(int sock_ker, pthread_attr_t attr, tConsola *cons_data)
 }
 
 
-void Limpiar_Mensajes(int cons_height){
-	int i;
-	for (i = 0; i < cons_height; i++)
-		puts("");
+void Limpiar_Mensajes(){
+	system("clear");
 }
 
 void *programa_handler(void *pathYSock){
 
 	tPathYSock *args = (tPathYSock *) pathYSock;
 	int stat;
+
 	tPackHeader head_tmp;
 
 	puts("Creando codigo fuente...");
@@ -118,7 +118,7 @@ void *programa_handler(void *pathYSock){
 	}
 	printf("Se enviaron %d bytes..\n", stat);
 
-	printf("Se envio el paquete de %d bytes en total...", packSize);
+
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
 	freeAndNULL(src_code->sourceCode);
 	freeAndNULL(src_code);
@@ -126,14 +126,22 @@ void *programa_handler(void *pathYSock){
 
 	tPackPID ppid;
 	ppid.head = head_tmp;
-
-	while((stat = recv(args->sock, &ppid.head, HEAD_SIZE, 0)) > 0){
+	puts("Esperando a recibir el PID");
+	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == RECV_PID){
 			puts("recibimos PID");
-			stat = recv(args->sock, &ppid.pid, sizeof ppid.pid, 0);
-			//todo: aca hay q agregar el id del proceso q acabamos de crear a una lista o algo asi para poder manejarlo.
-			//agregarPrograma();
+			stat = recv(args->sock, &(ppid.pid), sizeof ppid.pid, 0);
+			int program_stat;
+			puts("agregamos el programa a la lista de progamas");
+
+			program_stat = agregarAListaDeProgramas(ppid.pid);
+
+			if(program_stat != 1){
+				puts("Error al agregar el programa");
+				//TODO: ADD_PROGRAM_ERROR
+				return -99;
+			}
 		}
 		//todo: aca vendria otro if cuando kernel tiene q imprimir algo por consola. le manda un mensaje.
 		/*if(head_tmp.tipo_de_mensaje == PRINT){
@@ -152,3 +160,7 @@ void *programa_handler(void *pathYSock){
 	puts("Kernel cerro conexion con thread de programa");
 	return NULL;
 }
+
+
+
+

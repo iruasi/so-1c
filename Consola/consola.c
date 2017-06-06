@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <commons/collections/list.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -26,6 +27,8 @@ void strncopylast(char *,char *,int );
  */
 #define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
 
+//TODO: Esto global?!??
+t_list *listaProgramas;
 
 int main(int argc, char* argv[]){
 
@@ -36,6 +39,9 @@ int main(int argc, char* argv[]){
 	char *buf = malloc(MAXMSJ);
 	int stat = 0;
 	int sock_kern;
+	//Creo lista de programas para ir agregando a medida q vayan iniciandose.
+
+	listaProgramas = list_create();
 
 	tConsola *cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
@@ -47,60 +53,62 @@ int main(int argc, char* argv[]){
 		perror("No se pudo establecer conexion con Kernel. error");
 		return sock_kern;
 	}
+	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
+	puts("Nos conectamos a kernel");
+	printf("\n \n \nIngrese accion a realizar:\n");
 	int finalizar = 0;
 	while(finalizar !=1){
-		printf("\n \n \nIngrese accion a realizar:\n");
-				printf("Para iniciar un programa: 'nuevo programa <ruta>'\n");
-				printf ("Para finlizar un programa: 'finalizar <PID>'\n");
-				printf ("Para desconectar consola: 'desconectar'\n");
-				printf ("Para limpiar mensajes: 'limpiar'\n");
+
+		printf("Para iniciar un programa: 'nuevo programa <ruta>'\n");
+		printf ("Para finlizar un programa: 'finalizar <PID>'\n");
+		printf ("Para desconectar consola: 'desconectar'\n");
+		printf ("Para limpiar mensajes: 'limpiar'\n");
 
 
 
-				char *opcion=malloc(MAXMSJ);
-				fgets(opcion,MAXMSJ,stdin);
-				opcion[strlen(opcion) - 1] = '\0';
-				if (strncmp(opcion,"nuevo programa",14)==0)
-				{
-					printf("Iniciar un nuevo programa\n");
-					char *ruta = opcion+15;
+		char *opcion=malloc(MAXMSJ);
+		fgets(opcion,MAXMSJ,stdin);
+		opcion[strlen(opcion) - 1] = '\0';
+		if (strncmp(opcion,"nuevo programa",14)==0)
+		{
+			printf("Iniciar un nuevo programa\n");
+			char *ruta = opcion+15;
 
-					tPathYSock *args = malloc(sizeof *args);
-					args->sock = sock_kern;
-					args->path = ruta;
-					//TODO: Sacar \0 .. es por eso q rompe cuando lo quiere enviar en programa_handler!
-					printf("Ruta del programa: %s\n",args->path);
-					int status = Iniciar_Programa(args);
+			tPathYSock *args = malloc(sizeof *args);
+			args->sock = sock_kern;
+			args->path = ruta;
 
-				}
-				if(strncmp(opcion,"finalizar",9)==0)
-				{
-					char* pidString=malloc(MAXMSJ);
-					int longitudPid = strlen(opcion) - 10;
-					strncopylast(opcion,pidString,longitudPid);
-					int pidElegido = atoi(pidString);
-					printf("Eligio finalizar el programa %d\n",pidElegido);
-					//TODO: Buscar de la lista de hilos cual sería el q corresponde al pid q queremos matar
-					//int status = Finalizar_Programa(pidElegido,sock_kern,HILOAMATAR);
-				}
-				if(strncmp(opcion,"desconectar",11)==0){
-					//int status = Desconectar_Consola()
-					printf("Eligio desconectar esta consola !\n");
-					finalizar = 1;
-				}
-				if(strncmp(opcion,"limpiar",7)==0){
-					//int status = Limpiar_Mensajes();
-					printf("Eligio limpiar esta consola \n");
-				}
+			printf("Ruta del programa: %s\n",args->path);
+
+			int status = Iniciar_Programa(args);
+			if(status<0){
+				puts("Error al iniciar programa");
+				//TODO: Crear FALLO_INICIARPROGRAMA
+				return -1000;
 			}
 
+		}
+		if(strncmp(opcion,"finalizar",9)==0)
+		{
+			char* pidString=malloc(MAXMSJ);
+			int longitudPid = strlen(opcion) - 10;
+			strncopylast(opcion,pidString,longitudPid);
+			int pidElegido = atoi(pidString);
+			printf("Eligio finalizar el programa %d\n",pidElegido);
+			//TODO: Buscar de la lista de hilos cual sería el q corresponde al pid q queremos matar
+			//int status = Finalizar_Programa(pidElegido,sock_kern,HILOAMATAR);
+		}
+		if(strncmp(opcion,"desconectar",11)==0){
+			//int status = Desconectar_Consola()
+			printf("Eligio desconectar esta consola !\n");
+			finalizar = 1;
+		}
+		if(strncmp(opcion,"limpiar",7)==0){
+			Limpiar_Mensajes();
+			printf("Eligio limpiar esta consola \n");
+		}
 
-
-
-
-
-
-
+	}
 
 
 
@@ -232,5 +240,27 @@ void strncopylast(char *str1,char *str2,int n)
          str2++;
     }
     *str2='\0';
+}
+
+
+int agregarAListaDeProgramas(int pid){
+
+	int tamanioAntes = list_size(listaProgramas);
+	list_add(listaProgramas,pid);
+	int tamanioDespues = list_size(listaProgramas);
+	if(tamanioDespues != (tamanioAntes + 1)){
+		puts("error al agregar el pid a la lista");
+		//TODO: LIST_CREATE_PROBLEM
+		return -99;
+	}
+		puts("Tamanio actual de la lista:");
+		printf("%d\n",tamanioDespues);
+		puts("Pid agregado:");
+		printf("%d\n",pid);
+
+
+	//TODO: agregar PROGRAM_ADDED
+	return 1;
+
 }
 

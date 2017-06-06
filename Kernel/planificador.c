@@ -83,12 +83,12 @@ void encolarPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Comenzamos a serializar el PCB");
 	char *pcb_serial = serializarPCBACpu(pcb);
 
-	puts("Enviamos el PCB");
+	puts("Enviamos el PCB a CPU");
 
 	if ((stat = send(sock_cpu, pcb_serial, sizeof *pcb, 0)) == -1)
 		perror("Fallo envio de PCB a CPU. error");
 
-	printf("Se enviaron %d/%d bytes a CPU\n", stat, sizeof *pcb);
+	printf("Se enviaron %d de %d bytes a CPU\n", stat, sizeof *pcb);
 
 	freeAndNULL(pack_pid);
 	freeAndNULL(pcb);

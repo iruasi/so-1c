@@ -195,7 +195,7 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracionCPU(cpu_data);
 
 
-	strcpy(buf, "Hola soy CPU");
+
 
 	// CONECTAR CON MEMORIA...
 	printf("Conectando con memoria...\n");
@@ -204,13 +204,16 @@ int main(int argc, char* argv[]){
 		puts("Fallo conexion a Memoria");
 		return FALLO_CONEXION;
 	}
-
+	//todo: no habría q hacer un handshake aca?
+	puts("Me conecte a memoria!");
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0){
 		puts("Fallo conexion a Kernel");
 		return FALLO_CONEXION;
 	}
+	//todo: no habría q hacer un handshake aca?
+	puts("Me conecte a kernel");
 
 
 	tPackHeader *head;
