@@ -9,6 +9,8 @@
 #include "auxiliaresMemoria.h"
 #include "memoriaConfigurators.h"
 
+#define PID_FREE  0 // pid disponible
+#define PID_INV  -1 // pid tabla invertida
 
 extern char *MEM_FIS;
 extern tMemoria *memoria;
@@ -22,9 +24,12 @@ bool frameLibre(int frame, int off){
 	return pid_match(PID_FREE, frame, off);
 }
 
-/* En la tabla de paginas invertida, busca que cantidad de paginas tiene asociado
- */
 int pageQuantity(int pid){
+
+	if (pid < 0){
+		fprintf(stderr, "No se puede calcular la cantidad de paginas para el pid %d", pid);
+		return PID_INVALIDO;
+	}
 
 	int i, off, fr;
 	int page_quant = 0;
@@ -74,16 +79,7 @@ void nextFrameValue(int *fr, int *off, int step_size){
 	}
 }
 
-/* Dado un numero de frame representativo de la MEM_FIS, modifica fr_inv y off_inv tal que `apunten' al frame
- * correspondiente en la tabla de paginas invertida...
- */
 void gotoFrameInvertida(int frame_repr, int *fr_inv, int *off_inv){
 	*fr_inv  = frame_repr * sizeof(tEntradaInv) / memoria->marco_size;
 	*off_inv = frame_repr * sizeof(tEntradaInv) % memoria->marco_size;
 }
-
-
-
-
-
-

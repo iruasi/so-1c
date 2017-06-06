@@ -26,7 +26,13 @@ typedef enum {
 , FALLO_SELECT=        -26
 , CONEX_INVAL=         -40
 , FALLO_MATAR=         -41
+
 , MEMORIA_LLENA=       -50
+, FRAME_NOT_FOUND=     -51
+, PID_INVALIDO=        -52
+, FALLO_ESCRITURA=     -53
+, MAX_CACHE_ENTRIES=   -54
+
 , ABORTO_FILESYSTEM=   -98
 , ABORTO_MEMORIA=      -99
 } tErrores;

@@ -22,9 +22,9 @@ typedef struct _t_PackageRecepcion {
 
 typedef struct {
 
-	uint32_t frame;
-	uint32_t pid;
-	uint32_t page;
+	int pid;
+	int page;
+	char *cont;
 } tCacheEntrada;
 
 typedef struct {

@@ -1,10 +1,28 @@
 #ifndef _AUXILIARESMEMORIA_H_
 #define _AUXILIARESMEMORIA_H_
 
+/* Para un pid y cantidad de paginas, asigna las paginas subsiguientes
+ * a las que ya tenga en la Tabla de Paginas Invertida.
+ * Retorna 0 si finaliza correctamente.
+ */
 int reservarPaginas(int pid, int pageCount);
+
+/* En la Tabla de Paginas Invertida, busca la cantidad de paginas tiene asociado
+ * el PID pasado por parametro.
+ * Retorna negativo si se ingresa un PID invalido.
+ * Sino retorna la cantidad de paginas encontrada (pueden ser 0 o muchas).
+ */
 int pageQuantity(int pid);
-bool frameLibre(int frame, int off);
+
+/* Retorna true si, dados un frame y offset, el PID coincide con el de la Tabla de Paginas Invertida
+ * Retorna false en caso contrario
+ */
 bool pid_match(int pid, int frame, int off);
+
+/* Retorna true si, dados un frame y offset, el PID de la Tabla de Paginas Invertida indica estar libre
+ * Retorna false en caso contrario
+ */
+bool frameLibre(int frame, int off);
 
 /* Se usa para trasladarse sobre la tabla de paginas invertida
  */

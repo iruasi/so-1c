@@ -3,29 +3,27 @@
 
 #include "structsMem.h"
 
-#define PID_FREE -2 // pid disponible
-#define PID_INV  -1 // pid tabla invertida
-
 // OPERACIONES DE LA MEMORIA
 
-/* Cant de milisegundos de rta de Memoria
- *
+/* Cantidad de milisegundos de latencia de accesos a Memoria
  */
-void retardo(void);
+void retardo(int ms);
 
 /* limpia toda la CACHE
  */
-void flush(tCacheEntrada *cache, uint32_t quant);
-
-/* Para la Memoria o un PID, da nocion de su tamanio
- */
-void size(void);
+void flush(void);
 
 /* Dumpea lo que hay en MEM_FIS
  * despues tendria que ampliarse para dumpear el stack..
  * TODO: A futuro debe dumpear en disco y en pantalla -> CACHE, MEM_FIS, Tabla de Pags y Procesos Activos
  */
-void dump(void *memory_location);
+void dump(int pid);
+
+/* Para un PID o PID_MEMORIA, da nocion de su tamanio
+ * Si se lo llama con un pid de proceso (mayor que 0), afecta a proc_size
+ * Si se lo llama con PID_MEM, solo afecta las ultimas tres variables
+ */
+void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free);
 
 
 // API DE LA MEMORIA
@@ -34,26 +32,22 @@ void dump(void *memory_location);
  */
 int inicializarPrograma(int pid, int pageCount);
 
-/* Dado un PID y una cantidad de paginas, intenta crear las estructuras de administracion necesarias
- * para un programa.
- * De momento retorna un puntero al lugar de memoria que puede afectar o NULL
- * TODO: deberia retornar un int o nada; precisamos la tabla de paginas invertida
- */
-uint8_t *inicializarProgramaBeta(int pid, int page_count, int sourceSize, void *srcCode);
-
 /* es parte del API de Memoria; Realiza el pedido de escritura de CPU
  * Esta es la funcion que en el TP viene a ser "Almacenar Bytes en una Pagina"
  */
-uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer);
+int almacenarBytes(int pid, int page, int offset, int size, char *buffer);
 
 /* Se ejecuta al recibir el del CPU
  */
-char *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size);
+char *solicitarBytes(int pid, int page, int offset, int size);
 
-/* (Esta funcion la pide Kernel a Memoria)
- * AMPLIA la cantidad de paginas de HEAP ya existentes para el proceso
+/* (Esta funcion la puede pedir Kernel a Memoria directamente)
+ * Para un pid y cantidad de paginas, asigna las paginas subsiguientes
+ * a las que ya tenga en la Tabla de Paginas Invertida.
+ * Retorna 0 si finaliza correctamente.
  */
-void asignarPaginas(int pid, int page_count);
+int asignarPaginas(int pid, int pageCount);
 
+void liberarPagina(int pid, int page);
 
 #endif // APIMEMORIA_H_

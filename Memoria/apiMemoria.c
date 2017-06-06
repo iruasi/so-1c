@@ -7,47 +7,68 @@
 #include <tiposRecursos/tiposPaquetes.h>
 
 #include "manejadoresMem.h"
+#include "manejadoresCache.h"
 #include "apiMemoria.h"
 #include "structsMem.h"
 #include "auxiliaresMemoria.h"
 
+#ifndef PID_MEM // es para la distinguir la Memoria de un PID cualquiera
+#define PID_MEM 0
+#endif
+
+float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
-extern char *MEM_FIS;
+extern tCacheEntrada *CACHE_lines;
 
 // OPERACIONES DE LA MEMORIA
 
-void flush(tCacheEntrada *cache, uint32_t quant){
-
-	tCacheEntrada nullEntry = {0,0,0};
-
-	int i;
-	for (i = 0; i < quant; ++i)
-		cache[i] = nullEntry;
+void retardo(int ms){
+	retardo_mem = ms / 1000.0;
+	printf("Se cambio la latencia de acceso a Memoria a %f segundos", retardo_mem);
 }
 
-void dump(void *mem_dir){ // de momento mem_dir no es nada
+void flush(void){
 
-	void *dumpBuf = NULL;
-	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
 	int i;
+	for (i = 0; i < memoria->entradas_cache; ++i){
+		(CACHE_lines +i)->pid  = 0;
+		(CACHE_lines +i)->page = 0;
+	}
+}
+
+void dump(int pid){
 
 	puts("COMIENZO DE DUMP");
-	for(i = 0; i < memoria->marco_size - SIZEOF_HMD; i += hmd->size + SIZEOF_HMD){
 
-		if (!hmd->isFree){
-
-			printf("Se muestran contenidos en la direccion de MEM_FIS %p:\n", hmd);
-
-			dumpBuf = realloc(dumpBuf, hmd->size);
-			memcpy(dumpBuf, (void *) (int) hmd + SIZEOF_HMD, hmd->size);
-			puts(dumpBuf);
-		}
-
-		hmd = (void *) (int) hmd + hmd->size + SIZEOF_HMD;
-	}
+	dumpCache();
+	dumpMemStructs();
+	dumpMemContent(pid);
 
 	puts("FIN DEL DUMP");
 }
+
+
+void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free){
+
+	if (pid < 0){
+		fprintf(stderr, "Se intento pedir el tamanio de un proceso invalido\n");
+		*proc_size = *mem_frs = *mem_ocup = *mem_free = MEM_EXCEPTION;
+	}
+
+	// inicializamos todas las variables en 0, luego distinguimos so pide tamanio de Memoria o de un proc
+	*proc_size = *mem_frs = *mem_ocup = *mem_free = 0;
+
+	if (pid == PID_MEM){
+		*mem_frs  = memoria->marcos; // TODO:
+		*mem_free = pageQuantity(PID_MEM);
+		*mem_ocup = *mem_frs - *mem_free;
+
+	} else {
+		*proc_size = pageQuantity(pid);
+	}
+}
+
+
 
 
 // API DE LA MEMORIA
@@ -61,46 +82,50 @@ int inicializarPrograma(int pid, int pageCount){
 	return 0;
 }
 
-uint32_t almacenarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size, uint8_t* buffer){
+int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
 
-	uint8_t *frame = obtenerFrame(pid, page);
-	if (frame == NULL){
-		perror("No se encontro el frame en memoria. error");
-		return MEM_EXCEPTION;
+	int stat;
+
+	if ((stat = escribirBytes(pid, page, offset, size, buffer)) < 0){
+		fprintf(stderr, "No se pudieron escribir los bytes a la pagina. stat: %d\n", stat);
+		abortar(pid);
+		return FALLO_ESCRITURA;
 	}
 
-	//escribirBytes(pid, (uint32_t) *frame, offset, size, buffer);
 	return 0;
 }
 
-char *solicitarBytes(uint32_t pid, uint32_t page, uint32_t offset, uint32_t size){
+char *solicitarBytes(int pid, int page, int offset, int size){
+	printf("Se solicitan para el PID %d: %d bytes de la pagina %d\n", pid, size, page);
 
-	// TODO:offset + size / memoria->marco_size --> cuantas paginas hay que pasar desde el 0
-
-	uint8_t *frame = obtenerFrame(pid, page);
-	if (frame == NULL)
-		perror("No se pudo obtener el marco de la pagina. error");
-
-	char *buffer = leerBytes(pid, (uint32_t) frame, offset, size);
-	if (buffer == NULL)
+	char *buffer;
+	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
 		perror("No se pudieron leer los bytes de la pagina. error");
+		abortar(pid);
+		return NULL;
+	}
 
 	return buffer;
 }
 
+int asignarPaginas(int pid, int page_count){
 
-void asignarPaginas(int pid, int page_count){
+	int stat;
 
-	int reserva;
-
-	if((reserva = reservarPaginas(pid, page_count)) != 0){
-		printf("No se pudieron reservar paginas para el proceso. error: %d", reserva);
+	if((stat = reservarPaginas(pid, page_count)) != 0){
+		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d", stat);
 		abortar(pid);
 	}
 
-	printf("Se reservaron correctamente %d paginas", reserva);
+	printf("Se reservaron correctamente %d paginas", page_count);
+	return 0;
 }
 
-
-
+/* Llamado por Kernel, libera una pagina de HEAP.
+ * Retorna MEM_EXCEPTION si no puede liberar la pagina porque no existe o
+ * porque simplemente no puede hacerse
+ */
+void liberarPagina(int pid, int page){
+	printf("Se libera la pagina %d del PID %d\n", page, pid);
+}
 

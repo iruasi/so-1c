@@ -17,19 +17,21 @@
 
 #include "apiMemoria.h"
 #include "manejadoresMem.h"
+#include "manejadoresCache.h"
 #include "memoriaConfigurators.h"
 #include "structsMem.h"
 
+
 #define BACKLOG 20
 
-
-void* connection_handler(void *);
 void* kernel_handler(void *sock_ker);
 void* cpu_handler(void *sock_cpu);
 
-tMemoria *memoria;
-tCacheEntrada *CACHE;
-char *MEM_FIS;
+tMemoria *memoria;          // configuracion del proceso Memoria
+char *MEM_FIS;              // Memoria Fisica
+char *CACHE;                // memoria CACHE
+tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
+int  *CACHE_accs;           // vector de accesos a CACHE
 
 int main(int argc, char* argv[]){
 
@@ -44,11 +46,11 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(memoria);
 
 	// inicializamos la "CACHE"
-	if ((stat = setupCache(memoria->entradas_cache)) != 0)
+	if ((stat = setupCache()) != 0)
 		return ABORTO_MEMORIA;
 
 	// inicializamos la "MEMORIA FISICA"
-	if ((stat = setupMemoria(memoria->marcos, memoria->marco_size)) != 0)
+	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
 	//sv multihilo
@@ -117,19 +119,9 @@ int main(int argc, char* argv[]){
 		default:
 			puts("Trato de conectarse algo que no era ni Kernel ni CPU!");
 			printf("El tipo de proceso y mensaje son: %d y %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
-			printf("Se recibio esto del socket: %d", client_sock);
+			printf("Se recibio esto del socket: %d\n", client_sock);
 			return CONEX_INVAL;
 		}
-		continue;
-
-		connection_handler((void*) &new_sock);
-		if( pthread_create(&sniffer_thread ,NULL , (void*) connection_handler ,(void*) &new_sock) < 0)
-		{
-			perror("no pudo crear hilo. error");
-			return FALLO_GRAL;
-		}
-
-		puts("Handler assignado");
 	}
 
 	// Si salio del ciclo es porque fallo el accept()
@@ -181,7 +173,6 @@ void* kernel_handler(void *sock_kernel){
 			recv(*sock_ker, &pid, sizeof pid, 0);
 			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
 
-			// TODO: ESTARIA BUENO QUE ESTO ANDE
 			asignarPaginas(pid, pageCount);
 
 			break;
@@ -218,41 +209,34 @@ void* kernel_handler(void *sock_kernel){
 
 /* dado un socket de CPU, maneja las acciones que de estos reciba
  */
-void* cpu_handler(void *sock_ker){
+void* cpu_handler(void *socket_cpu){
 
 	tPackHeader *head = malloc(HEAD_SIZE);
+	int stat;
+	int sock_cpu = (int) socket_cpu;
 
-	int x = (int) sock_ker;
-	x++;
+	do {
+		switch(head->tipo_de_mensaje){
+		case SOLIC_BYTES:
+			puts("Se recibio solicitud de bytes");
+			// TODO: este ya se podria codificar un toque mas
+			break;
 
-	while(1){
-		printf("%d\n", x);
-		sleep(10);
+		case ALMAC_BYTES:
+			puts("Se recibio peticion de almacenamiento");
+			break;
+
+		default:
+			puts("Se recibio un mensaje no considerado");
+			break;
+		}
+	} while((stat = recv(sock_cpu, head, sizeof *head, 0)) > 0);
+
+	if (stat == -1){
+		perror("Fallo el recv de un mensaje desde CPU. error");
+		return NULL;
 	}
 
-	switch(head->tipo_de_mensaje){
-	case SOLIC_BYTES:
-		// TODO: este ya se podria codificar un toque mas
-
-		break;
-	case ALMAC_BYTES:
-		break;
-	default:
-		break;
-	}
-
-	return head;
+	printf("El CPU de socket %d cerro su conexion. Cerramos el thread\n", sock_cpu);
+	return NULL;
 }
-
-
-void pagInvertida(){
-
-
-
-
-	//tEntradaPagInv *tabla;
-
-}
-
-
-
