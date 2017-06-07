@@ -7,12 +7,17 @@
 #include <commons/collections/queue.h>
 
 #include "planificador.h"
+#include "kernelConfigurators.h"
 
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
+
+void pausarPlanif(){
+
+}
 
 
 // TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
@@ -29,20 +34,53 @@
 
 extern int sock_cpu;
 
-t_queue *New, *Ready, *Exec, *Block, *Exit;
+t_queue *New, *Exit, *Ready;
+t_list *Exec, *Block;
 
-int multiprog;
-char *sched_policy; // algoritmo de planificacion: FIFO || RR
 
-/* Configura las variables que los planificadores van a ir necesitando
- */
-void setupPlanificador(int multiprogramming, char *algorithm){
+int grado_mult;
+extern tKernel *kernel;
 
-	sched_policy = malloc(sizeof *algorithm);
-	sched_policy = algorithm;
-	multiprog = multiprogramming;
+void setupPlanificador(void){
+
+	grado_mult = kernel->grado_multiprog;
+
+	New = queue_create();
+	Ready = queue_create();
+	Exit = queue_create();
+
+	Exec = list_create();
+	Block = list_create();
+
 }
 
+void planificador(){
+
+	tPCB *pcb;
+
+	if (list_size(Exec) >= grado_mult){
+		puts("No se agrega nada y esperamos a que vayan terminando");
+
+	} else {
+
+	switch(kernel->algo){
+	case (FIFO):
+		pcb = queue_pop(Ready);
+		list_add(Exec, pcb);
+
+		//enviarPCBaCPU(pcb);
+
+		break;
+	case (RR):
+
+		break;
+	}
+	} // cierra else
+}
+
+void bloquearProceso(){
+
+}
 
 void largoPlazo(int multiprog){
 
@@ -123,8 +161,8 @@ void limpiarPlanificadores(){
 }
 
 void moverAColaReady(tPCB * proceso){
-
-/*	int *yaEstaReady;
+	/*
+	int *yaEstaReady;
 	yaEstaReady = malloc(sizeof(int));
 	*yaEstaReady = 0;
 
@@ -199,7 +237,7 @@ void moverAColaExit(tPCB *proceso) {
 //	mutexUnlock(mutexColaExit);
 
 }
-
+*/
 void eliminarDeCola(t_queue *cola, tPCB *proceso){
 
 	tPCB *procesoAuxiliar;
@@ -232,7 +270,7 @@ int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
 	procesoAuxiliar = malloc(sizeof(tPCB));
 	int *todoOK;
 	todoOK = malloc(sizeof(int));
-	*procesoAuxiliar = queue_peek(colaReady); //copiamos el primer elemento
+//	*procesoAuxiliar = queue_peek(colaReady); //copiamos el primer elemento
 
 		if(proceso == procesoAuxiliar){
 			queue_pop(colaReady);
@@ -245,9 +283,9 @@ int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
 	if (todoOK == 0){
 		free(todoOK);
 		perror("Fallo, el proceso de la cola READY no es el mismo que el solicitado. error");
-		return FALLO_MOVERAEXEC;
+		//return FALLO_MOVERAEXEC;
 	}else{
 		free(todoOK);
 		return 1;
 	}
-*/}
+}

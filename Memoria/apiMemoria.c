@@ -55,7 +55,7 @@ void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free){
 		*proc_size = *mem_frs = *mem_ocup = *mem_free = MEM_EXCEPTION;
 	}
 
-	// inicializamos todas las variables en 0, luego distinguimos so pide tamanio de Memoria o de un proc
+	// inicializamos todas las variables en 0, luego distinguimos si pide tamanio de Memoria o de un proc
 	*proc_size = *mem_frs = *mem_ocup = *mem_free = 0;
 
 	if (pid == PID_MEM){

@@ -4,6 +4,9 @@
 #define KERNELCONFIGURATORS_H_
 
 #define MAX_MESSAGE_SIZE 5000
+
+typedef enum {FIFO = 1, RR = 2} tAlgoritmo;
+
 typedef struct{
 
 	char* puerto_cpu;
@@ -14,7 +17,8 @@ typedef struct{
 	char* ip_fs;
 	uint8_t quantum;
 	uint32_t quantum_sleep;
-	char* algoritmo;
+	char *algoritmo;
+	tAlgoritmo algo;
 	uint8_t grado_multiprog;
 	char** sem_ids;
 	char** sem_init;

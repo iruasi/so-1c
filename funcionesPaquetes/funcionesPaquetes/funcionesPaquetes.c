@@ -78,8 +78,8 @@ char *serializeByteRequest(tPCB *pcb, int *pack_size){
 	*pack_size += sizeof pcb->pc;
 	memcpy(bytereq_serial, &code_page, sizeof code_page);	// CODE_PAGE
 	*pack_size += sizeof code_page;
-	memcpy(bytereq_serial, &pcb->indiceDeCodigo, sizeof pcb->indiceDeCodigo); // OFFSET_BEGIN
-	*pack_size += sizeof pcb->indiceDeCodigo;
+	memcpy(bytereq_serial, &pcb->indiceDeCodigo->offsetInicio, sizeof pcb->indiceDeCodigo->offsetInicio); // OFFSET_BEGIN
+	*pack_size += sizeof pcb->indiceDeCodigo->offsetInicio;
 	memcpy(bytereq_serial, &size_instr, sizeof size_instr); 		// SIZE
 	*pack_size += sizeof size_instr;
 

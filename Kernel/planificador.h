@@ -6,7 +6,7 @@
 #include <tiposRecursos/misc/pcb.h>
 
 
-void setupPlanificador(int multiprogramming, char *algorithm);
+void setupPlanificador();
 void encolarPrograma(tPCB *new_PCB, int sock_consola);
 void updateQueue(t_queue *queue);
 

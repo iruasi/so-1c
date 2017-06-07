@@ -31,6 +31,7 @@ tKernel *getConfigKernel(char* ruta){
 	kernel->puerto_fs   =    malloc(MAX_PORT_LEN);
 
 	strcpy(kernel->algoritmo,      config_get_string_value(kernelConfig, "ALGORITMO"));
+	kernel->algo = (strcmp(kernel->algoritmo, "FIFO") == 0)? FIFO : RR;
 	strcpy(kernel->ip_fs,          config_get_string_value(kernelConfig, "IP_FS"));
 	strcpy(kernel->ip_memoria,     config_get_string_value(kernelConfig, "IP_MEMORIA"));
 	strcpy(kernel->puerto_prog,    config_get_string_value(kernelConfig, "PUERTO_PROG"));

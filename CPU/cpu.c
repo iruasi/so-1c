@@ -30,13 +30,6 @@ int pedirInstruccion(tPCB *pcb);
 int recibirInstruccion(char **linea, int instr_size);
 
 int ejecutarPrograma(tPCB*);
-void ejecutarAsignacion();
-void obtenerDireccion(variable*); // TODO: ADAPTAR
-uint32_t obtenerValor(uint32_t, uint32_t, uint32_t);
-void almacenar(uint32_t,uint32_t,uint32_t,uint32_t);
-uint32_t getPagDelIndiceStack(uint32_t);
-uint32_t getOffsetDelIndiceStack(uint32_t);
-uint32_t getSizeDelIndiceStack(uint32_t);
 
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
@@ -271,6 +264,10 @@ int main(int argc, char* argv[]){
 tPCB *recvPCB(void){
 
 	tPCB *pcb = malloc(sizeof *pcb);
+
+	pcb->indiceDeCodigo = malloc(sizeof pcb->indiceDeCodigo);
+	pcb->indiceDeCodigo->offsetInicio = 0;
+	pcb->indiceDeCodigo->offsetFin = 4;
 	//int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
 
 	int stat;
@@ -372,97 +369,7 @@ int recibirInstruccion(char **linea, int instr_size){
 	return 0;
 }
 
-void ejecutarAsignacion(){
-	variable* var = malloc(sizeof(variable));
-	obtenerDireccion(var);
-
-
-	/*
-	 * POR AHORA SE HARDCODEA PARA PROBAR UN EJEMPLO DE UNA SUMA SIMPLE
-	 */
-
-	var->valor = obtenerValor(var->pag, var->offset, var->size);
-	variable* varRes = malloc(sizeof(variable));
-	obtenerDireccion(varRes);
-	varRes->valor = var->valor+3;
-	printf("El resultado de la suma es: %d\n", varRes->valor);
-	almacenar(varRes->pag, varRes->offset, varRes->size, varRes->valor);
-
-}
-
-void obtenerDireccion(variable* var){
-	var->pag = getPagDelIndiceStack(var->id);
-	var->offset = getOffsetDelIndiceStack(var->id);
-	var->size = getSizeDelIndiceStack(var->id);
-}
-uint32_t obtenerValor(uint32_t pag, uint32_t offset, uint32_t size){
-	/*char* buf = malloc(MAXMSJ);
-	char* recibido = malloc(MAXMSJ);
-	sprintf(buf, "Pido valor de variable, pag: %d, offset:%d, size: %d", pag, offset, size);
-	send(sock_mem, buf, strlen(buf), 0);
-	recv(sock_mem, recibido, MAXMSJ, 0);
-	int valor = atoi(recibido);
-	return valor;
-	*/
-	/*
-	 * HABRIA QUE DEFINIR EL PASO DE MENSAJES ENTRE MEMORIA Y CPU
-	 * PARA ESTE EJEMPLO SE VA A PASAR UN VALOR PARA PROBAR QUE FUNCIONE
-	 */
-	return 5;
-}
-
-void almacenar(uint32_t pag, uint32_t off, uint32_t size, uint32_t valor){
-	char* buf = malloc(MAXMSJ);
-	sprintf(buf, "Envio valor de variable, pag: %d, offset: %d, size: %d, valor: %d", pag, off, size, valor);
-	send(sock_mem, buf, strlen(buf), 0);
-	free(buf);
-}
-/*
- * ESTAS FUNCIONES QUE VIENEN SE HACEN PARA QUE FUNCIONE, CREO QUE LE TIENE QUE
- * PEDIR A MEMORIA ESTOS VALORES
- *
- */
-uint32_t getPagDelIndiceStack(uint32_t id){
-	if(id==1) return 1;
-	return 2;
-}
-
-uint32_t getOffsetDelIndiceStack(uint32_t id){
-	if(id==1) return 1;
-	return 2;
-}
-
-uint32_t getSizeDelIndiceStack(uint32_t id){
-	if(id==1) return 1;
-	return 2;
-}
-char* serializarOperandos(t_Package *package){
-
-	char *serializedPackage = malloc(package->total_size);
-	int offset = 0;
-	int size_to_send;
-
-
-	size_to_send =  sizeof(package->tipo_de_proceso);
-	memcpy(serializedPackage + offset, &(package->tipo_de_proceso), size_to_send);
-	offset += size_to_send;
-
-
-	size_to_send =  sizeof(package->tipo_de_mensaje);
-	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
-	offset += size_to_send;
-
-	size_to_send =  sizeof(package->message_long);
-	memcpy(serializedPackage + offset, &(package->message_long), size_to_send);
-	offset += size_to_send;
-
-	size_to_send =  package->message_long;
-	memcpy(serializedPackage + offset, package->message, size_to_send);
-
-	return serializedPackage;
-}
-
-char * conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLaInstruccion, t_size tamanio) {
+char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLaInstruccion, t_size tamanio) {
 	char *aRetornar = calloc(1, 100);
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
 	return aRetornar;

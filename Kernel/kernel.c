@@ -40,6 +40,8 @@ void cpu_manejador(int sock_cpu, tMensaje msj);
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int sock_cpu;
+tKernel *kernel;
+
 int main(int argc, char* argv[]){
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
@@ -58,8 +60,10 @@ int main(int argc, char* argv[]){
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 
-	tKernel *kernel = getConfigKernel(argv[1]);
+	kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
+
+	setupPlanificador();
 
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){

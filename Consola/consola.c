@@ -41,7 +41,7 @@ int main(int argc, char* argv[]){
 	//Creo lista de programas para ir agregando a medida q vayan iniciandose.
 
 	listaProgramas = list_create();
-
+	// {hilo, pid}
 	tConsola *cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
 
@@ -52,6 +52,9 @@ int main(int argc, char* argv[]){
 		perror("No se pudo establecer conexion con Kernel. error");
 		return sock_kern;
 	}
+
+
+
 	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
 	puts("Nos conectamos a kernel");
 	printf("\n \n \nIngrese accion a realizar:\n");

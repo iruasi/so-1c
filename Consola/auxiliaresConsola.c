@@ -11,7 +11,7 @@
  */
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 // todo: en la estructura tPackSrcCode podriamos aprovechar mejor el espacio. Sin embargo, funciona bien
-//todo: aca rompe pq llega la ruta con el \0 incluido.
+
 	FILE *file = fopen(ruta, "rb");
 	tPackSrcCode *src_code = malloc(sizeof *src_code);
 	src_code->head.tipo_de_proceso = sender;
