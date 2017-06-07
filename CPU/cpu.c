@@ -21,7 +21,14 @@
 #define MAX_PORT_LEN 6
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
-int pedirInstruccion(tPCB *pcb, char **linea);
+
+int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
+int sock_kern;
+
+
+int pedirInstruccion(tPCB *pcb);
+int recibirInstruccion(char *linea, int instr_size);
+
 int ejecutarPrograma(tPCB*);
 void ejecutarAsignacion();
 void obtenerDireccion(variable*); // TODO: ADAPTAR
@@ -144,10 +151,25 @@ int main(int argc, char* argv[]){
 	return 0;
 }
 
-tPCB *recvPCB(){
+/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
+ * por lo tanto hay que recibir el resto del paquete...
+ * Hace malloc del PCB, no olvidarse de hacerle free() en algun otro lado
+ */
+tPCB *recvPCB(void){
 
 	tPCB *pcb;
-	int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
+	if ((pcb = malloc(sizeof *pcb)) == NULL){
+		fprintf(stderr, "No se pudo crear espacio de memoria para pcb\n");
+		return NULL;
+	}
+
+	if ((pcb->indiceDeCodigo = malloc(sizeof pcb->indiceDeCodigo)) == NULL){
+		fprintf(stderr, "No se pudo crear espacio de memoria para pcb->indiceDeCodigo\n");
+		return NULL;
+	}
+
+	//int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
+
 	int stat;
 	if((stat = recv(sock_kern, &pcb->id, sizeof pcb->id, 0)) == -1){
 		perror("Fallo recepcion de PCB. error");
@@ -166,19 +188,30 @@ tPCB *recvPCB(){
 		return NULL;
 	}
 
+
+	// hardcodeamos esto por ahora porque no los recv()
+	pcb->indiceDeCodigo->offsetInicio = 0;
+	pcb->indiceDeCodigo->offsetFin = 4;
+
 	return pcb;
 }
 
 
 int ejecutarPrograma(tPCB* pcb){
 
-	int stat;
-	char *linea;
+	int stat, instr_size;
+	char *linea; // TODO: recibirInstruccion(linea) no esta funcionando bien, revisar dereferenciacion
 
 	do{
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		if ((stat = pedirInstruccion(pcb, &linea)) != 0)
+		if ((stat = pedirInstruccion(pcb)) != 0)
 			return FALLO_GRAL;
+
+		instr_size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+		if ((stat = recibirInstruccion(linea, instr_size)) != 0){
+			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
+			return FALLO_GRAL;
+		}
 
 		printf("La linea %d es: %s", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
@@ -192,22 +225,50 @@ int ejecutarPrograma(tPCB* pcb){
 	return EXIT_SUCCESS;
 }
 
-int pedirInstruccion(tPCB *pcb, char **linea){
+int pedirInstruccion(tPCB *pcb){
+	puts("Pide instruccion");
 
-	tPackSrcCode *line_code;
+	int stat, pack_size;
 
-	tPackPCB *ppcb = malloc(sizeof *ppcb);
-	ppcb->head.tipo_de_proceso = CPU;
-	ppcb->head.tipo_de_mensaje = INSTRUC_GET;
-	ppcb->pid  = pcb->id;
-	ppcb->page = 0;
-	ppcb->offset = pcb->indiceDeCodigo->offsetInicio;
-	ppcb->size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
-	send(sock_mem, ppcb, sizeof (tPackPCB), 0);
+	puts("Serializa byte request");
+	char *bytereq_serial = serializeByteRequest(pcb, &pack_size);
 
-	line_code = deserializeSrcCode(sock_kern);
-	*linea = malloc(line_code->sourceLen);
-	memcpy(*linea, line_code->sourceCode, line_code->sourceLen);
+	puts("Envia byte request");
+	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
+		perror("Fallo envio de paquete de pedido de bytes. error");
+		return FALLO_SEND;
+	}
+
+	puts("Libera byte request");
+	freeAndNULL((void **) &bytereq_serial);
+	return 0;
+}
+
+int recibirInstruccion(char *linea, int instr_size){
+
+	int stat;
+	tPackHeader head;
+	if ((linea = realloc(linea, instr_size)) == NULL){
+		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
+		return FALLO_GRAL;
+	}
+
+	if ((stat = recv(sock_mem, &head, sizeof head, 0)) == -1){
+		perror("Fallo recepcion de header. error");
+		return FALLO_RECV;
+	}
+
+	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != SEND_BYTES){
+		fprintf(stderr, "Error de comunicacion. Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
+				head.tipo_de_proceso, head.tipo_de_mensaje);
+		return FALLO_GRAL;
+	}
+
+	if ((stat = recv(sock_mem, linea, instr_size, 0)) == -1){
+		perror("Fallo recepcion de instruccion. error");
+		return FALLO_RECV;
+	}
+
 
 	return 0;
 }

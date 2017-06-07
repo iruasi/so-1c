@@ -8,6 +8,7 @@
 
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
+#include <tiposRecursos/misc/pcb.h>
 #include "funcionesPaquetes.h"
 
 
@@ -68,6 +69,38 @@ int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
 	return stat;
 }
 
+
+/****** Definiciones de [De]Serializaciones ******/
+
+char *serializeByteRequest(tPCB *pcb, int *pack_size){
+
+	int code_page = 0;
+	int size_instr = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTRUC_GET};
+
+	char *bytereq_serial;
+	if ((bytereq_serial = malloc(sizeof(tPackByteReq))) == NULL){
+		fprintf(stderr, "No se pudo malloquear\n");
+		return NULL;
+	}
+
+	*pack_size = 0;
+	memcpy(bytereq_serial, &head_tmp, HEAD_SIZE); 			// HEAD
+	*pack_size += HEAD_SIZE;
+	memcpy(bytereq_serial, &pcb->id, sizeof pcb->id);		// PID
+	*pack_size += sizeof pcb->id;
+	memcpy(bytereq_serial, &pcb->pc, sizeof pcb->pc);		// PC
+	*pack_size += sizeof pcb->pc;
+	memcpy(bytereq_serial, &code_page, sizeof code_page);	// CODE_PAGE
+	*pack_size += sizeof code_page;
+	memcpy(bytereq_serial, &pcb->indiceDeCodigo->offsetInicio, sizeof pcb->indiceDeCodigo->offsetInicio); // OFFSET_BEGIN
+	*pack_size += sizeof pcb->indiceDeCodigo->offsetInicio;
+	memcpy(bytereq_serial, &size_instr, sizeof size_instr); 		// SIZE
+	*pack_size += sizeof size_instr;
+
+
+	return bytereq_serial;
+}
 
 tPackSrcCode *recvSourceCode(int sock_in){
 
