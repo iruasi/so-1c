@@ -42,6 +42,9 @@ typedef struct _t_PackageRecepcion {
 	uint32_t message_size;			// NOTA: Es calculable. Aca lo tenemos por fines didacticos!
 } t_PackageRecepcion;
 
+typedef struct{
+	int id,sock_cpu,disponibilidad,pid;
+}tCPU;
 
 char* serializarOperandos(t_PackageEnvio*);
 int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente);

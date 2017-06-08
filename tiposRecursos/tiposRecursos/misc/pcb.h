@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <commons/collections/list.h>
+#include <parser/metadata_program.h>
+
 
 typedef struct{
 	uint32_t offsetInicio;
@@ -32,7 +34,7 @@ typedef struct {
 	uint32_t pc; // Program Counter
 	uint32_t paginasDeCodigo;
 	indiceCodigo* indiceDeCodigo;
-//	indiceEtiquetas* indiceDeEtiquetas;
+//	char * indiceDeEtiquetas;
 //	indiceStack* indiceDeStack;
 	uint32_t exitCode;
 }tPCB;

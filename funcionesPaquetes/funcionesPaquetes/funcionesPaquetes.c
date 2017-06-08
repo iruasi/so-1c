@@ -242,7 +242,7 @@ char *serializarPCBACpu(tPackPCBSimul *pcb){
 	memcpy(serial_pcb + offset, &pcb->pid, sizeof pcb->pid);
 	offset += sizeof pcb->pid;
 	memcpy(serial_pcb + offset, &pcb->pc, sizeof pcb->pc);
-	offset += sizeof pcb->pc;
+	offset += sizeof pcb->pc;//	indiceEtiquetas
 	memcpy(serial_pcb + offset, &pcb->pages, sizeof pcb->pages);
 	offset += sizeof pcb->pages;
 	memcpy(serial_pcb + offset, &pcb->exit, sizeof pcb->exit);

@@ -39,7 +39,8 @@ t_list *Exec, *Block;
 
 
 int grado_mult;
-extern tKernel *kernel;
+extern tKernel *kernel; //Creo que este kernel no tiene los datos del archivoConfig,
+						//vamos a tener que juntar configurators y planificador
 
 void setupPlanificador(void){
 
@@ -58,24 +59,61 @@ void planificador(){
 
 	tPCB *pcb;
 
+
 	if (list_size(Exec) >= grado_mult){
 		puts("No se agrega nada y esperamos a que vayan terminando");
 
-	} else {
+	} else if(cpuDisponible() == 1){ //Esto asumiendo que hay solo 1 cpu, si hay más de 1, hay que cambiar kernel.c
 
-	switch(kernel->algo){
-	case (FIFO):
-		pcb = queue_pop(Ready);
-		list_add(Exec, pcb);
+		switch(kernel->algo){
+		case (FIFO):
+			pcb = (pcb *) queue_pop(Ready);
+			list_add(Exec, pcb);
 
-		//enviarPCBaCPU(pcb);
+			//enviarPCBaCPU(sock_cpu,pcb);
 
-		break;
-	case (RR):
+			break;
+		case (RR):
 
-		break;
-	}
+			setearQuamtumS();
+			pcb = (pcb *) queue_pop(Ready);
+			list_add(Exec, pcb);
+			//enviarPCBaCPU(sock_cpu,pcb);
+			break;
+			}
+/* Una vez que lo se envia el pcb a la cpu, la cpu debería avisar si se pudo ejecutar todo o no
+ *
+ * */
 	} // cierra else
+}
+
+void setearQuamtumS(){
+	int i;
+	for(i = 0; i < Ready->elements->elements_count ; i++){
+		tPCB * pcbReady = (tPCB*) list_get(Ready->elements,i);
+	//	pcbReady->quantum = kernerl-> quamtum;
+	//	pcbReady->quamtumSleep = kernel -> quamtumSleep;
+
+	}
+}
+
+int cpuDisponible(){
+
+}
+void enviarPCBaCPU(sock_cpu,tPCB* pcb){
+	int off,tamanioProtocolo,tamanioTotalAEnviar;//El tamanioProtocolo seria el PCB dentro del enum, y
+		 	 	 	 	 	 	 	 	 	 	 //Y el tamanioTotalAEnviar, tengo que ver como calcularlo todavia, no se me ocurre una manera
+
+	tamanioProtocolo = calcularTamanioProtocolo(/*tengo que tratar de conseguir el head y el protocolo*/);
+	/* Para calcular bien el tamanioDelProtocolo, tengo que definir bien la estructura del pcb
+	 * Como definir el indiceDeStack, indiceDeCodigo e indiceDeEtiquetas
+	 *
+	 */
+	char * pcbSerealizado = serealizarPCBaCpu(&pcb);
+
+	char * buffer = malloc();
+
+	//Acá va un manejo de bytes que no se me ocurre como hacer ahora, y despues un send
 }
 
 void bloquearProceso(){
