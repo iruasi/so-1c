@@ -123,8 +123,8 @@ int reservarPagHeap(int sock_mem, int pid, int size_reserva){
 		return FALLO_SEND;
 	}
 
-	freeAndNULL((void **) pidpag);
-	freeAndNULL((void **) pidpag_serial);
+	freeAndNULL((void **) &pidpag);
+	freeAndNULL((void **) &pidpag_serial);
 	return 0;
 }
 
