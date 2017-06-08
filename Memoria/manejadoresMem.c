@@ -39,58 +39,8 @@ void abortar(int pid){ // TODO: escribir el comportamiento de esta funcion
 }
 
 
-// Se sabe previamente que el frame corresponde a uno de HEAP
-char *reservarBytes(int pid, int heap_page, int sizeReserva){
-// por ahora trabaja con la unica pagina que existe
-
-	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
-	int sizeLibre = memoria->marco_size - SIZEOF_HMD;
-
-	uint8_t rta = esReservable(sizeReserva, hmd);
-	while(rta != ULTIMO_HMD){
-
-		if (rta == true){
-
-			hmd->size = sizeReserva;
-			hmd->isFree = false;
-
-			sizeLibre -= sizeReserva;
-			uint8_t* dirNew_hmd = (uint8_t *) ((uint32_t) hmd + SIZEOF_HMD + hmd->size);
-			crearNuevoHMD(dirNew_hmd, sizeLibre);
-
-			return (char*) hmd;
-		}
-
-		sizeLibre -= hmd->size;
-
-		uint8_t* dir = (uint8_t *) ((uint32_t) hmd + SIZEOF_HMD + hmd->size);
-		hmd = (tHeapMeta *) dir;
-		rta = esReservable(sizeReserva, hmd);
-	}
-
-	return NULL; // en esta unica pagina no tuvimos espacio para reservar sizeReserva
-}
 
 
-tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size){
-
-	tHeapMeta *new_hmd = (tHeapMeta *) dir_mem;
-	new_hmd->size = size;
-	new_hmd->isFree = true;
-
-	return new_hmd;
-}
-
-uint8_t esReservable(int size, tHeapMeta *hmd){
-
-	if(! hmd->isFree || hmd->size - SIZEOF_HMD < size)
-		return false;
-
-	else if (hmd->size == 0) // esta libre y con espacio cero => es el ultimo MetaData
-		return ULTIMO_HMD;
-
-	return true;
-}
 
 void liberarEstructurasMemoria(void){
 
@@ -210,7 +160,7 @@ int buscarEnMemoria(int pid, int page){
 
 	return FRAME_NOT_FOUND;
 }
-
+/*
 void defragmentarHeap(uint8_t *heap_dir){
 	//para este checkpoint, heap_dir va a ser exactamente MEM_FIS
 
@@ -244,7 +194,7 @@ void defragmentarHeap(uint8_t *heap_dir){
 		off = 0;
 	}
 }
-
+*/
 void dumpMemStructs(void){
 
 	int i, fr, off;

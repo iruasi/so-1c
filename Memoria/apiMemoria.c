@@ -106,15 +106,15 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 
 int asignarPaginas(int pid, int page_count){
 
-	int stat;
+	int new_page;
 
-	if((stat = reservarPaginas(pid, page_count)) != 0){
-		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d", stat);
+	if((new_page = reservarPaginas(pid, page_count)) != 0){
+		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d\n", new_page);
 		abortar(pid);
 	}
 
-	printf("Se reservaron correctamente %d paginas", page_count);
-	return 0;
+	printf("Se reservaron correctamente %d paginas\n", page_count);
+	return new_page;
 }
 
 /* Llamado por Kernel, libera una pagina de HEAP.

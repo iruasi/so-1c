@@ -6,10 +6,12 @@
 #include <stdio.h>
 #include <errno.h>
 
+#include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 #include "funcionesPaquetes.h"
+
 
 /*
  * funcionesPaquetes es el modulo que retiene el gruso de las funciones
@@ -74,6 +76,8 @@ char *serializeBytes(tProceso proc, tMensaje msj, char* buffer, int buffer_size,
 	*pack_size += sizeof buffer_size;
 	memcpy(bytes_serial + *pack_size, buffer, buffer_size);
 	*pack_size += buffer_size;
+
+//	assertEq(sizeof *) TODO: assertEquals
 
 	return bytes_serial;
 }
@@ -340,7 +344,36 @@ char *serializePID(tPackPID *ppid){
 	memcpy(pid_serial + off, &ppid->pid, sizeof ppid->pid);
 	off += sizeof ppid->pid;
 
+
+
 	return pid_serial;
+}
+
+char *serializePIDPaginas(tPackPidPag *ppidpag){
+
+	int off = 0;
+	char *pidpag_serial;
+
+	if ((pidpag_serial = malloc(sizeof *ppidpag)) == NULL){
+		fprintf(stderr, "No se pudo crear espacio de memoria para pid_paginas serial\n");
+		return NULL;
+	}
+
+	memcpy(pidpag_serial + off, &ppidpag->head.tipo_de_proceso, sizeof ppidpag->head.tipo_de_proceso);
+	off += sizeof ppidpag->head.tipo_de_proceso;
+	memcpy(pidpag_serial + off, &ppidpag->head.tipo_de_mensaje, sizeof ppidpag->head.tipo_de_mensaje);
+	off += sizeof ppidpag->head.tipo_de_mensaje;
+	memcpy(pidpag_serial + off, &ppidpag->pid, sizeof ppidpag->pid);
+	off += sizeof ppidpag->pid;
+	memcpy(pidpag_serial + off, &ppidpag->pageCount, sizeof ppidpag->pageCount);
+	off += sizeof ppidpag->pageCount;
+
+	return pidpag_serial;
+}
+
+tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
+	tPackPidPag *ppidpag;
+	return ppidpag;
 }
 
 char *serializarPCBACpu(tPackPCBSimul *pcb){

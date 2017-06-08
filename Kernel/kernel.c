@@ -10,6 +10,7 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include <parser/parser.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -17,6 +18,8 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
+
+#include "capaMemoria.h"
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
@@ -38,8 +41,12 @@
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
 
+tHeapProc *hProcs;
+int hProcs_cant;
+
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int sock_cpu;
+int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
 int main(int argc, char* argv[]){
@@ -53,7 +60,6 @@ int main(int argc, char* argv[]){
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	int frames, frame_size; // para guardar datos a recibir de Memoria
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
@@ -189,6 +195,12 @@ int main(int argc, char* argv[]){
 				passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
 
 				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
+
+				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready
+				(hProcs+hProcs_cant)->pid = new_pcb->id;
+				(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
+				(hProcs+hProcs_cant)->pag_heap_cant++;
+
 				encolarPrograma(new_pcb, fd);
 
 				puts("Listo!");
@@ -208,6 +220,12 @@ int main(int argc, char* argv[]){
 				}
 
 				MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
+
+
+				stat = reservarPagHeap(sock_mem, 1, 1);
+				if (stat != 0)
+					puts("Fallo la reserva de paginas en heap");
+
 
 				break;
 

@@ -37,6 +37,7 @@ typedef enum {
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
 	INSTR       = INSTRUC_GET,
+	ASIGN_SUCCS = 56,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,

@@ -6,12 +6,23 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
 
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include "funcionesCompartidas.h"
 
 #define BACKLOG 20
+
+bool assertEq(int expected, int actual, const char* errmsg){
+	if (expected != actual){
+		fprintf(stderr, "%s\n", errmsg);
+		fprintf(stderr, "Error. Se esperaba %d, se obtuvo %d\n", expected, actual);
+		return false;
+	}
+	return true;
+}
 
 void freeAndNULL(void **ptr){
 	free(*ptr);

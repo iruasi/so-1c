@@ -70,4 +70,10 @@ char *serializarPCBACpu(tPackPCBSimul *ppcb);
  */
 char *serializePID(tPackPID *ppid);
 
+/* Serializa un tPackPIDPag dado.
+ * Retorna el buffer serializado;
+ * retorna NULL si falla
+ */
+char *serializePIDPaginas(tPackPidPag *ppidpag);
+
 #endif /* FUNCIONESPAQUETES_H_ */

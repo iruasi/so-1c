@@ -136,7 +136,7 @@ int main(int argc, char* argv[]){
 void* kernel_handler(void *sock_kernel){
 
 	int *sock_ker = (int *) sock_kernel;
-	int stat;
+	int stat, new_page;
 	int pid, pageCount;
 
 	tPackHeader *head = calloc(HEAD_SIZE, 1);
@@ -169,10 +169,16 @@ void* kernel_handler(void *sock_kernel){
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
 
+
 			recv(*sock_ker, &pid, sizeof pid, 0);
 			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
 
-			asignarPaginas(pid, pageCount);
+			if ((new_page = asignarPaginas(pid, pageCount)) != 0){
+				fprintf(stderr, "No se pudieron asignar %d paginas al proceso %d\n", pageCount, pid);
+				return new_page;
+			}
+
+			//responderAsignacion(*sock_ker, new_page); todo: send(sock_ker, ASIGN_PAG_SUCCESS ...);
 
 			break;
 
