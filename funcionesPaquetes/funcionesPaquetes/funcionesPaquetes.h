@@ -16,9 +16,26 @@ int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
  */
 int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 
+/* Serializa un buffer de bytes para que respete el protocolo de HEADER
+ * int *pack_size se usa para almacenar el size del paquete serializado, asi se lo puede send'ear
+ */
+char *serializeBytes(tProceso proc, tMensaje msj, char* buffer, int buffer_size, int *pack_size);
+
+/* Deserializa un buffer en un Paquete de Bytes
+ */
+tPackBytes *deserializeBytes(int sock_in);
+
 /* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
  */
 char *serializeByteRequest(tPCB *pcb, int *pack_size);
+
+/* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Solicitud de Bytes a Memoria.
+ */
+tPackByteReq *deserializeByteRequest(int sock_in);
+
+/* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Almacenamiento de Bytes a Memoria.
+ */
+tPackByteAlmac *deserializeByteAlmacenamiento(int sock_in);
 
 /* recibimos codigo fuente del socket de entrada
  * devolvemos un puntero a memoria que lo contiene

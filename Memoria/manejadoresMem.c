@@ -13,15 +13,20 @@
 #include "memoriaConfigurators.h"
 #include "apiMemoria.h"
 
+#include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 
 
 
 int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
 
-extern float retardo_mem;      // latencia de acceso a Memoria Fisica
-extern tMemoria *memoria;    // configuracion de Memoria
-extern char *MEM_FIS;        // MEMORIA FISICA
+extern float retardo_mem;   // latencia de acceso a Memoria Fisica
+extern tMemoria *memoria;   // configuracion de Memoria
+extern char *MEM_FIS;       // MEMORIA FISICA
+extern char *CACHE;         // memoria CACHE
+extern int *CACHE_accs;     // vector de accesos a CACHE
+tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
+
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
@@ -87,8 +92,17 @@ uint8_t esReservable(int size, tHeapMeta *hmd){
 	return true;
 }
 
+void liberarEstructurasMemoria(void){
 
-int setupMemoria(void){ // todo: cuando termina el proceso Memoria hay que liberar
+	liberarConfiguracionMemoria();
+	freeAndNULL((void **) &MEM_FIS);
+	freeAndNULL((void **) &CACHE);
+	freeAndNULL((void **) &CACHE_lines);
+	freeAndNULL((void **) &CACHE_accs);
+
+}
+
+int setupMemoria(void){
 
 	MEM_FIS = malloc(memoria->marcos * memoria->marco_size);
 	if (MEM_FIS == NULL){
@@ -192,7 +206,7 @@ int buscarEnMemoria(int pid, int page){
 			return frame_repr;
 	}
 
-	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page); // todo: investigar y ver como hacer una buena funcion de hashing
+	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page);
 
 	return FRAME_NOT_FOUND;
 }

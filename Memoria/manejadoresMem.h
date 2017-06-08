@@ -16,14 +16,24 @@ extern char *MEM_FIS;
 
 void abortar(int pid);
 
+/* Libera todas las estructuras del proceso Memoria,
+ * desde la Memoria Fisica hasta los componentes de la Cache
+ */
+void liberarEstructurasMemoria(void);
+
 /* Crea una cantidad quant de frames de tamanio size.
  * Se usa para la configuracion del espacio de memoria inicial
  * Ademas escribe la tabla de paginas invertida en sus primeros bytes.
  */
 int setupMemoria(void);
+
+/* Crea en la Memoria Fisica las entradas de la Tabla de Paginas Invertida.
+ * Les asigna un PID y PAGINA especificos segun sean Entradas Invertidas o frames de Memoria Fisica
+ */
 void populateInvertidas(void);
 
-/* mediante la funcion de hash encuentra el frame que corresponde a la pagina de un proceso
+/* Realiza una busqueda secuencial en la Tabla de Paginas Invertida. TODO: Deberia usar una funcion de hashing
+ * mediante la funcion de hash encuentra el frame que corresponde a la pagina de un proceso
  */
 int buscarEnMemoria(int pid, int page);
 

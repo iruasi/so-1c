@@ -14,7 +14,7 @@ extern int *CACHE_accs;      // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 extern tMemoria *memoria;    // configuracion de Memoria
 
-int setupCache(void){ // todo: las cosas malloqueadas aca hay que liberarlas al final de Memoria
+int setupCache(void){
 
 	if ((CACHE = malloc(memoria->entradas_cache * memoria->marco_size)) == NULL){
 		fprintf(stderr, "No se pudo crear espacio de memoria para Memoria de CACHE");
@@ -32,7 +32,6 @@ int setupCache(void){ // todo: las cosas malloqueadas aca hay que liberarlas al 
 		return FALLO_GRAL;
 	}
 
-	flush();
 	return 0;
 }
 
@@ -43,6 +42,8 @@ void setupCacheLines(void){
 		CACHE_lines->cont = CACHE + off;
 		off += memoria->marco_size;
 	}
+
+	flush();
 }
 
 char *getCacheContent(int pid, int page){
@@ -108,13 +109,16 @@ tCacheEntrada *allocateCacheEntry(void){
 	return entry;
 }
 
-/* aplica el algoritmo LRU para elegir la victima a pisar en CACHE
- */
 tCacheEntrada *getCacheVictim(int *min_line){
 
 	int i;
-	for (i = *min_line = 0; i < memoria->entradas_cache; ++i)
+	for (i = *min_line = 0; i < memoria->entradas_cache; ++i){
+
+		if (CACHE_lines->pid == PID_MEM) // entrada libre
+			return CACHE_lines + *min_line;
+
 		(CACHE_accs[i] < *min_line)? *min_line = i : *min_line;
+	}
 
 	return CACHE_lines + *min_line;
 }

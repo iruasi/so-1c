@@ -27,6 +27,8 @@ typedef enum {
 , CONEX_INVAL=         -27
 , FALLO_MATAR=         -28
 , FALLO_HILO_JOIN=     -29
+, FALLO_DESERIALIZAC=  -30
+, FALLO_SERIALIZAC=    -31
 
 , MEMORIA_LLENA=       -50
 , FRAME_NOT_FOUND=     -51

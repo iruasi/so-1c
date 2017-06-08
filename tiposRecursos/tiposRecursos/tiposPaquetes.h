@@ -16,6 +16,7 @@ typedef enum {
 	PCB_SAVE    = PCB_PREEMPT, // serian para Memoria
 	PCB_RESTORE = PCB_EXEC, // serian para Memoria
 	INSTRUC_GET = 23,
+	BYTES_GET   = INSTRUC_GET,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -83,6 +84,15 @@ typedef struct {
 	int offset;
 	int size;
 } tPackByteReq; // Solicitud de Bytes a Memoria
+
+typedef struct {
+	tPackHeader head;
+	int pid;
+	int page;
+	int offset;
+	int size;
+	char *bytes;
+} tPackByteAlmac; // Almacenamiento de Bytes a Memoria
 
 typedef struct {
 
