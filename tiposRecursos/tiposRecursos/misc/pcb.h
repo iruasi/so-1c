@@ -25,8 +25,13 @@ typedef struct{
 }posicionMemoria;
 
 typedef struct{
-	t_list* args; // Posiciones de memoria de las copias de los argumentos de la función.
-	t_list* vars; // Identificadores y posiciones de memoria de las variables locales.
+	uint32_t pid;
+	posicionMemoria pos;
+}posicionMemoriaPid;
+
+typedef struct{
+	posicionMemoria* args; // Posiciones de memoria de las copias de los argumentos de la función.
+	posicionMemoriaPid* vars; // Identificadores y posiciones de memoria de las variables locales.
 	uint32_t retPos; // Posicion del indice de codigo donde retorna al finalizar la funcion.
 	posicionMemoria* retVar; // Posicion de memoria para guardar el resultado
 }indiceStack;
@@ -34,7 +39,7 @@ typedef struct{
 typedef struct {
 	uint32_t id, // PID
 			 pc, // Program Counter
-			 paginasDeCodigo,
+			 paginasDeCodigo, // paginas de codigo
 			 etiquetaSize,
 			 cantidad_instrucciones,
 			 exitCode;

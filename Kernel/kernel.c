@@ -188,13 +188,19 @@ int main(int argc, char* argv[]){
 
 				int src_size;
 				tPackSrcCode *entradaPrograma = NULL;
-				entradaPrograma = recibir_paqueteSrc(header_tmp,fd);//Aca voy a recibir el tPackSrcCode
-				src_size = strlen((const char *) &entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
+				entradaPrograma = recibir_paqueteSrc(header_tmp, fd);//Aca voy a recibir el tPackSrcCode
+				src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
 				printf("El size del paquete %d\n", src_size);
 				puts("Era ese el size");
 				int cant_pag = (int) ceil((float)src_size / frame_size);
 				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
+
+
+				char *serial_pcb = serializePCB(new_pcb, header_tmp);
+
+				return 0;
+
 
 				encolarEnNEWPrograma(new_pcb, fd);
 
@@ -306,7 +312,8 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 
 	tPackSrcCode *pack_src = malloc(HEAD_SIZE + sizeof (int) + paqueteRecibido);
 	pack_src->sourceLen = paqueteRecibido;
-	memcpy(&pack_src->sourceCode, mensaje, paqueteRecibido);
+	pack_src->sourceCode = malloc(pack_src->sourceLen);
+	memcpy(pack_src->sourceCode, mensaje, paqueteRecibido);
 
 	//tPackSrcCode *buffer = deserializeSrcCode(fd);
 
