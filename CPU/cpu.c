@@ -266,8 +266,8 @@ tPCB *recvPCB(void){
 	tPCB *pcb = malloc(sizeof *pcb);
 
 	pcb->indiceDeCodigo = malloc(sizeof pcb->indiceDeCodigo);
-	pcb->indiceDeCodigo->offsetInicio = 0;
-	pcb->indiceDeCodigo->offsetFin = 4;
+	pcb->indiceDeCodigo->start = 0;
+	pcb->indiceDeCodigo->offset = 4;
 	//int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
 
 	int stat;
@@ -304,7 +304,7 @@ int ejecutarPrograma(tPCB* pcb){
 			return FALLO_GRAL;
 		}
 
-		instr_size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+		instr_size = pcb->indiceDeCodigo->start - pcb->indiceDeCodigo->offset;
 		if ((stat = recibirInstruccion(&linea, instr_size)) != 0){
 			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
