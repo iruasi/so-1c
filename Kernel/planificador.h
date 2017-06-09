@@ -7,7 +7,7 @@
 
 
 void setupPlanificador();
-void encolarPrograma(tPCB *new_PCB, int sock_consola);
+void encolarEnNEWPrograma(tPCB *new_PCB, int sock_consola);
 void updateQueue(t_queue *queue);
 
 void freePCBs(t_queue *queue);

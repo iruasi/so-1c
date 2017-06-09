@@ -37,7 +37,7 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
-void *recibir_paqueteSrc(tPackHeader * header,int fd);
+tPackSrcCode *recibir_paqueteSrc(tPackHeader * header,int fd);
 int cantidadTotalDeBytesRecibidos(int fdServidor, void * buffer, int tamanioBytes);
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
@@ -187,17 +187,16 @@ int main(int argc, char* argv[]){
 				puts("Consola quiere iniciar un programa");
 
 				int src_size;
-				//puts("Entremos a passSrcCodeFromRecv");
-				//passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
-				//tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
-				void *entradaPrograma = NULL;
+				tPackSrcCode *entradaPrograma = NULL;
 				entradaPrograma = recibir_paqueteSrc(header_tmp,fd);//Aca voy a recibir el tPackSrcCode
-				src_size = sizeof(*entradaPrograma);
+				src_size = strlen((const char *) &entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
+				printf("El size del paquete %d\n", src_size);
+				puts("Era ese el size");
 				int cant_pag = (int) ceil((float)src_size / frame_size);
 				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
-				encolarPrograma(new_pcb, fd);
+				encolarEnNEWPrograma(new_pcb, fd);
 
 				puts("Listo!");
 				break;
@@ -293,7 +292,7 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 	}
 }
 
-void * recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
+tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
 
 	int paqueteRecibido;
 	int *tamanioMensaje = malloc(sizeof (int));
@@ -305,12 +304,16 @@ void * recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tiene pote
 	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd,mensaje,*tamanioMensaje);
 	if(paqueteRecibido <= 0) return NULL;
 
-	void *buffer = deseralizeSrcCode(fd);
+	tPackSrcCode *pack_src = malloc(HEAD_SIZE + sizeof (int) + paqueteRecibido);
+	pack_src->sourceLen = paqueteRecibido;
+	memcpy(&pack_src->sourceCode, mensaje, paqueteRecibido);
+
+	//tPackSrcCode *buffer = deserializeSrcCode(fd);
 
 	free(tamanioMensaje);tamanioMensaje = NULL;
 	free(mensaje);mensaje = NULL;
 
-	return buffer;
+	return pack_src;
 
 }
 
