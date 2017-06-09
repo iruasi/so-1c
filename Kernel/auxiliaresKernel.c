@@ -29,6 +29,7 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 	puts("Entremos a serializeSrcCodeFromRecv");
 	void *pack_src_serial = serializeSrcCodeFromRecv(fd_sender, *head, &packageSize);
+
 	if (pack_src_serial == NULL){
 		puts("Fallo al recibir y serializar codigo fuente");
 		return FALLO_GRAL;
@@ -49,8 +50,11 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 	return 0;
 }
 
-tPCB *nuevoPCB(int cant_pags){
+tPCB *nuevoPCB(void * src_code,int cant_pags){
 
+
+	tPackSrcCode * src_aux = (tPackSrcCode *) src_code;
+	src_aux -> sourceCode;
 	tPCB *nuevoPCB = malloc(sizeof *nuevoPCB);
 
 	nuevoPCB->id = globalPID;
@@ -65,4 +69,9 @@ tPCB *nuevoPCB(int cant_pags){
 	return nuevoPCB;
 
 }
+
+
+
+
+
 

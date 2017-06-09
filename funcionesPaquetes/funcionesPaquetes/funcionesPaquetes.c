@@ -60,7 +60,7 @@ int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
 char *serializeByteRequest(tPCB *pcb, int *pack_size){
 
 	int code_page = 0;
-	int size_instr = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
+	int size_instr = pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start;
 	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTRUC_GET};
 
 	char *bytereq_serial;
@@ -78,8 +78,8 @@ char *serializeByteRequest(tPCB *pcb, int *pack_size){
 	*pack_size += sizeof pcb->pc;
 	memcpy(bytereq_serial, &code_page, sizeof code_page);	// CODE_PAGE
 	*pack_size += sizeof code_page;
-	memcpy(bytereq_serial, &pcb->indiceDeCodigo->offsetInicio, sizeof pcb->indiceDeCodigo->offsetInicio); // OFFSET_BEGIN
-	*pack_size += sizeof pcb->indiceDeCodigo->offsetInicio;
+	memcpy(bytereq_serial, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->offset); // OFFSET_BEGIN
+	*pack_size += sizeof pcb->indiceDeCodigo->start;
 	memcpy(bytereq_serial, &size_instr, sizeof size_instr); 		// SIZE
 	*pack_size += sizeof size_instr;
 
@@ -192,7 +192,6 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 		perror("No se pudo almacenar memoria para el buffer del codigo fuente. error");
 		return NULL;
 	}
-
 
 	// recibimos el codigo fuente
 	if ((stat = recv(sock_in, bufferCode, bufferSize, 0)) == -1){

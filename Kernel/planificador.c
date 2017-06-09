@@ -262,7 +262,7 @@ void eliminarDeCola(t_queue *cola, tPCB *proceso){
 
 }
 
-int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
+/*int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
 // Al ser FIFO tanto FCFS como RR pasar de READY a EXEC solo sucede con
 // el primer elemento de la lsita, esto comprueba que sea el que solicitamos
 //	caso contrario arroja error
@@ -288,4 +288,4 @@ int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
 		free(todoOK);
 		return 1;
 	}
-}
+}*/

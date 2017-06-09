@@ -37,6 +37,8 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
+void *recibir_paqueteSrc(tPackHeader * header,int fd);
+int cantidadTotalDeBytesRecibidos(int fdServidor, void * buffer, int tamanioBytes);
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int sock_cpu;
@@ -181,14 +183,20 @@ int main(int argc, char* argv[]){
 			}
 
 			// Se recibio un header sin conflictos, procedemos con el flujo..
-			if (header_tmp->tipo_de_mensaje == SRC_CODE){
+			if (header_tmp->tipo_de_mensaje == SRC_CODE){ //PROGRAMA ANSISOP
 				puts("Consola quiere iniciar un programa");
 
 				int src_size;
-				puts("Entremos a passSrcCodeFromRecv");
-				passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
+				//puts("Entremos a passSrcCodeFromRecv");
+				//passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
+				//tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
+				void *entradaPrograma = NULL;
+				entradaPrograma = recibir_paqueteSrc(header_tmp,fd);//Aca voy a recibir el tPackSrcCode
+				src_size = sizeof(*entradaPrograma);
+				int cant_pag = (int) ceil((float)src_size / frame_size);
+				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
+												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
-				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
 				encolarPrograma(new_pcb, fd);
 
 				puts("Listo!");
@@ -283,4 +291,49 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 		puts("Funcion no reconocida!");
 		break;
 	}
+}
+
+void * recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
+
+	int paqueteRecibido;
+	int *tamanioMensaje = malloc(sizeof (int));
+
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd,tamanioMensaje,sizeof(int));
+	if(paqueteRecibido <= 0 ) return NULL;
+
+	void *mensaje = malloc(*tamanioMensaje);
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd,mensaje,*tamanioMensaje);
+	if(paqueteRecibido <= 0) return NULL;
+
+	void *buffer = deseralizeSrcCode(fd);
+
+	free(tamanioMensaje);tamanioMensaje = NULL;
+	free(mensaje);mensaje = NULL;
+
+	return buffer;
+
+}
+
+int cantidadTotalDeBytesRecibidos(int fdServidor, void * buffer, int tamanioBytes) { //Esta función va en funcionesCompartidas
+	int total = 0;
+	int bytes_recibidos;
+
+	while (total < tamanioBytes){
+
+	bytes_recibidos = recv(fdServidor, buffer+total, tamanioBytes, MSG_WAITALL);
+	// MSG_WAITALL: el recv queda completamente bloqueado hasta que el paquete sea recibido completamente
+
+	if (bytes_recibidos == -1) { // Error al recibir mensaje
+		perror("[SOCKETS] No se pudo recibir correctamente los datos.\n");
+		break;
+			}
+
+	if (bytes_recibidos == 0) { // Conexión cerrada
+		printf("[SOCKETS] La conexión fd #%d se ha cerrado.\n", fdServidor);
+		break;
+	}
+	total += bytes_recibidos;
+	tamanioBytes -= bytes_recibidos;
+		}
+	return bytes_recibidos; // En caso de éxito, se retorna la cantidad de bytes realmente recibida
 }

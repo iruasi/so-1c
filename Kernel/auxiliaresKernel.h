@@ -12,6 +12,6 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 /* Crea un puntero a un PCB nuevo, con un PID unico.
  */
-tPCB *nuevoPCB(int cant_pags);
+tPCB *nuevoPCB(void * src_code,int cant_pags);
 
 #endif // AUXILIARESKERNEL_H_

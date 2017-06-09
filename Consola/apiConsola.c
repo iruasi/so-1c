@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <commons/collections/list.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "apiConsola.h"
 #include "auxiliaresConsola.h"
@@ -22,7 +24,7 @@
 #endif
 
 int siguientePID(void){return 1;}
-
+int tamanioPrograma;
 int Iniciar_Programa(tPathYSock *args){
 
 	int stat, *retval;
@@ -113,10 +115,11 @@ void *programa_handler(void *pathYSock){
 	tPackHeader head_tmp;
 
 	puts("Creando codigo fuente...");
+
 	tPackSrcCode *src_code = readFileIntoPack(CON, args->path);
 	puts("codigo fuente creado");
 	puts("Serializando codigo fuente...");
-	void *paquete_serializado = serializarSrcCode(src_code);
+	tPackSrcCode *paquete_serializado = serializarSrcCode(src_code);
 	puts("codigo fuente serializado");
 	puts("Enviando codigo fuente...");
 	int packSize = sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen;
@@ -168,6 +171,14 @@ void *programa_handler(void *pathYSock){
 	puts("Kernel cerro conexion con thread de programa");
 	return NULL;
 }
+
+
+
+
+
+
+
+
 
 
 
