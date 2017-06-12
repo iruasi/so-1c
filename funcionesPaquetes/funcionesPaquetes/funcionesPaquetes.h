@@ -16,6 +16,7 @@ int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
  */
 int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 
+
 /* Serializa un buffer de bytes para que respete el protocolo de HEADER
  * int *pack_size se usa para almacenar el size del paquete serializado, asi se lo puede send'ear
  */
@@ -24,6 +25,22 @@ char *serializeBytes(tProceso proc, tMensaje msj, char* buffer, int buffer_size,
 /* Deserializa un buffer en un Paquete de Bytes
  */
 tPackBytes *deserializeBytes(int sock_in);
+
+
+char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size);
+
+/* Consideramos que ya hicimos recv()
+ * Recibimos un buffer con el PCB y lo deserializamos a la struct apropiada.
+ * (Hacer free a lo que malloquea)
+ */
+tPCB *deserializarPCB(char *pcb_serial);
+
+
+/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
+ * por lo tanto hay que recibir el resto del paquete...
+ */
+char *recvPCB(int sock_in);
+
 
 /* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
  */
@@ -53,16 +70,6 @@ tPackSrcCode *deserializeSrcCode(int sock_in);
  * !! Suponemos que ya se recibio antes un tPackHeader u 8 bytes !!
  */
 void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *serialized_pack_size);
-
-/* Dados un PCB y un header, construye el paquete PCB Simulado (es decir, el incompleto)
- */
-tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb);
-
-/* Serializa un tPackPCBaCPU dado.
- * Retorna el buffer serializado;
- * retorna NULL si falla
- */
-char *serializarPCBACpu(tPackPCBSimul *ppcb);
 
 /* Serializa un tPackPID dado.
  * Retorna el buffer serializado;

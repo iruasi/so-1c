@@ -59,6 +59,8 @@ int handleNewListened(int sock_listen, fd_set *setFD);
  */
 void clearAndClose(int *fd, fd_set *setFD);
 
-
+/* Util para recibir cualquier struct sin campos variables
+ */
+int cantidadTotalDeBytesRecibidos(int fdServidor, char * buffer, int tamanioBytes);
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

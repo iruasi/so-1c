@@ -5,6 +5,8 @@
 #include <sys/socket.h>
 #include <math.h>
 
+#include <parser/metadata_program.h>
+
 #include "auxiliaresKernel.h"
 #include "planificador.h"
 
@@ -19,6 +21,8 @@
 
 uint32_t globalPID;
 
+
+
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size){
 
 	int stat;
@@ -29,6 +33,7 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 	puts("Entremos a serializeSrcCodeFromRecv");
 	void *pack_src_serial = serializeSrcCodeFromRecv(fd_sender, *head, &packageSize);
+
 	if (pack_src_serial == NULL){
 		puts("Fallo al recibir y serializar codigo fuente");
 		return FALLO_GRAL;
@@ -49,20 +54,62 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 	return 0;
 }
 
-tPCB *nuevoPCB(int cant_pags){
+
+// todo: persisitir
+tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags){
+
+	t_metadata_program *meta = metadata_desde_literal(src_code->sourceCode);
+
+	bool hayEtiquetas = (meta->etiquetas_size > 0)? true : false;
 
 	tPCB *nuevoPCB = malloc(sizeof *nuevoPCB);
+	nuevoPCB->indiceDeCodigo = malloc(sizeof nuevoPCB->indiceDeCodigo);
+	nuevoPCB->indiceDeStack = malloc(sizeof nuevoPCB->indiceDeStack + sizeof nuevoPCB->indiceDeStack->args
+			+ sizeof nuevoPCB->indiceDeStack->retVar + sizeof nuevoPCB->indiceDeStack->vars);
+	nuevoPCB->indiceDeStack->args   = malloc(sizeof nuevoPCB->indiceDeStack->args);
+	nuevoPCB->indiceDeStack->retVar = malloc(sizeof nuevoPCB->indiceDeStack->retVar);
+	nuevoPCB->indiceDeStack->vars   = malloc(sizeof nuevoPCB->indiceDeStack->vars);
+
+	nuevoPCB->etiquetaSize = 0;
+	if (hayEtiquetas){
+		nuevoPCB->etiquetaSize = meta->etiquetas_size;
+		nuevoPCB->indiceDeEtiquetas = malloc(nuevoPCB->etiquetaSize);
+		memcpy(nuevoPCB->indiceDeEtiquetas, meta->etiquetas, nuevoPCB->etiquetaSize);
+	}
 
 	nuevoPCB->id = globalPID;
 	globalPID++;
 	nuevoPCB->pc = 0;
-	nuevoPCB->paginasDeCodigo   = cant_pags;
-	nuevoPCB->indiceDeCodigo    = NULL;
-//	nuevoPCB->indiceDeEtiquetas = NULL;
-//	nuevoPCB->indiceDeStack     = NULL;
+	nuevoPCB->paginasDeCodigo = cant_pags;
+
+	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
+	nuevoPCB->indiceDeCodigo->start  = meta->instrucciones_serializado->start;
+	nuevoPCB->indiceDeCodigo->offset = meta->instrucciones_serializado->offset;
+
+	nuevoPCB->indiceDeEtiquetas = meta->etiquetas;
+	nuevoPCB->indiceDeStack->args->pag = -1;
+	nuevoPCB->indiceDeStack->args->offset = -1;
+	nuevoPCB->indiceDeStack->args->size = -1;
+
+	nuevoPCB->indiceDeStack->vars->pid = -1;
+	nuevoPCB->indiceDeStack->vars->pos.pag = -1;
+	nuevoPCB->indiceDeStack->vars->pos.offset = -1;
+	nuevoPCB->indiceDeStack->vars->pos.size = -1;
+
+	nuevoPCB->indiceDeStack->retPos = -1;
+
+	nuevoPCB->indiceDeStack->retVar->pag = -1;
+	nuevoPCB->indiceDeStack->retVar->offset = -1;
+	nuevoPCB->indiceDeStack->retVar->size = -1;
+
 	nuevoPCB->exitCode = 0;
 
-	return nuevoPCB;
+	//almacenar(nuevoPCB->id, meta);
 
+	return nuevoPCB;
 }
+
+
+
+
 

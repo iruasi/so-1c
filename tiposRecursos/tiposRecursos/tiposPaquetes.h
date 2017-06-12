@@ -104,10 +104,10 @@ typedef struct {
 
 typedef struct {
 	tPackHeader head;
-	int pid;
-	int pc;
-	int pages;
-	int exit;
+	int pid,
+		pc,
+		pages,
+		exit;
 } tPackPCBSimul; /* este paquete simula ser un PCB, todavia no aplica todos los campos;
                   * TODO: luego sera el tPackPCB para el proyecto completo */
 
