@@ -16,6 +16,15 @@ int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
  */
 int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 
+
+char *serializePCB(tPCB *pcb, tPackHeader head);
+
+/* Consideramos que ya hicimos recv()
+ * Recibimos un buffer con el PCB y lo deserializamos a la struct apropiada.
+ * (Hacer free a lo que malloquea)
+ */
+tPCB *deserializarPCB(char *pcb_serial);
+
 /* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
  */
 char *serializeByteRequest(tPCB *pcb, int *pack_size);

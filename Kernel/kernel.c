@@ -38,7 +38,7 @@
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
 tPackSrcCode *recibir_paqueteSrc(tPackHeader * header,int fd);
-int cantidadTotalDeBytesRecibidos(int fdServidor, void * buffer, int tamanioBytes);
+
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int sock_cpu;
@@ -300,11 +300,11 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 	int paqueteRecibido;
 	int *tamanioMensaje = malloc(sizeof (int));
 
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd,tamanioMensaje,sizeof(int));
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, tamanioMensaje, sizeof(int));
 	if(paqueteRecibido <= 0 ) return NULL;
 
 	void *mensaje = malloc(*tamanioMensaje);
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd,mensaje,*tamanioMensaje);
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, mensaje, *tamanioMensaje);
 	if(paqueteRecibido <= 0) return NULL;
 
 	tPackSrcCode *pack_src = malloc(HEAD_SIZE + sizeof (int) + paqueteRecibido);
@@ -321,26 +321,3 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 
 }
 
-int cantidadTotalDeBytesRecibidos(int fdServidor, void * buffer, int tamanioBytes) { //Esta función va en funcionesCompartidas
-	int total = 0;
-	int bytes_recibidos;
-
-	while (total < tamanioBytes){
-
-	bytes_recibidos = recv(fdServidor, buffer+total, tamanioBytes, MSG_WAITALL);
-	// MSG_WAITALL: el recv queda completamente bloqueado hasta que el paquete sea recibido completamente
-
-	if (bytes_recibidos == -1) { // Error al recibir mensaje
-		perror("[SOCKETS] No se pudo recibir correctamente los datos.\n");
-		break;
-			}
-
-	if (bytes_recibidos == 0) { // Conexión cerrada
-		printf("[SOCKETS] La conexión fd #%d se ha cerrado.\n", fdServidor);
-		break;
-	}
-	total += bytes_recibidos;
-	tamanioBytes -= bytes_recibidos;
-		}
-	return bytes_recibidos; // En caso de éxito, se retorna la cantidad de bytes realmente recibida
-}

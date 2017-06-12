@@ -25,8 +25,6 @@
 int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
 int sock_kern;
 
-int cantidadTotalDeBytesRecibidos(int fdServidor, void * buffer, int tamanioBytes); // TODO: mover
-
 int pedirInstruccion(tPCB *pcb);
 int recibirInstruccion(char **linea, int instr_size);
 
@@ -35,7 +33,8 @@ int ejecutarPrograma(tPCB*);
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
-tPCB *recvPCB(void);
+char *recvPCB(int sock_in);
+tPCB *deserializarPCB(char *pcb_serial);
 
 bool termino = false;
 
@@ -218,6 +217,7 @@ int main(int argc, char* argv[]){
 
 
 	tPackHeader *head = malloc(sizeof *head);
+	char *pcb_serial;
 	tPCB *pcb;
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
 		puts("Se recibio un paquete de Kernel");
@@ -227,9 +227,11 @@ int main(int argc, char* argv[]){
 			liberarConfiguracionCPU(cpu_data);
 
 		} else if (head->tipo_de_mensaje == PCB_EXEC){
-			if((pcb = recvPCB()) == NULL){
+			if((pcb_serial = recvPCB(sock_kern)) == NULL){
 				return FALLO_RECV;
 			}
+
+			pcb = deserializarPCB(pcb_serial);
 
 			puts("Recibimos un PCB para ejecutar...");
 			if ((stat = ejecutarPrograma(pcb)) != 0){
@@ -259,50 +261,8 @@ int main(int argc, char* argv[]){
 	return 0;
 }
 
-/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
- * por lo tanto hay que recibir el resto del paquete...
- */
-tPCB *recvPCB(void){
-
-	tPCB *pcb = malloc(sizeof *pcb);
-
-	//pcb->indiceDeCodigo    = malloc(sizeof pcb->indiceDeCodigo);
-	//pcb->indiceDeStack     = malloc(sizeof pcb->indiceDeStack);
-	//pcb->indiceDeEtiquetas = malloc(sizeof pcb->indiceDeEtiquetas);
-	pcb->indiceDeCodigo->start = 0;
-	pcb->indiceDeCodigo->offset = 4;
-	//int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
-
-	int stat;
-	if((stat = recv(sock_kern, &pcb->id, sizeof pcb->id, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-	if((stat = recv(sock_kern, &pcb->pc, sizeof pcb->pc, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-	if((stat = recv(sock_kern, &pcb->paginasDeCodigo, sizeof pcb->paginasDeCodigo, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-	if((stat = recv(sock_kern, &pcb->exitCode, sizeof pcb->exitCode, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-
-	return pcb;
-}
-
-tPCB *deserializarPCB(char *pbc_serial, int pcb_bytes){
-
-	int offset = 0;
-
-	tPCB *pcb ;// TODO:= malloc ();
 
 
-	return pcb;
-}
 
 int ejecutarPrograma(tPCB* pcb){
 
@@ -317,7 +277,7 @@ int ejecutarPrograma(tPCB* pcb){
 			return FALLO_GRAL;
 		}
 
-		instr_size = pcb->indiceDeCodigo->start - pcb->indiceDeCodigo->offset;
+		instr_size = 4; //pcb->indiceDeCodigo->start - pcb->indiceDeCodigo->offset;
 		if ((stat = recibirInstruccion(&linea, instr_size)) != 0){
 			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
@@ -386,29 +346,4 @@ char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLa
 	char *aRetornar = calloc(1, 100);
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
 	return aRetornar;
-}
-
-// TODO: mover a funcionesCompartidas.c y .h
-int cantidadTotalDeBytesRecibidos(int fdServidor, void *buffer, int tamanioBytes) { //Esta función va en funcionesCompartidas
-	int total = 0;
-	int bytes_recibidos;
-
-	while (total < tamanioBytes){
-
-	bytes_recibidos = recv(fdServidor, buffer+total, tamanioBytes, MSG_WAITALL);
-	// MSG_WAITALL: el recv queda completamente bloqueado hasta que el paquete sea recibido completamente
-
-	if (bytes_recibidos == -1) { // Error al recibir mensaje
-		perror("[SOCKETS] No se pudo recibir correctamente los datos.\n");
-		break;
-			}
-
-	if (bytes_recibidos == 0) { // Conexión cerrada
-		printf("[SOCKETS] La conexión fd #%d se ha cerrado.\n", fdServidor);
-		break;
-	}
-	total += bytes_recibidos;
-	tamanioBytes -= bytes_recibidos;
-		}
-	return bytes_recibidos; // En caso de éxito, se retorna la cantidad de bytes realmente recibida
 }
