@@ -197,10 +197,7 @@ int main(int argc, char* argv[]){
 												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
 
-				char *serial_pcb = serializePCB(new_pcb, header_tmp);
-
-				return 0;
-
+				//char *serial_pcb = serializePCB(new_pcb, header_tmp); todo: va en planificador
 
 				encolarEnNEWPrograma(new_pcb, fd);
 
