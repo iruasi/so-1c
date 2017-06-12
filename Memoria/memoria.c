@@ -4,6 +4,7 @@
 #include <string.h>
 #include <netdb.h>
 #include <commons/config.h>
+#include <commons/log.h>
 #include <pthread.h>
 #include <sys/socket.h>
 #include <arpa/inet.h> //inet_addr
@@ -15,12 +16,20 @@
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
+
 #include "apiMemoria.h"
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
 #include "memoriaConfigurators.h"
 #include "structsMem.h"
 
+t_log * logger;
+
+void crearLoggerMemoria(){
+	 char * archivoLog = strdup("MEMORIA_LOG.cfg");
+	 logger = log_create("MEMORIA_LOG.cfg",archivoLog,true,LOG_LEVEL_INFO);
+	 free(archivoLog);archivoLog = NULL;
+}
 
 #define BACKLOG 20
 
@@ -42,6 +51,8 @@ int main(int argc, char* argv[]){
 
 	int stat;
 
+	crearLoggerMemoria();
+
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
@@ -62,12 +73,14 @@ int main(int argc, char* argv[]){
 	clientSize = sizeof client;
 
 	if ((sock_entrada = makeListenSock(memoria->puerto_entrada)) < 0){
-		fprintf(stderr, "No se pudo crear un socket de listen. fallo: %d", sock_entrada);
+
+		log_error(logger,"No se pudo crear un socket de listen. Fallo: %d",sock_entrada);
 		return FALLO_GRAL;
 	};
 	//Listen
 	if ((stat = listen(sock_entrada , BACKLOG)) == -1){
-		perror("No se pudo hacer listen del socket. error");
+
+		log_error(logger,"No se pudo hacer listen del socket");
 		return FALLO_GRAL;
 	};
 
@@ -82,7 +95,8 @@ int main(int argc, char* argv[]){
 
 		tPackHeader *head = malloc(HEAD_SIZE);
 		if ((stat = recv(client_sock, head, HEAD_SIZE, 0)) < 0){
-			perror("Error en la recepcion de handshake. error");
+			log_error(logger,"Error en la recepcion de handshake");
+
 			return FALLO_RECV;
 		}
 
@@ -93,33 +107,38 @@ int main(int argc, char* argv[]){
 				kernExists = true;
 
 				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, new_sock)) == -1){
-					puts("No se pudo enviar la informacion relevante a Kernel!");
+
+					log_error(logger,"No se pudo enviar informacion relevante al Kernel");
 					return FALLO_GRAL;
 				}
 
 				if( pthread_create(&kern_thread, NULL, (void*) kernel_handler, (void*) &new_sock) < 0){
-					perror("No pudo crear hilo. error");
+
+					log_error(logger,"No se pudo crear hilo");
 					return FALLO_GRAL;
 				}
 
 			} else {
 				errno = CONEX_INVAL;
-				perror("Se trato de conectar otro Kernel. error");
+				log_error(logger,"Se trato de conectar otro kernel");
+
 			}
 
 			break;
 
 		case CPU:
 			if( pthread_create(&sniffer_thread ,NULL , (void*) cpu_handler ,(void*) &new_sock) < 0){
-				perror("no pudo crear hilo. error");
+				log_error(logger,"No se pudo crear el hilo");
+
 				return FALLO_GRAL;
 			}
 			break;
 
 		default:
-			puts("Trato de conectarse algo que no era ni Kernel ni CPU!");
-			printf("El tipo de proceso y mensaje son: %d y %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
-			printf("Se recibio esto del socket: %d\n", client_sock);
+			log_info(logger,"Trato de conectarse algo que no era ni kernel ni CPU");
+			log_info(logger,"El tipo de proceso y mensaje son: %d y %d",head->tipo_de_proceso,head->tipo_de_mensaje);
+			log_info(logger,"Se recibio esto del socket: %d", client_sock);
+
 			return CONEX_INVAL;
 		}
 	}
@@ -147,29 +166,34 @@ void* kernel_handler(void *sock_kernel){
 	do {
 		switch(head->tipo_de_mensaje){
 		case INI_PROG:
-			puts("Kernel quiere inicializar un programa.");
+
+			log_info(logger,"El kernel quiere incializar un programa");
 
 			recv(*sock_ker, &pid, sizeof (uint32_t), 0);
 			recv(*sock_ker, &pageCount, sizeof (uint32_t), 0);
 			if ((stat = inicializarPrograma(pid, pageCount)) != 0){
-				puts("No se pudo inicializar el programa. Se aborta el programa.");
+
+
+				log_error(logger,"No se pudo inicializar el programa. Se aborta el programa");
 				abortar(pid);
 			}
-
-			puts("Recibimos el codigo fuente...");
+		log_info(logger,"Recibimos el codigo fuente");
 			tPackSrcCode *pack_src;
 			if ((pack_src = recvSourceCode(*sock_ker)) == NULL){
-				puts("No se pudo recibir y almacenar el codigo fuente. Se aborta el programa.");
+
+
+				log_error(logger,"No se pudo recibir y almacenar el codigo fuente. Se aborta el programa");
 				abortar(pid);
 			}
 
 			freeAndNULL((void **) &pack_src);
-			puts("Listo.");
+
+			log_info(logger,"Listo");
 			break;
 
 		case ASIGN_PAG:
-			puts("Kernel quiere asignar paginas!");
 
+			log_info(logger,"Kernel quiere asignar paginas");
 			recv(*sock_ker, &pid, sizeof pid, 0);
 			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
 
@@ -197,7 +221,8 @@ void* kernel_handler(void *sock_kernel){
 
 
 	if (stat == -1){
-		perror("Se perdio conexion con Kernel. error");
+		log_error(logger,"Se perdio conexion con el Kernel");
+
 		return NULL;
 	}
 
@@ -215,30 +240,35 @@ void* cpu_handler(void *socket_cpu){
 	int stat;
 	int *sock_cpu = (int*) socket_cpu;
 
-	printf("Esperamos que lleguen cosas del socket: %d\n", *sock_cpu);
+
+	log_info(logger,"Esperamos que lleguen cosas del socket: %d", sock_cpu);
 
 	do {
 		switch(head->tipo_de_mensaje){
 		case SOLIC_BYTES:
-			puts("Se recibio solicitud de bytes");
+			log_info(logger,"Se recibio solicitud de bytes");
+
 			// TODO: este ya se podria codificar un toque mas
 			break;
 
 		case ALMAC_BYTES:
-			puts("Se recibio peticion de almacenamiento");
+			log_info(logger,"Se recibio peticion de almacenamiento");
+
 			break;
 
 		default:
-			puts("Se recibio un mensaje no considerado");
+			log_info(logger,"Se recibio un mensaje no considerado");
+
 			break;
 		}
 	} while((stat = recv(*sock_cpu, head, sizeof *head, 0)) > 0);
 
 	if (stat == -1){
-		perror("Fallo el recv de un mensaje desde CPU. error");
+		log_error(logger,"Fallo el recv de un mensaje desde CPU");
+
 		return NULL;
 	}
+	log_info(logger,"El CPU de socket %d cerro su conexion. Se cierra el thread",sock_cpu);
 
-	printf("El CPU de socket %d cerro su conexion. Cerramos el thread\n", *sock_cpu);
 	return NULL;
 }

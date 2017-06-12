@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-
+#include <commons/log.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 
@@ -19,12 +19,14 @@
 float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
+extern t_log * logger;
 
 // OPERACIONES DE LA MEMORIA
 
 void retardo(int ms){
 	retardo_mem = ms / 1000.0;
-	printf("Se cambio la latencia de acceso a Memoria a %f segundos", retardo_mem);
+	log_info(logger,"Se cambio la latencia de acceso a Memoria a %f segundos", retardo_mem);
+
 }
 
 void flush(void){
@@ -38,20 +40,23 @@ void flush(void){
 
 void dump(int pid){
 
-	puts("COMIENZO DE DUMP");
+
+	log_info(logger,"Comienzo de DUMP");
 
 	dumpCache();
 	dumpMemStructs();
 	dumpMemContent(pid);
 
-	puts("FIN DEL DUMP");
+	log_info(logger,"Fin del DUMP");
+
 }
 
 
 void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free){
 
 	if (pid < 0){
-		fprintf(stderr, "Se intento pedir el tamanio de un proceso invalido\n");
+		log_error(logger, "Se intento pedir el tamanio de un proceso invalido");
+
 		*proc_size = *mem_frs = *mem_ocup = *mem_free = MEM_EXCEPTION;
 	}
 
@@ -77,7 +82,8 @@ int inicializarPrograma(int pid, int pageCount){
 
 	int reservadas = reservarPaginas(pid, pageCount);
 	if (reservadas == pageCount)
-		puts("Se reservo bien la cantidad de paginas solicitadas");
+		log_info(logger,"Se reservo bien la cantidad de paginas solicitadas");
+
 
 	return 0;
 }
@@ -87,7 +93,8 @@ int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
 	int stat;
 
 	if ((stat = escribirBytes(pid, page, offset, size, buffer)) < 0){
-		fprintf(stderr, "No se pudieron escribir los bytes a la pagina. stat: %d\n", stat);
+		log_error(logger,"No se pudieron escribri los bytes a la pagina. Stat: %d",stat);
+
 		abortar(pid);
 		return FALLO_ESCRITURA;
 	}
@@ -96,11 +103,13 @@ int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
 }
 
 char *solicitarBytes(int pid, int page, int offset, int size){
-	printf("Se solicitan para el PID %d: %d bytes de la pagina %d\n", pid, size, page);
+	log_info(logger,"Se solicitan para el PID %d: %d bytes de la pagina %d",pid,size,page);
+
 
 	char *buffer;
 	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
-		perror("No se pudieron leer los bytes de la pagina. error");
+		log_error("No se pudieron leer los bytes de la pagina");
+
 		abortar(pid);
 		return NULL;
 	}
@@ -113,11 +122,12 @@ int asignarPaginas(int pid, int page_count){
 	int stat;
 
 	if((stat = reservarPaginas(pid, page_count)) != 0){
-		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d", stat);
+		log_error(logger,"No se pudieron reservar paginas para el proceso: %d",stat);
+
 		abortar(pid);
 	}
+	log_info(logger,"Se reservaron correctametne %d paginas", page_count);
 
-	printf("Se reservaron correctamente %d paginas", page_count);
 	return 0;
 }
 
@@ -126,6 +136,7 @@ int asignarPaginas(int pid, int page_count){
  * porque simplemente no puede hacerse
  */
 void liberarPagina(int pid, int page){
-	printf("Se libera la pagina %d del PID %d\n", page, pid);
+	log_info(logger,"Se libera la pagina %d del PID %d",page,pid);
+
 }
 

@@ -19,6 +19,7 @@ void pausarPlanif(){
 
 }
 
+extern t_log * logger;
 
 // TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
 // Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
@@ -59,7 +60,7 @@ void planificador(){
 	tPCB *pcb;
 
 	if (list_size(Exec) >= grado_mult){
-		puts("No se agrega nada y esperamos a que vayan terminando");
+		log_info(logger,"No se agrega nada y esperamos a que vayan terminando");
 
 	} else {
 
@@ -98,7 +99,7 @@ void largoPlazo(int multiprog){
 void cortoPlazo(){}
 
 void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
-	puts("Se encola el programa");
+	log_info(logger,"Se encola el programa");
 	int stat;
 //	queue_push(New, (void *) nuevoPCB);
 
@@ -109,24 +110,24 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 
 	char *pid_serial = serializePID(pack_pid);
 
-	printf("Aviso al sock consola %d su numero de PID\n", sock_con);
+	log_info(logger,"Aviso al sock consola %d su numero de PID\n", sock_con);
 	if ((stat = send(sock_con, pid_serial, sizeof (tPackPID), 0)) == -1)
-		perror("Fallo envio de PID a Consola. error");
-	printf("Se enviaron %d bytes a Consola\n", stat);
+		log_error(logger,"Fallo envio de PID a Consola. error");
+	log_info(logger,"Se enviaron %d bytes a Consola\n", stat);
 
-	puts("Creamos memoria para la variable");
+	log_info(logger,"Creamos memoria para la variable");
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC};
 	tPackPCBSimul *pcb = empaquetarPCBconStruct(head, nuevoPCB);
 
-	puts("Comenzamos a serializar el PCB");
+	log_info(logger,"Comenzamos a serializar el PCB");
 	char *pcb_serial = serializarPCBACpu(pcb);
 
-	puts("Enviamos el PCB a CPU");
+	log_info(logger,"Enviamos el PCB a CPU");
 
 	if ((stat = send(sock_cpu, pcb_serial, sizeof *pcb, 0)) == -1)
-		perror("Fallo envio de PCB a CPU. error");
+		log_error(logger,"Fallo envio de PCB a CPU. error");
 
-	printf("Se enviaron %d de %d bytes a CPU\n", stat, sizeof *pcb);
+	log_info(logger,"Se enviaron %d de %d bytes a CPU\n", stat, sizeof *pcb);
 
 	freeAndNULL((void **) &pack_pid);
 	freeAndNULL((void **) &pcb);
@@ -141,7 +142,7 @@ void updateQueue(t_queue *Q){
 void freePCBs(t_queue *queue){
 
 	tPCB* pcb;
-	puts("Liberando todos los PCBs de la cola...");
+	log_info(logger,"Liberando todos los PCBs de la cola...");
 	while(queue_size(queue) > 0){
 
 		pcb = (tPCB *) queue_pop(queue);

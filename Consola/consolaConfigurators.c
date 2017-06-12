@@ -2,12 +2,14 @@
 #include <string.h>
 #include <stdio.h>
 
+
 #include "consolaConfigurators.h"
 #include <tiposRecursos/tiposPaquetes.h>
 
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
+
 
 
 tConsola *getConfigConsola(char *ruta){

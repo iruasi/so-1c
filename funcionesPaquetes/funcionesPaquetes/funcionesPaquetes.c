@@ -226,7 +226,7 @@ char *serializePID(tPackPID *ppid){
 	return pid_serial;
 }
 
-char *serializarPCBACpu(tPackPCBSimul *pcb){
+/*char *serializarPCBACpu(tPackPCBSimul *pcb){
 
 	int offset = 0;
 
@@ -248,13 +248,13 @@ char *serializarPCBACpu(tPackPCBSimul *pcb){
 	offset += sizeof pcb->exit;
 
 	return serial_pcb;
-}
+}*/
 
 
 
 /****** Funciones generales sobre Paquetes ******/
 
-tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb){
+/*tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb){
 
 	tPackPCBSimul *pack_pcb = malloc(sizeof *pack_pcb);
 	pack_pcb->head.tipo_de_proceso = KER;
@@ -265,4 +265,4 @@ tPackPCBSimul *empaquetarPCBconStruct(tPackHeader head, tPCB *pcb){
 	pack_pcb->exit  = pcb->exitCode;
 
 	return pack_pcb;
-}
+}*/

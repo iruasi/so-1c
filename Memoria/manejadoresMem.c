@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
+#include <commons/log.h>
 
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
@@ -29,8 +30,8 @@ extern char *MEM_FIS;        // MEMORIA FISICA
 /* Esta deberia ser la rutina para destruir cualquier programa en forma abortiva
  */
 void abortar(int pid){ // TODO: escribir el comportamiento de esta funcion
-	puts("Se inicio procedimiento de aborto");
-	printf("Matamos todo lo que le pertenece al PID: %d\n", pid);
+	log_info(logger,"Se inicio procedimiento de aborto");
+	log_info(logger,"Matamos todo lo que le pertenece al PID: %d",pid);
 }
 
 
@@ -92,7 +93,7 @@ int setupMemoria(void){ // todo: cuando termina el proceso Memoria hay que liber
 
 	MEM_FIS = malloc(memoria->marcos * memoria->marco_size);
 	if (MEM_FIS == NULL){
-		perror("No se pudo crear el espacio de Memoria. error");
+		log_error(logger,"No se pudo crear el espacio de Memoria");
 		return MEM_EXCEPTION;
 	}
 
@@ -138,7 +139,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 
 	char *buffer;
 	if ((buffer = malloc(size)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para un buffer\n");
+		log_error(logger,"No se pudo crear espacio de memoria para un buffer");
 		return NULL;
 	}
 
@@ -147,7 +148,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 		return buffer;
 
 	} else if ((frame = getMemFrame(pid, page)) < 0){
-		fprintf(stderr, "No pudo obtener el frame\n");
+		log_error(logger,"No se pudo obtener el frame");
 		return NULL;
 	}
 
@@ -159,12 +160,13 @@ char *leerBytes(int pid, int page, int offset, int size){
 }
 
 int getMemFrame(int pid, int page){
-	puts("Buscando contenido en Memoria");
+	log_info(logger,"Buscando contenido en Memoria");
+
 
 	int frame;
 
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
-		fprintf(stderr, "No se encontro la pagina %d para el pid %d en Memoria\n", page, pid);
+		log_error(logger,"No se encontro la pagina %d para el pid %d en Memoria",page,pid);
 		return FRAME_NOT_FOUND;
 	}
 
@@ -217,7 +219,8 @@ void defragmentarHeap(uint8_t *heap_dir){
 
 		} else if (compact) { // no es un bloque reservable, pero es compactable
 
-			printf("Se compactan %d bloques de memoria..\n", compact);
+
+			log_info(logger,"Se compactan %d bloques de memoria..",compact);
 			head_hmd->size = ((uint32_t) head_hmd) + off - SIZEOF_HMD;
 			compact = 0;
 			head_hmd = (tHeapMeta *) off;
@@ -235,37 +238,37 @@ void dumpMemStructs(void){
 
 	int i, fr, off;
 	tEntradaInv *entry;
+	log_info(logger,"Comienzo dump Tabla de Paginas Invertida");
+	log_info(logger,"ID \t\t PAGINA");
 
-	puts("Comienzo dump Tabla de Paginas Invertida");
-	printf("PID \t\t PAGINA");
 	for (i = fr = off = 0; i < marcos_inv; ++i){
 		entry = (tEntradaInv*) (MEM_FIS + fr * memoria->marco_size + off);
-		printf("%d \t\t %d\n", entry->pid, entry->pag);
+		log_info(logger,"%d \t\t %d\n", entry->pid, entry->pag);
+
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
 	}
-	puts("Fin dump Tabla de Paginas Invertida");
-
-	puts("Comienzo dump Listado Procesos Activos");
+	log_info(logger,"Fin dump Tabla de Paginas Invertida");
+	log_info(logger,"Comienzo dump Listado Procesos Activos");
 	// todo: dumpear listado de procesos activos... No se ni lo que es un proc activo
-	puts("Fin dump Listado Procesos Activos");
+	log_info(logger,"Fin dump Listado Procesos Activos");
 
 }
 
 void dumpMemContent(int pid){
 
 	if (pid == 0){
-		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
+		log_info(logger,"Se muestra info de todos los procesos de Memoria: (no implementado aun)");
 	} else {
 
 	int pag, frame;
 	char *cont;
 	int page_count = pageQuantity(pid);
 
-	printf("PID \t\t PAGINA \t\t CONTENIDO");
+	log_info(logger,"PID \t\t PAGINA \t\t CONTENIDO");
 	for (pag = 0; pag < page_count; ++pag){
 		frame = buscarEnMemoria(pid, pag);
 		cont = getMemContent(frame, 0);
-		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);
+		log_info(logger,"%d \t\t %d \t\t %s\n", pid, pag, cont);
 	}
 
 	}

@@ -5,6 +5,8 @@
 
 #include <tiposRecursos/tiposErrores.h>
 
+#include <commons/log.h>
+
 #include "apiMemoria.h"
 #include "auxiliaresMemoria.h"
 #include "memoriaConfigurators.h"
@@ -12,6 +14,7 @@
 #define PID_FREE  0 // pid disponible
 #define PID_INV  -1 // pid tabla invertida
 
+extern t_log * logger;
 extern char *MEM_FIS;
 extern tMemoria *memoria;
 extern int marcos_inv;
@@ -27,7 +30,8 @@ bool frameLibre(int frame, int off){
 int pageQuantity(int pid){
 
 	if (pid < 0){
-		fprintf(stderr, "No se puede calcular la cantidad de paginas para el pid %d", pid);
+		log_error(logger,"No se puede calcualr la cantidad de paginas para el pid %d",pid);
+
 		return PID_INVALIDO;
 	}
 
@@ -64,7 +68,8 @@ int reservarPaginas(int pid, int pageCount){
 	}
 
 	if (fr == marcos_inv){
-		puts("No hay mas frames disponibles en Memoria para reservar.");
+		log_error(logger,"No hay mas frames disponibles en Memoria para reservar");
+
 		return MEMORIA_LLENA;
 	}
 

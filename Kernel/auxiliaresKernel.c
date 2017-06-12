@@ -19,6 +19,8 @@
 #define HEAD_SIZE 8
 #endif
 
+extern t_log* logger;
+
 uint32_t globalPID;
 
 

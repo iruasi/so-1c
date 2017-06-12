@@ -7,6 +7,7 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 
+extern t_log * logger;
 
 tCPU *getConfigCPU(char *ruta_config){
 

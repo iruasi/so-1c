@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <commons/config.h>
+#include <commons/log.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -174,6 +175,13 @@ AnSISOP_kernel kernel_functions = {
 		.AnSISOP_reservar				= reservar,
 };
 
+t_log * logger;
+
+void crearLoggerCPU(){
+	char * archivoLog = strdup("CPU_LOG.cfg");
+	logger = log_create("CPU_LOG.cfg",archivoLog,true,LOG_LEVEL_INFO);
+	free(archivoLog);archivoLog = NULL;
+}
 
 int main(int argc, char* argv[]){
 
@@ -183,6 +191,8 @@ int main(int argc, char* argv[]){
 	}
 
 	int stat;
+
+	crearLoggerCPU();
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);

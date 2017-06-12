@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include <tiposRecursos/tiposErrores.h>
-
+#include <commons/log.h>
 #include "structsMem.h"
 #include "manejadoresCache.h"
 #include "apiMemoria.h"
@@ -17,12 +17,12 @@ extern tMemoria *memoria;    // configuracion de Memoria
 int setupCache(void){ // todo: las cosas malloqueadas aca hay que liberarlas al final de Memoria
 
 	if ((CACHE = malloc(memoria->entradas_cache * memoria->marco_size)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para Memoria de CACHE");
+		log_error(logger,"No se pudo crear espacio de memoria para CACHE");
 		return FALLO_GRAL;
 	}
 
 	if ((CACHE_lines = malloc(memoria->entradas_cache * sizeof *CACHE_lines)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para Lineas de CACHE");
+		log_error(logger,"No se pudo crear espacio de memoria para lineas de CACHE");
 		return FALLO_GRAL;
 	}
 	setupCacheLines();

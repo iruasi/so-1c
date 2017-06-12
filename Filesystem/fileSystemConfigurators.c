@@ -2,14 +2,17 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <commons/log.h>
 #include <commons/config.h>
+
 #include "fileSystemConfigurators.h"
 
 #include <tiposRecursos/tiposPaquetes.h>
 
+extern t_log * logger;
 
 tFileSystem* getConfigFS(char* ruta){
-	printf("Ruta del archivo de configuracion: %s\n", ruta);
+	log_info(logger,"Ruta del archivo de configuracion: %s\n", ruta);
 	tFileSystem *fileSystem= malloc(sizeof(tFileSystem));
 
 	fileSystem->puerto_entrada = malloc(MAX_PORT_LEN);

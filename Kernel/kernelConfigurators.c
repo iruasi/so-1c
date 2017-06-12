@@ -14,10 +14,11 @@
 #define MAXMSJ 100
 #define MAXALGO 4 		// cantidad maxima de carecteres para kernel->algoritmo (RR o FIFO)
 
+extern t_log * logger;
 
 tKernel *getConfigKernel(char* ruta){
 
-	printf("Ruta del archivo de configuracion: %s\n", ruta);
+	log_info(logger,"Ruta del archivo de configuracion: %s\n", ruta);
 	t_config *kernelConfig = config_create(ruta);
 
 	tKernel *kernel = malloc(sizeof(tKernel));

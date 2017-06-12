@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <time.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -30,6 +31,13 @@ void strncopylast(char *,char *,int );
 //TODO: Esto global?!??
 t_list *listaProgramas;
 
+t_log * logger;
+void crearLoggerConsola(){
+	char * archivoLog = strdup("CONSOLA_LOG.cfg");
+	logger = log_create("CONSOLA_LOG.cfg",archivoLog,true,LOG_LEVEL_INFO);
+	free(archivoLog);archivoLog = NULL;
+}
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -45,19 +53,21 @@ int main(int argc, char* argv[]){
 	tConsola *cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
 
-	printf("Conectando con kernel...\n");
+	crearLoggerConsola();
+
+	log_info(logger,"Conectando con kernel...\n");
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0){
 		errno = FALLO_CONEXION;
-		perror("No se pudo establecer conexion con Kernel. error");
+		log_error(logger,"No se pudo establecer conexion con Kernel");
 		return sock_kern;
 	}
 
 
 
 	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
-	puts("Nos conectamos a kernel");
-	printf("\n \n \nIngrese accion a realizar:\n");
+	log_info(logger,"Nos conectamos a kernel");
+	log_info(logger,"\n \n \nIngrese accion a realizar:\n");
 	int finalizar = 0;
 	while(finalizar !=1){
 
@@ -96,18 +106,18 @@ int main(int argc, char* argv[]){
 			int longitudPid = strlen(opcion) - 10;
 			strncopylast(opcion,pidString,longitudPid);
 			int pidElegido = atoi(pidString);
-			printf("Eligio finalizar el programa %d\n",pidElegido);
+			log_info(logger,"Eligio finalizar el programa %d\n",pidElegido);
 			//TODO: Buscar de la lista de hilos cual sería el q corresponde al pid q queremos matar
 			//int status = Finalizar_Programa(pidElegido,sock_kern,HILOAMATAR);
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
 			//int status = Desconectar_Consola()
-			printf("Eligio desconectar esta consola !\n");
+			log_error(logger,"Eligio desconectar esta consola !\n");
 			finalizar = 1;
 		}
 		if(strncmp(opcion,"limpiar",7)==0){
 			Limpiar_Mensajes();
-			printf("Eligio limpiar esta consola \n");
+			log_error(logger,"Eligio limpiar esta consola \n");
 		}
 
 	}
@@ -134,7 +144,7 @@ int main(int argc, char* argv[]){
 	}
 */
 
-	printf("Cerrando comunicacion y limpiando proceso...\n");
+	log_error(logger,"Cerrando comunicacion y limpiando proceso...\n");
 
 
 	return 0;
@@ -194,7 +204,7 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 	status = recv(socketCliente, package->message, message_size, 0);
 	if (!status) return 0;
 
-	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
+	log_info(logger,"%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
 
 	free(buffer);
 
@@ -230,7 +240,7 @@ void strncopylast(char *str1,char *str2,int n)
     int l=strlen(str1);
     if(n>l)
     {
-        printf("\nCan't extract more characters from a smaller string.\n");
+    	log_error(logger,"\nCan't extract more characters from a smaller string.\n");
         exit(1);
     }
     for(i=0;i<l-n;i++)
@@ -251,14 +261,13 @@ int agregarAListaDeProgramas(int pid){
 	list_add(listaProgramas, &pid);
 	int tamanioDespues = list_size(listaProgramas);
 	if(tamanioDespues != (tamanioAntes + 1)){
-		puts("error al agregar el pid a la lista");
+		log_error(logger,"error al agregar el pid a la lista");
 		//TODO: LIST_CREATE_PROBLEM
 		return -99;
 	}
-		puts("Tamanio actual de la lista:");
-		printf("%d\n",tamanioDespues);
-		puts("Pid agregado:");
-		printf("%d\n",pid);
+		log_info(logger,"Tamanio actual de la lista: %d", tamanioDespues);
+		log_info(logger,"Pid agregado: %d",pid);
+
 
 
 	//TODO: agregar PROGRAM_ADDED

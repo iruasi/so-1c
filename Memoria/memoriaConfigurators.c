@@ -1,13 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <commons/log.h>
 #include <commons/config.h>
 #include "memoriaConfigurators.h"
 #include <tiposRecursos/tiposPaquetes.h>
 
 tMemoria *getConfigMemoria(char* ruta){
-	printf("Ruta del archivo de configuracion: %s\n", ruta);
+
+	log_info("Ruta del archivo de configuracion: %s\n", ruta);
 	tMemoria *memoria = malloc(sizeof(tMemoria));
 
 	memoria->puerto_entrada = malloc(MAX_PORT_LEN);
