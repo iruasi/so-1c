@@ -300,7 +300,7 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 	int paqueteRecibido;
 	int *tamanioMensaje = malloc(sizeof (int));
 
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, tamanioMensaje, sizeof(int));
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, (char *) tamanioMensaje, sizeof(int));
 	if(paqueteRecibido <= 0 ) return NULL;
 
 	void *mensaje = malloc(*tamanioMensaje);

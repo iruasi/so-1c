@@ -58,7 +58,7 @@ int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
 /****** Definiciones de [De]Serializaciones ******/
 
 
-char *serializePCB(tPCB *pcb, tPackHeader head){
+char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 
 	int off = 0;
 	char *pcb_serial;
@@ -69,18 +69,24 @@ char *serializePCB(tPCB *pcb, tPackHeader head){
 	size_t indiceStack_size     = 2 * sizeof (posicionMemoria) + sizeof (posicionMemoriaPid) + sizeof (int);
 	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
 
-	if ((pcb_serial = malloc(HEAD_SIZE + ctesInt_size + indiceCod_size + indiceStack_size + indiceEtiquetas_size)) == NULL){
+	if ((pcb_serial = malloc(HEAD_SIZE + sizeof(int) + ctesInt_size + indiceCod_size + indiceStack_size + indiceEtiquetas_size)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para pcb serializado\n");
 		return NULL;
 	}
+
+	memcpy(pcb_serial + off, &head, HEAD_SIZE);
+	off += HEAD_SIZE;
+
+	// incremento para dar lugar al size_total al final del serializado
+	off += sizeof(int);
 
 	memcpy(pcb_serial + off, &pcb->id, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->pc, sizeof (int));
 	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->etiquetaSize, sizeof (int));
-	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->paginasDeCodigo, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->etiquetaSize, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
 	off += sizeof (int);
@@ -130,6 +136,9 @@ char *serializePCB(tPCB *pcb, tPackHeader head){
 		off += sizeof pcb->etiquetaSize;
 	}
 
+	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
+	*pack_size = off;
+
 	return pcb_serial;
 }
 
@@ -140,10 +149,34 @@ tPCB *deserializarPCB(char *pcb_serial){
 	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
 	size_t indiceStack_size     = 2 * sizeof (posicionMemoria) + sizeof (posicionMemoriaPid) + sizeof (int);
 
-	tPCB *pcb = malloc(ctesInt_size);
-	pcb->indiceDeCodigo = malloc(indiceCod_size);
-	pcb->indiceDeStack = malloc(indiceStack_size);
+	tPCB *pcb;
+	if ((pcb = malloc(ctesInt_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
 
+	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	if ((pcb->indiceDeStack = malloc(indiceStack_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	if ((pcb->indiceDeStack->args = malloc(sizeof(posicionMemoria))) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+	if ((pcb->indiceDeStack->vars = malloc(sizeof(int) + sizeof(posicionMemoria))) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+	if ((pcb->indiceDeStack->retVar = malloc(sizeof(posicionMemoria))) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
 
 	memcpy(&pcb->id, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
@@ -160,7 +193,7 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	memcpy(&pcb->indiceDeCodigo->start, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->start));
 	offset += sizeof (pcb->indiceDeCodigo->start);
-	memcpy(&pcb->indiceDeCodigo->start, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->offset));
+	memcpy(&pcb->indiceDeCodigo->offset, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->offset));
 	offset += sizeof (pcb->indiceDeCodigo->offset);
 
 	memcpy(&pcb->indiceDeStack->args->pag, pcb_serial + offset, sizeof (pcb->indiceDeStack->args->pag));
@@ -196,10 +229,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 	return pcb;
 }
 
-/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
- * por lo tanto hay que recibir el resto del paquete...
- */
 char *recvPCB(int sock_in){
+	puts("Se recibe el PCB..");
 
 	int stat, pack_size;
 	char *pcb_serial;
@@ -208,6 +239,8 @@ char *recvPCB(int sock_in){
 		perror("Fallo de recv. error");
 		return NULL;
 	}
+
+	printf("Paquete de size: %d\n", pack_size);
 
 	pcb_serial = malloc(pack_size);
 	if ((stat = recv(sock_in, pcb_serial, pack_size, 0)) <= 0){

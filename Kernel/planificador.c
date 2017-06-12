@@ -15,6 +15,8 @@
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
+
+
 void pausarPlanif(){
 
 }
@@ -99,15 +101,21 @@ void cortoPlazo(){}
 
 void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
-	int stat;
+	int stat, pack_size;
+
 //	queue_push(New, (void *) nuevoPCB);
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
 	pack_pid->head.tipo_de_proceso = KER;
 	pack_pid->head.tipo_de_mensaje = RECV_PID;
+
 	pack_pid->pid = nuevoPCB->id;
 
 	char *pid_serial = serializePID(pack_pid);
+	if (pid_serial == NULL){
+		puts("No se serializo bien");
+
+	}
 
 	printf("Aviso al sock consola %d su numero de PID\n", sock_con);
 	if ((stat = send(sock_con, pid_serial, sizeof (tPackPID), 0)) == -1)
@@ -115,21 +123,23 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 	printf("Se enviaron %d bytes a Consola\n", stat);
 
 	puts("Creamos memoria para la variable");
-	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC};
-	tPackPCBSimul *pcb = empaquetarPCBconStruct(head, nuevoPCB);
 
+
+
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC};
 	puts("Comenzamos a serializar el PCB");
-	char *pcb_serial = serializarPCBACpu(pcb);
+	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
+
+	printf("pack_size: %d\n", pack_size);
 
 	puts("Enviamos el PCB a CPU");
-
-	if ((stat = send(sock_cpu, pcb_serial, sizeof *pcb, 0)) == -1)
+	if ((stat = send(sock_cpu, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a CPU. error");
 
-	printf("Se enviaron %d de %d bytes a CPU\n", stat, sizeof *pcb);
+	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
 	freeAndNULL((void **) &pack_pid);
-	freeAndNULL((void **) &pcb);
+	freeAndNULL((void **) &pcb_serial);
 }
 
 void updateQueue(t_queue *Q){
