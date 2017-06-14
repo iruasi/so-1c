@@ -156,10 +156,91 @@ int buscarEnMemoria(int pid, int page){
 			return frame_repr;
 	}
 
+	/* Logica
+	 * buscar (pid , page){
+	 * 	dirPid = hashFunc(pid , page); guardamos el valor de la tabla
+	 * 	valorDirPid = traerValor(dirPid); trae el valor PID que esta en la posicion de la tabla
+	 * 	while (pid != valorDirPid){
+	 * 		dirPid = traerSiguiente(dirPid); trae la direccion siguiente a esa posicion del campo de la tabla
+	 * 		if( dirPid == NULL)
+	 * 			return FRAME_NOT_FOUND; // si no esta agregado en esa cadena de memoria, arroja este error
+	 * 		valorDirPid =  traerValor(dirPid);
+	 * 	return dirPid;
+	 *
+	 */
+
+
+
 	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page);
 
 	return FRAME_NOT_FOUND;
 }
+
+int funcionHash(int pid, int page){
+
+	int direccion = pid % marcos_inv;
+
+	if ((direccion + page) > marcos_inv)
+
+		direccion = (direccion + page) % marcos_inv;
+
+	else
+
+		direccion = (direccion + page);
+
+	return direccion;
+}
+
+int agregarEnMemoria (int pid, int page){
+
+	int *dirPidAnterior, *dirPid;
+	dirPidAnterior = malloc(sizeof(int));
+	dirPid = malloc(sizeof(int));
+	*dirPid = funcionHash(pid, page);
+
+
+	if (buscarEnMemoria(pid, page) == FRAME_NOT_FOUND){
+
+		int valorDirPid = traerValor(dirPid);
+
+		while(valorDirPid != pid){
+
+			dirPidAnterior = dirPid;
+
+			dirPid = traerSiguiente(dirPid);
+
+			if(dirPid == NULL){
+			/*TODO: crear metodo para agregar la nueva porción de memoria;
+			agrega en la dirAnterior una nueva direccóin para agregar el pid en la nueva posiócion */
+			}
+
+
+		}
+
+		return 1;
+	}
+	return -1; //todo: asignar codigo de error que no se pudo agregar en memoria
+}
+
+int traerSiguiente(int dirPid){
+	int siguienteDir;
+	/*
+		Busca en la tabla la direccion que se le pasa por parametro y devuelve la direccion del siguiente eslabon de la cadena
+	*/
+
+	return siguienteDir;
+}
+
+int traerValor(int pid){
+	int valorPid;
+	/*
+	 * Trae el valor de PID asociado a la direccion que se le pasa
+	 */
+	return valorPid;
+}
+
+
+
 /*
 void defragmentarHeap(uint8_t *heap_dir){
 	//para este checkpoint, heap_dir va a ser exactamente MEM_FIS
