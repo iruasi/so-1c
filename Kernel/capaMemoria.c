@@ -13,7 +13,7 @@
 
 extern int MAX_ALLOC_SIZE;
 
-extern tHeapProc *hProcs;
+extern tHeapProc *heapsPorProc;
 extern int hProcs_cant;
 //extern int frames;
 extern int frame_size;
@@ -24,8 +24,8 @@ void actualizarHProcsConPagina(int pid, int new_heapPage){
 	if (new_heapPage != 0){ // no es pagina de codigo
 
 	for (i = 0; i < hProcs_cant ; ++i){
-		if ((hProcs +i)->pid == pid)
-			(hProcs +i)->pag_heap_cant++;
+		if ((heapsPorProc +i)->pid == pid)
+			(heapsPorProc +i)->pag_heap_cant++;
 
 	}}
 }

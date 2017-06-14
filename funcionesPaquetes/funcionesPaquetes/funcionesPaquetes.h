@@ -42,9 +42,9 @@ tPCB *deserializarPCB(char *pcb_serial);
 char *recvPCB(int sock_in);
 
 
-/* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
+/* Serializa los parametros necesarios para poder hacer una Solicitud de Bytes a Memoria.
  */
-char *serializeByteRequest(tPCB *pcb, int *pack_size);
+char *serializeByteRequest(tPackByteReq bytereq);
 
 /* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Solicitud de Bytes a Memoria.
  */

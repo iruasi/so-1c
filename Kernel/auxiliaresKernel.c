@@ -64,7 +64,7 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags){
 
 	tPCB *nuevoPCB = malloc(sizeof *nuevoPCB);
 	nuevoPCB->indiceDeCodigo = malloc(sizeof nuevoPCB->indiceDeCodigo);
-	nuevoPCB->indiceDeStack = malloc(sizeof nuevoPCB->indiceDeStack + sizeof nuevoPCB->indiceDeStack->args
+	nuevoPCB->indiceDeStack  = malloc(sizeof nuevoPCB->indiceDeStack + sizeof nuevoPCB->indiceDeStack->args
 			+ sizeof nuevoPCB->indiceDeStack->retVar + sizeof nuevoPCB->indiceDeStack->vars);
 	nuevoPCB->indiceDeStack->args   = malloc(sizeof nuevoPCB->indiceDeStack->args);
 	nuevoPCB->indiceDeStack->retVar = malloc(sizeof nuevoPCB->indiceDeStack->retVar);
@@ -86,21 +86,20 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags){
 	nuevoPCB->indiceDeCodigo->start  = meta->instrucciones_serializado->start;
 	nuevoPCB->indiceDeCodigo->offset = meta->instrucciones_serializado->offset;
 
-	nuevoPCB->indiceDeEtiquetas = meta->etiquetas;
-	nuevoPCB->indiceDeStack->args->pag = -1;
+	nuevoPCB->indiceDeStack->args->pag    = -1;
 	nuevoPCB->indiceDeStack->args->offset = -1;
-	nuevoPCB->indiceDeStack->args->size = -1;
+	nuevoPCB->indiceDeStack->args->size   = -1;
 
-	nuevoPCB->indiceDeStack->vars->pid = -1;
-	nuevoPCB->indiceDeStack->vars->pos.pag = -1;
+	nuevoPCB->indiceDeStack->vars->pid        = -1;
+	nuevoPCB->indiceDeStack->vars->pos.pag    = -1;
 	nuevoPCB->indiceDeStack->vars->pos.offset = -1;
-	nuevoPCB->indiceDeStack->vars->pos.size = -1;
+	nuevoPCB->indiceDeStack->vars->pos.size   = -1;
 
 	nuevoPCB->indiceDeStack->retPos = -1;
 
-	nuevoPCB->indiceDeStack->retVar->pag = -1;
+	nuevoPCB->indiceDeStack->retVar->pag    = -1;
 	nuevoPCB->indiceDeStack->retVar->offset = -1;
-	nuevoPCB->indiceDeStack->retVar->size = -1;
+	nuevoPCB->indiceDeStack->retVar->size   = -1;
 
 	nuevoPCB->exitCode = 0;
 

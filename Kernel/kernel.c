@@ -43,7 +43,7 @@ void cpu_manejador(int sock_cpu, tMensaje msj);
 tPackSrcCode *recibir_paqueteSrc(tPackHeader * header,int fd);
 
 
-tHeapProc *hProcs;
+tHeapProc *heapsPorProc;
 int hProcs_cant;
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
@@ -197,18 +197,16 @@ int main(int argc, char* argv[]){
 				entradaPrograma = recibir_paqueteSrc(header_tmp, fd);//Aca voy a recibir el tPackSrcCode
 				src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
 				printf("El size del paquete %d\n", src_size);
-				puts("Era ese el size");
+
 				int cant_pag = (int) ceil((float)src_size / frame_size);
 				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
 
 				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready
-				(hProcs+hProcs_cant)->pid = new_pcb->id;
-				(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
-				(hProcs+hProcs_cant)->pag_heap_cant++;
-
-				//char *serial_pcb = serializePCB(new_pcb, header_tmp); todo: va en planificador
+//				(heapsPorProc+hProcs_cant)->pid = new_pcb->id;
+//				(heapsPorProc+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
+//				(heapsPorProc+hProcs_cant)->pag_heap_cant++;
 
 				encolarEnNEWPrograma(new_pcb, fd);
 

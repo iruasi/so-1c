@@ -304,32 +304,26 @@ char *recvPCB(int sock_in){
 	return pcb_serial;
 }
 
-char *serializeByteRequest(tPCB *pcb, int *pack_size){
+char *serializeByteRequest(tPackByteReq bytereq){
 
-	int code_page = 0;
-	int size_instr = pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start;
-	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTRUC_GET};
-
+	int off;
 	char *bytereq_serial;
 	if ((bytereq_serial = malloc(sizeof(tPackByteReq))) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para el paquete de pedido de bytes\n");
 		return NULL;
 	}
 
-	*pack_size = 0;
-	memcpy(bytereq_serial, &head_tmp, HEAD_SIZE);
-	*pack_size += HEAD_SIZE;
-	memcpy(bytereq_serial + *pack_size, &pcb->id, sizeof pcb->id);
-	*pack_size += sizeof pcb->id;
-	memcpy(bytereq_serial + *pack_size, &pcb->pc, sizeof pcb->pc);
-	*pack_size += sizeof pcb->pc;
-	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
-	*pack_size += sizeof code_page;
-	memcpy(bytereq_serial, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->offset); // OFFSET_BEGIN
-	*pack_size += sizeof pcb->indiceDeCodigo->start;
-	memcpy(bytereq_serial, &size_instr, sizeof size_instr); 		// SIZE
-
-	*pack_size += sizeof size_instr;
+	off = 0;
+	memcpy(bytereq_serial+off, &bytereq.head, HEAD_SIZE);
+	off += HEAD_SIZE;
+	memcpy(bytereq_serial + off, &bytereq.pid, sizeof bytereq.pid);
+	off += sizeof bytereq.pid;
+	memcpy(bytereq_serial + off, &bytereq.page, sizeof bytereq.page);
+	off += sizeof bytereq.page;
+	memcpy(bytereq_serial + off, &bytereq.offset, sizeof bytereq.offset);
+	off += sizeof bytereq.offset;
+	memcpy(bytereq_serial, &bytereq.size, sizeof bytereq.size);
+	off += sizeof bytereq.size;
 
 	return bytereq_serial;
 }
