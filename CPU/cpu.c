@@ -4,7 +4,9 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <stdbool.h>
+
 #include <commons/config.h>
+#include <commons/collections/list.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -31,8 +33,6 @@ int ejecutarPrograma();
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
-indiceStack* crearStackVacio();
-
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -44,6 +44,9 @@ int main(int argc, char* argv[]){
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
+
+	setupCPUFunciones();
+	setupCPUFuncionesKernel();
 
 	printf("Conectando con memoria...\n");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
@@ -77,9 +80,8 @@ int main(int argc, char* argv[]){
 
 	tPackHeader *head = malloc(sizeof *head);
 	char *pcb_serial;
-	pcb = malloc(sizeof(tPCB));
-	pcb->indiceDeStack = list_create();
-	list_add(pcb->indiceDeStack, crearStackVacio());
+	tPCB *pcb;
+
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
 		puts("Se recibio un paquete de Kernel");
 
@@ -135,6 +137,8 @@ int ejecutarPrograma(){
 
 	int stat, instr_size;
 	char *linea;
+
+	termino = false;
 
 	puts("Empieza a ejecutar...");
 	do{
@@ -213,12 +217,4 @@ char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLa
 	char *aRetornar = calloc(1, 100);
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
 	return aRetornar;
-}
-
-indiceStack* crearStackVacio(){
-	indiceStack* stack = malloc(sizeof(indiceStack));
-	stack->args = list_create();
-	stack->vars = list_create();
-	stack->retPos= pcb->pc;
-	return stack;
 }

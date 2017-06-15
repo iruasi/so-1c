@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include "funcionesCompartidas.h"
@@ -194,4 +195,18 @@ int cantidadTotalDeBytesRecibidos(int fdServidor, char *buffer, int tamanioBytes
 	tamanioBytes -= bytes_recibidos;
 		}
 	return bytes_recibidos; // En caso de éxito, se retorna la cantidad de bytes realmente recibida
+}
+
+
+indiceStack crearStackVacio(void){
+	indiceStack stack;
+
+	stack.args = list_create();
+	stack.vars = list_create();
+	stack.retPos = -1;
+	stack.retVar.pag = -1;
+	stack.retVar.offset = -1;
+	stack.retVar.size = -1;
+
+	return stack;
 }

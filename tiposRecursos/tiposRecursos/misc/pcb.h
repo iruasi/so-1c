@@ -17,11 +17,13 @@ typedef struct{
 	posicionMemoria pos;
 }posicionMemoriaPid;
 
+
+
 typedef struct{
-	posicionMemoria* args; // Posiciones de memoria de las copias de los argumentos de la función.
-	posicionMemoriaPid* vars; // Identificadores y posiciones de memoria de las variables locales.
+	t_list *args; // Posiciones de memoria de las copias de los argumentos de la función.
+	t_list *vars; // Identificadores y posiciones de memoria de las variables locales.
 	int retPos; // Posicion del indice de codigo donde retorna al finalizar la funcion.
-	posicionMemoria* retVar; // Posicion de memoria para guardar el resultado
+	posicionMemoria retVar; // Posicion de memoria para guardar el resultado
 }indiceStack;
 
 typedef struct {

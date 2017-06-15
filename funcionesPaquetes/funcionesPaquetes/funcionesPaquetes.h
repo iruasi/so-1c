@@ -29,6 +29,12 @@ tPackBytes *deserializeBytes(int sock_in);
 
 char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size);
 
+/* Funcion auxiliar para crear un buffer con el stack serializado;
+ * luego podremos memcpy'arlo al pcb_serializado
+ */
+char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size);
+
+
 /* Consideramos que ya hicimos recv()
  * Recibimos un buffer con el PCB y lo deserializamos a la struct apropiada.
  * (Hacer free a lo que malloquea)
@@ -83,4 +89,7 @@ char *serializePID(tPackPID *ppid);
  */
 char *serializePIDPaginas(tPackPidPag *ppidpag);
 
+/* Retorna el size de todas las listas sumadas del stack
+ */
+int sumarPesosStack(t_list *stack);
 #endif /* FUNCIONESPAQUETES_H_ */

@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <stdbool.h>
 
+#include <tiposRecursos/misc/pcb.h>
+
 /* Verifica que dos valores enteros sean equivalentes. Si lo son, retorna true.
  * Si no coinciden, emite el mensaje `errmsg' en stderr junto con los valores obtenidos, y retorna false.
  */
@@ -62,5 +64,7 @@ void clearAndClose(int *fd, fd_set *setFD);
 /* Util para recibir cualquier struct sin campos variables
  */
 int cantidadTotalDeBytesRecibidos(int fdServidor, char * buffer, int tamanioBytes);
+
+indiceStack crearStackVacio(void);
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

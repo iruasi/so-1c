@@ -1,10 +1,41 @@
-#include "funcionesAnsisop.h"
-#include <tiposRecursos/tiposPaquetes.h>
+#include <stdbool.h>
 #include <netdb.h>
 
+#include <tiposRecursos/tiposPaquetes.h>
+
+#include "funcionesAnsisop.h"
+
+extern bool termino;
+extern AnSISOP_funciones functions;
+
+void setupCPUFunciones(void){
+	functions.AnSISOP_definirVariable		= definirVariable;
+	functions.AnSISOP_obtenerPosicionVariable= obtenerPosicionVariable;
+	functions.AnSISOP_finalizar 				= finalizar;
+	functions.AnSISOP_dereferenciar			= dereferenciar;
+	functions.AnSISOP_asignar				= asignar;
+	functions.AnSISOP_asignarValorCompartida = asignarValorCompartida;
+	functions.AnSISOP_irAlLabel				= irAlLabel;
+	functions.AnSISOP_llamarSinRetorno		= llamarSinRetorno;
+	functions.AnSISOP_llamarConRetorno		= llamarConRetorno;
+	functions.AnSISOP_retornar				= retornar;
+	functions.AnSISOP_obtenerValorCompartida = obtenerValorCompartida;
+}
+
+void setupCPUFuncionesKernel(void){
+	kernel_functions.AnSISOP_wait 					= wait;
+	kernel_functions.AnSISOP_signal					= signal;
+	kernel_functions.AnSISOP_abrir					= abrir;
+	kernel_functions.AnSISOP_borrar					= borrar;
+	kernel_functions.AnSISOP_cerrar					= cerrar;
+	kernel_functions.AnSISOP_escribir				= escribir;
+	kernel_functions.AnSISOP_leer					= leer;
+	kernel_functions.AnSISOP_liberar				= liberar;
+	kernel_functions.AnSISOP_moverCursor			= moverCursor;
+	kernel_functions.AnSISOP_reservar				= reservar;
+}
 
 //FUNCIONES DE ANSISOP
-//TODO: error fantasma (? dice que hay multiple definicion de "termino" pero esta una vez sola definido.
 t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
 	//list_add(pcb->indiceDeStack->vars, variable);

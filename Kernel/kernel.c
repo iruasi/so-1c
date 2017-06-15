@@ -204,9 +204,9 @@ int main(int argc, char* argv[]){
 
 
 				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready
-				(hProcs+hProcs_cant)->pid = new_pcb->id;
-				(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
-				(hProcs+hProcs_cant)->pag_heap_cant++;
+				//(hProcs+hProcs_cant)->pid = new_pcb->id;
+				//(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
+				//(hProcs+hProcs_cant)->pag_heap_cant++;
 
 				//char *serial_pcb = serializePCB(new_pcb, header_tmp); todo: va en planificador
 
@@ -337,4 +337,3 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 	return pack_src;
 
 }
-
