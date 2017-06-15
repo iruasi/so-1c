@@ -65,6 +65,7 @@ int handshakeCon(int sock_dest, int id_sender){
 		return FALLO_SEND;
 	}
 
+	freeAndNULL((void **) &package);
 	return stat;
 }
 

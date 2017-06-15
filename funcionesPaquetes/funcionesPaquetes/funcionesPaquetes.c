@@ -275,9 +275,12 @@ tPCB *deserializarPCB(char *pcb_serial){
 	memcpy(&pcb->indiceDeStack->retVar->size, pcb_serial + offset, sizeof (pcb->indiceDeStack->retVar->size));
 	offset += sizeof (pcb->indiceDeStack->retVar->size);
 
-	pcb->indiceDeEtiquetas = malloc(pcb->etiquetaSize);
-	memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
-	offset += pcb->etiquetaSize;
+	pcb->indiceDeEtiquetas = NULL;
+	if (pcb->etiquetaSize != 0){
+		pcb->indiceDeEtiquetas = malloc(pcb->etiquetaSize);
+		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
+		offset += pcb->etiquetaSize;
+	}
 
 	return pcb;
 }
@@ -295,7 +298,11 @@ char *recvPCB(int sock_in){
 
 	printf("Paquete de size: %d\n", pack_size);
 
-	pcb_serial = malloc(pack_size);
+	if ((pcb_serial = malloc(pack_size)) == NULL){
+		puts("No se pudo crear espacio de memoria para el pcb serializado");
+		return NULL;
+	}
+
 	if ((stat = recv(sock_in, pcb_serial, pack_size, 0)) <= 0){
 		perror("Fallo de recv. error");
 		return NULL;

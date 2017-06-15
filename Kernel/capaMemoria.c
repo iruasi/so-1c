@@ -11,12 +11,52 @@
 
 #include "capaMemoria.h"
 
-extern int MAX_ALLOC_SIZE;
 
+char *serializeByteRequestByPack(tPackByteReq *bytereq);
+tPackByteReq *crearByteRequestHeap(tPackHeader head, int pid, int page_heap);
+
+extern int MAX_ALLOC_SIZE;
 extern tHeapProc *heapsPorProc;
 extern int hProcs_cant;
 //extern int frames;
 extern int frame_size;
+extern int sock_mem;
+
+/* Para un pid y nro de pagina, pide la pagina a Memoria mediante un send
+ * En escencia es un caso especifico de Solicitud de Bytes.
+ * La funcion que se complementa con esta es recibirPaginaHeap();
+ */
+int pedirPaginaHeap(int sock_memoria, int pid, int page){
+
+	int stat;
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = SOLIC_BYTES};
+	tPackByteReq *byterq = crearByteRequestHeap(head, pid, page);
+
+	char *byterq_serial = serializeByteRequestByPack(byterq);
+
+	if((stat = send(sock_memoria, byterq_serial, sizeof(tPackByteReq), 0)) == -1){
+		puts("Fallo envio del pedido de pagina Heap");
+		return FALLO_SEND;
+	}
+	return stat;
+}
+
+/* Recibiriamos una pagina, pero deberiamos asegurarnos de asociarla al pid y
+ * numero de pagina correspondientes
+ * todo: struct {int pid, int page, char[frame_size] page_cont}tPagina;
+ */
+char *recibirPaginaHeap(int sock_memoria){
+
+	int stat;
+	char *pag_heap = calloc(1, frame_size);
+
+	if ((stat = recv(sock_memoria, pag_heap, frame_size, 0)) == -1){
+		puts("Fallo la recepcion de pagina de heap");
+		return NULL;
+	}
+
+	return pag_heap;
+}
 
 void actualizarHProcsConPagina(int pid, int new_heapPage){
 
@@ -129,3 +169,41 @@ int reservarPagHeap(int sock_mem, int pid, int size_reserva){
 }
 
 
+// todo: esto esta repetido en cpu.c, depues mandarlo a funcionesPaquetes...
+char *serializeByteRequestByPack(tPackByteReq *bytereq){
+
+	int off;
+	char *bytereq_serial;
+	if ((bytereq_serial = malloc(24)) == NULL){ // todo: rompe aca
+		fprintf(stderr, "No se pudo mallocar espacio para el paquete de pedido de bytes\n");
+		return NULL;
+	}
+
+	off = 0;
+	memcpy(bytereq_serial+off, &bytereq->head, HEAD_SIZE);
+	off += HEAD_SIZE;
+	memcpy(bytereq_serial + off, &bytereq->pid, sizeof bytereq->pid);
+	off += sizeof bytereq->pid;
+	memcpy(bytereq_serial + off, &bytereq->page, sizeof bytereq->page);
+	off += sizeof bytereq->page;
+	memcpy(bytereq_serial + off, &bytereq->offset, sizeof bytereq->offset);
+	off += sizeof bytereq->offset;
+	memcpy(bytereq_serial, &bytereq->size, sizeof bytereq->size);
+	off += sizeof bytereq->size;
+
+	return bytereq_serial;
+}
+
+tPackByteReq *crearByteRequestHeap(tPackHeader head, int pid, int page_heap){
+
+	int off = 0;
+	tPackByteReq *bytereq = malloc(sizeof(tPackByteReq));
+
+	memcpy(&bytereq->head, &head, HEAD_SIZE);
+	memcpy(&bytereq->pid, &pid, sizeof pid);
+	bytereq->page = page_heap;
+	memcpy(&bytereq->offset, &off, sizeof (int));
+	memcpy(&bytereq->size, &frame_size, sizeof (int));
+
+	return bytereq;
+}
