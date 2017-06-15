@@ -124,6 +124,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 
 int getMemFrame(int pid, int page){
 	puts("Buscando contenido en Memoria");
+	sleep(retardo_mem);
 
 	int frame;
 
@@ -132,7 +133,6 @@ int getMemFrame(int pid, int page){
 		return FRAME_NOT_FOUND;
 	}
 
-	sleep(retardo_mem);
 	return frame;
 }
 
@@ -176,19 +176,24 @@ int buscarEnMemoria(int pid, int page){
 	return FRAME_NOT_FOUND;
 }
 
+int fH(int pid, int pag){
+
+	return (pid * memoria->marco_size + pag) % memoria->marcos;
+}
+
 int funcionHash(int pid, int page){
 
-	int direccion = pid % marcos_inv;
+	int frame = pid % marcos_inv;
 
-	if ((direccion + page) > marcos_inv)
+	if ((frame + page) > marcos_inv)
 
-		direccion = (direccion + page) % marcos_inv;
+		frame = (frame + page) % marcos_inv;
 
 	else
 
-		direccion = (direccion + page);
+		frame = (frame + page);
 
-	return direccion;
+	return frame;
 }
 
 int agregarEnMemoria (int pid, int page){

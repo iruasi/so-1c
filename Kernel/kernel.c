@@ -48,6 +48,7 @@ int hProcs_cant;
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int sock_cpu;
+int sock_mem;
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
@@ -60,7 +61,7 @@ int main(int argc, char* argv[]){
 	int stat, ready_fds;
 	int fd, new_fd;
 	int fd_max = -1;
-	int sock_fs, sock_mem;
+	int sock_fs;
 	int sock_lis_cpu, sock_lis_con;
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()

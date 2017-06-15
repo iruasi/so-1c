@@ -22,8 +22,16 @@
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 
+
+
+// TODO: ordenar en algun momento estas funciones que se van agregando aca arriba...
+void liberarPCB(tPCB *pcb);
+tPCB *deserializarPCB(char *pcb_serial);
+char *serializeByteRequestByPack(tPackByteReq *bytereq);
+
 int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
 int sock_kern;
+tPackByteReq *crearByteRequestCodigo(tPackHeader head, tPCB *pcb);
 
 int pedirInstruccion(tPCB *pcb);
 int recibirInstruccion(char *linea, int instr_size);
@@ -211,27 +219,27 @@ int main(int argc, char* argv[]){
 	printf("Se enviaron: %d bytes a KERNEL\n", stat);
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
-
-	tPackHeader *head = malloc(sizeof *head);
+	tPackHeader head;
 	char *pcb_serial;
 	tPCB *pcb;
-	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
+
+	while((stat = recv(sock_kern, &head, sizeof head, 0)) > 0){
 		puts("Se recibio un paquete de Kernel");
 
-		printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
+		printf("proc %d \t msj %d \n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
-		if (head->tipo_de_mensaje == FIN){
+		if (head.tipo_de_mensaje == FIN){
 			puts("Kernel se va!");
 			liberarConfiguracionCPU(cpu_data);
 
-		} else if (head->tipo_de_mensaje == PCB_EXEC){
-
+		} else if (head.tipo_de_mensaje == PCB_EXEC){
 
 			if((pcb_serial = recvPCB(sock_kern)) == NULL){
 				return FALLO_RECV;
 			}
 
 			pcb = deserializarPCB(pcb_serial);
+			freeAndNULL((void **) &pcb_serial);
 
 			puts("Recibimos un PCB para ejecutar...");
 			if ((stat = ejecutarPrograma(pcb)) != 0){
@@ -239,6 +247,7 @@ int main(int argc, char* argv[]){
 				puts("No se continua con la ejecucion del pcb");
 			}
 
+			liberarPCB(pcb);
 
 		} else {
 			puts("Me re fui");
@@ -302,11 +311,16 @@ int ejecutarPrograma(tPCB* pcb){
 int pedirInstruccion(tPCB *pcb){
 	puts("Pide instruccion");
 
-	int stat, pack_size;
+	int stat;
 
-	char *bytereq_serial = serializeByteRequest(pcb, &pack_size);
+	tPackHeader head = {.tipo_de_proceso = CON, .tipo_de_mensaje = INSTRUC_GET};
 
-	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
+	tPackByteReq *bytereq = crearByteRequestCodigo(head, pcb);
+	char *bytereq_serial = serializeByteRequestByPack(bytereq);
+
+	freeAndNULL((void **) &bytereq);
+
+	if((stat = send(sock_mem, bytereq_serial, sizeof(tPackByteReq), 0)) == -1){
 		perror("Fallo envio de paquete de pedido de bytes. error");
 		return FALLO_SEND;
 	}
@@ -315,7 +329,26 @@ int pedirInstruccion(tPCB *pcb){
 	return 0;
 }
 
+/* todo: esta funcion no es generalizable todavia, no se como se calculara el offset para paginas de stack/heap.
+ * De momento para las de codigo se puede basar completamente en el pcb
+ */
+tPackByteReq *crearByteRequestCodigo(tPackHeader head, tPCB *pcb){
+
+	tPackByteReq *bytereq = malloc(sizeof(tPackByteReq)); // todo: falla aca
+	int delta = abs(pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start);
+
+	memcpy(&bytereq->head, &head, HEAD_SIZE);
+	memcpy(&bytereq->pid, &pcb->id, sizeof pcb->id);
+	bytereq->page = 0;
+	memcpy(&bytereq->offset, &pcb->indiceDeCodigo->offset, sizeof pcb->indiceDeCodigo->offset);
+	memcpy(&bytereq->size, &delta, sizeof delta);
+
+	return bytereq;
+}
+
+
 int recibirInstruccion(char *linea, int instr_size){
+	puts("Recibe instruccion");
 
 	int stat;
 	tPackHeader head;
@@ -347,4 +380,131 @@ char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLa
 	char *aRetornar = calloc(1, 100);
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
 	return aRetornar;
+}
+
+char *serializeByteRequestByPack(tPackByteReq *bytereq){
+
+	int off;
+	char *bytereq_serial;
+	if ((bytereq_serial = malloc(sizeof(tPackByteReq) )) == NULL){ // todo: rompe aca
+		fprintf(stderr, "No se pudo mallocar espacio para el paquete de pedido de bytes\n");
+		return NULL;
+	}
+
+	off = 0;
+	memcpy(bytereq_serial+off, &bytereq->head, HEAD_SIZE);
+	off += HEAD_SIZE;
+	memcpy(bytereq_serial + off, &bytereq->pid, sizeof bytereq->pid);
+	off += sizeof bytereq->pid;
+	memcpy(bytereq_serial + off, &bytereq->page, sizeof bytereq->page);
+	off += sizeof bytereq->page;
+	memcpy(bytereq_serial + off, &bytereq->offset, sizeof bytereq->offset);
+	off += sizeof bytereq->offset;
+	memcpy(bytereq_serial, &bytereq->size, sizeof bytereq->size);
+	off += sizeof bytereq->size;
+
+	return bytereq_serial;
+}
+
+void liberarPCB(tPCB *pcb){
+	freeAndNULL((void **) &pcb->indiceDeCodigo);
+	freeAndNULL((void **) &pcb->indiceDeStack->args);
+	freeAndNULL((void **) &pcb->indiceDeStack->vars);
+	freeAndNULL((void **) &pcb->indiceDeStack->retVar);
+	freeAndNULL((void **) &pcb->indiceDeStack);
+	freeAndNULL((void **) &pcb->indiceDeEtiquetas);
+	freeAndNULL((void **) &pcb);
+}
+
+
+tPCB *deserializarPCB(char *pcb_serial){
+
+
+	tPCB *pcb;
+
+	int offset = 0;
+	size_t ctesInt_size         = 6 * sizeof (int);
+	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
+	size_t indiceStack_size     = 2 * sizeof (posicionMemoria) + sizeof (posicionMemoriaPid) + sizeof (int);
+
+	if ((pcb = malloc(ctesInt_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	if ((pcb->indiceDeStack = malloc(indiceStack_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	if ((pcb->indiceDeStack->args = malloc(sizeof(posicionMemoria))) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+	if ((pcb->indiceDeStack->vars = malloc(sizeof(int) + sizeof(posicionMemoria))) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+	if ((pcb->indiceDeStack->retVar = malloc(sizeof(posicionMemoria))) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	memcpy(&pcb->id, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->pc, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->paginasDeCodigo, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->etiquetaSize, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+
+	memcpy(&pcb->indiceDeCodigo->start, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->start));
+	offset += sizeof (pcb->indiceDeCodigo->start);
+	memcpy(&pcb->indiceDeCodigo->offset, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->offset));
+	offset += sizeof (pcb->indiceDeCodigo->offset);
+
+	memcpy(&pcb->indiceDeStack->args->pag, pcb_serial + offset, sizeof (pcb->indiceDeStack->args->pag));
+	offset += sizeof (pcb->indiceDeStack->args->pag);
+	memcpy(&pcb->indiceDeStack->args->offset, pcb_serial + offset, sizeof (pcb->indiceDeStack->args->offset));
+	offset += sizeof (pcb->indiceDeStack->args->offset);
+	memcpy(&pcb->indiceDeStack->args->size, pcb_serial + offset, sizeof (pcb->indiceDeStack->args->size));
+	offset += sizeof (pcb->indiceDeStack->args->size);
+
+	memcpy(&pcb->indiceDeStack->vars->pid, pcb_serial + offset, sizeof (pcb->indiceDeStack->vars->pid));
+	offset += sizeof (pcb->indiceDeStack->vars->pid);
+	memcpy(&pcb->indiceDeStack->vars->pos.pag, pcb_serial + offset, sizeof (pcb->indiceDeStack->vars->pos.pag));
+	offset += sizeof (pcb->indiceDeStack->vars->pos.pag);
+	memcpy(&pcb->indiceDeStack->vars->pos.offset, pcb_serial + offset, sizeof (pcb->indiceDeStack->vars->pos.offset));
+	offset += sizeof (pcb->indiceDeStack->vars->pos.offset);
+	memcpy(&pcb->indiceDeStack->vars->pos.size, pcb_serial + offset, sizeof (pcb->indiceDeStack->vars->pos.size));
+	offset += sizeof (pcb->indiceDeStack->vars->pos.size);
+
+	memcpy(&pcb->indiceDeStack->retPos, pcb_serial + offset, sizeof (pcb->indiceDeStack->retPos));
+	offset += sizeof (pcb->indiceDeStack->retPos);
+
+	memcpy(&pcb->indiceDeStack->retVar->pag, pcb_serial + offset, sizeof (pcb->indiceDeStack->retVar->pag));
+	offset += sizeof (pcb->indiceDeStack->retVar->pag);
+	memcpy(&pcb->indiceDeStack->retVar->offset, pcb_serial + offset, sizeof (pcb->indiceDeStack->retVar->offset));
+	offset += sizeof (pcb->indiceDeStack->retVar->offset);
+	memcpy(&pcb->indiceDeStack->retVar->size, pcb_serial + offset, sizeof (pcb->indiceDeStack->retVar->size));
+	offset += sizeof (pcb->indiceDeStack->retVar->size);
+
+	pcb->indiceDeEtiquetas = NULL;
+	if (pcb->etiquetaSize != 0){
+		pcb->indiceDeEtiquetas = malloc(pcb->etiquetaSize);
+		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
+		offset += pcb->etiquetaSize;
+	}
+
+	return pcb;
 }
