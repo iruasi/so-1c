@@ -9,8 +9,13 @@
 #include "auxiliaresMemoria.h"
 #include "memoriaConfigurators.h"
 
-#define PID_FREE  0 // pid disponible
-#define PID_INV  -1 // pid tabla invertida
+#ifndef PID_FREE
+#define PID_FREE -1 // pid disponible
+#endif
+
+#ifndef PID_INV
+#define PID_INV  -2 // pid tabla invertida
+#endif
 
 extern char *MEM_FIS;
 extern tMemoria *memoria;

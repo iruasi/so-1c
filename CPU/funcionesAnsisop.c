@@ -38,22 +38,37 @@ void setupCPUFuncionesKernel(void){
 //FUNCIONES DE ANSISOP
 t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
-	//list_add(pcb->indiceDeStack->vars, variable);
+	//list_add(pcb->indiceDeStack, variable);
+	list_add_in_index(pcb->indiceDeStack, list_size(pcb->indiceDeStack)-1, &variable);
 	return 20;
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
 	printf("Obtener posicion de %c\n", variable);
+	/*
+	 * tPackHeader h;
+		h.tipo_de_proceso = CPU;
+		h.tipo_de_mensaje = GETPOSVAR;
+		send(sock_mem, &h, sizeof(h), 0);
+	 *
+	 */
 	return 20;
 }
 
 void finalizar(void){
 	termino = true;
 	printf("Finalizar\n");
+	list_remove(pcb->indiceDeStack, list_size(pcb->indiceDeStack)-1);
 }
 
 t_valor_variable dereferenciar(t_puntero puntero) {
 	printf("Dereferenciar %d y su valor es: %d\n", puntero, 20);
+	/*
+	 * tPackHeader h;
+		h.tipo_de_proceso = CPU;
+		h.tipo_de_mensaje = DEREFERENCIAR;
+		send(sock_mem, &h, sizeof(h), 0);
+	 */
 	return 20;
 }
 
@@ -82,6 +97,14 @@ void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 }
 
 void retornar (t_valor_variable retorno){
+	//int ret;
+	/*
+		 * tPackHeader h;
+			h.tipo_de_proceso = CPU;
+			h.tipo_de_mensaje = DEREFERENCIAR;
+			send(sock_mem, &h, sizeof(h), 0);
+		 */
+	//pcb->pc = pcb->indiceDeStack->retPos;
 	//TODO: Hacer
 }
 
@@ -145,7 +168,7 @@ t_puntero reservar (t_valor_variable espacio){
 	return 40;
 }
 
-void enviarAlKernel(tMensaje mensaje){
+void enviarAlKernel(tMensaje mensaje){ // TODO: armar paquetes para funciones al ker y a la mem (para que le mande los parametros en caso de necesitar)
 	tPackHeader h;
 	h.tipo_de_proceso = CPU;
 	h.tipo_de_mensaje = mensaje;

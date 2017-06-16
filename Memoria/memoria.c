@@ -236,10 +236,17 @@ void* cpu_handler(void *socket_cpu){
 			puts("Se recibio peticion de almacenamiento");
 
 			if ((stat = manejarAlmacenamientoBytes(*sock_cpu)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Byes. status: %d\n", stat);
 
 			break;
 
+		case INSTRUC_GET:
+			puts("Se recibio pedido de instrucciones");
+
+			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+
+			break;
 		default:
 			puts("Se recibio un mensaje no considerado");
 			break;

@@ -27,8 +27,8 @@ void flush(void){
 
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
-		(CACHE_lines +i)->pid  =  PID_MEM;
-		(CACHE_lines +i)->page = -1;
+		(CACHE_lines +i)->pid  = PID_MEM;
+		(CACHE_lines +i)->page = FREE_PAGE;
 	}
 }
 

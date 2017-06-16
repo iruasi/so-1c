@@ -38,6 +38,7 @@
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
+char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size);
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
 tPackSrcCode *recibir_paqueteSrc(tPackHeader * header,int fd);
@@ -203,7 +204,17 @@ int main(int argc, char* argv[]){
 												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
 
-				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready
+
+				puts("Hagamos lo nuevo");
+				int pack_size = 0;
+				tPackHeader headX={ .tipo_de_proceso = KER, .tipo_de_mensaje = INI_PROG };
+				char* packBytes = serializeBytes(headX, entradaPrograma->sourceCode, src_size, &pack_size);
+
+				puts("Enviamos el srccode");
+				if ((stat = send(sock_mem, packBytes, pack_size, 0)) == -1)
+					puts("Fallo envio src code a Memoria...");
+
+				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready. O tal vez no.
 				//(hProcs+hProcs_cant)->pid = new_pcb->id;
 				//(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
 				//(hProcs+hProcs_cant)->pag_heap_cant++;
@@ -330,4 +341,24 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 
 	return pack_src;
 
+}
+
+
+char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
+
+	char *bytes_serial;
+
+	if ((bytes_serial = malloc(HEAD_SIZE + sizeof(int) + buffer_size)) == NULL){
+		fprintf(stderr, "No se pudo mallocar espacio para paquete de bytes\n");
+		return NULL;
+	}
+
+	memcpy(bytes_serial, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+	memcpy(bytes_serial + *pack_size, &buffer_size, sizeof buffer_size);
+	*pack_size += sizeof buffer_size;
+	memcpy(bytes_serial + *pack_size, &buffer, buffer_size);
+	*pack_size += buffer_size;
+
+	return bytes_serial;
 }

@@ -20,7 +20,7 @@ int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 /* Serializa un buffer de bytes para que respete el protocolo de HEADER
  * int *pack_size se usa para almacenar el size del paquete serializado, asi se lo puede send'ear
  */
-char *serializeBytes(tProceso proc, tMensaje msj, char* buffer, int buffer_size, int *pack_size);
+char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size);
 
 /* Deserializa un buffer en un Paquete de Bytes
  */

@@ -62,27 +62,52 @@ int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
 /****** Definiciones de [De]Serializaciones ******/
 
 
-char *serializeBytes(tProceso proc, tMensaje msj, char* buffer, int buffer_size, int *pack_size){
+char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
 
 	char *bytes_serial;
 
-	if ((bytes_serial = malloc(buffer_size + HEAD_SIZE)) == NULL){
+	if ((bytes_serial = malloc(HEAD_SIZE + sizeof(int) + buffer_size)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para paquete de bytes\n");
 		return NULL;
 	}
 
-	memcpy(bytes_serial, &proc, sizeof proc);
-	*pack_size += sizeof proc;
-	memcpy(bytes_serial + *pack_size, &msj, sizeof msj);
-	*pack_size += sizeof msj;
+	memcpy(bytes_serial, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
 	memcpy(bytes_serial + *pack_size, &buffer_size, sizeof buffer_size);
 	*pack_size += sizeof buffer_size;
-	memcpy(bytes_serial + *pack_size, buffer, buffer_size);
+	memcpy(bytes_serial + *pack_size, &buffer, buffer_size);
 	*pack_size += buffer_size;
 
-//	assertEq(sizeof *) TODO: assertEquals
-
 	return bytes_serial;
+}
+
+/* ya se recibio el HEADER
+ *
+ */
+char *recvBytes(int sock_in){
+	puts("Se reciben Bytes..");
+
+	int stat, byte_len;
+	char *pbytes_serial;
+
+	if ((stat = recv(sock_in, &byte_len, sizeof(int), 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+
+	printf("Paquete de size: %d\n", byte_len);
+
+	if ((pbytes_serial = malloc(byte_len)) == NULL){
+		puts("Fallo de allocacion para paquete de bytes");
+		return NULL;
+	}
+
+	if ((stat = recv(sock_in, pbytes_serial, byte_len, 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+
+	return pbytes_serial;
 }
 
 tPackBytes *deserializeBytes(int sock_in){
@@ -95,7 +120,7 @@ tPackBytes *deserializeBytes(int sock_in){
 		return NULL;
 	}
 
-	if((stat = recv(sock_in, &bytelen, sizeof bytelen, 0)) == -1){
+	if((stat = recv(sock_in, &bytelen, sizeof (int), 0)) == -1){
 		perror("Fallo recepcion de size de paquete de bytes. error");
 		return NULL;
 	}
@@ -119,7 +144,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	char *pcb_serial;
 	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
 
-	size_t ctesInt_size         = 6 * sizeof (int);
+	size_t ctesInt_size         = 7 * sizeof (int);
 	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
 	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
 	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
@@ -144,6 +169,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + off, &pcb->etiquetaSize, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
@@ -257,6 +284,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 	memcpy(&pcb->etiquetaSize, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->estado_proc, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
@@ -372,11 +401,9 @@ char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 	*pack_size += HEAD_SIZE;
 	memcpy(bytereq_serial + *pack_size, &pcb->id, sizeof pcb->id);
 	*pack_size += sizeof pcb->id;
-	memcpy(bytereq_serial + *pack_size, &pcb->pc, sizeof pcb->pc);
-	*pack_size += sizeof pcb->pc;
 	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
 	*pack_size += sizeof code_page;
-	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->offset); // OFFSET_BEGIN
+	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start); // OFFSET_BEGIN
 	*pack_size += sizeof pcb->indiceDeCodigo->start;
 	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); 		// SIZE
 	*pack_size += sizeof size_instr;

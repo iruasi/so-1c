@@ -68,8 +68,8 @@ void populateInvertidas(void){
 
 	int i, off, fr;
 
-	tEntradaInv entry_inv  = {.pid = -1, .pag = -1};
-	tEntradaInv entry_free = {.pid =  0, .pag = -1};
+	tEntradaInv entry_inv  = {.pid = PID_INV, .pag = FREE_PAGE};
+	tEntradaInv entry_free = {.pid = PID_MEM, .pag = FREE_PAGE};
 
 	int size_inv_total = sizeof(tEntradaInv) * memoria->marcos;
 	marcos_inv = ceil((float) size_inv_total / memoria->marco_size);
@@ -125,6 +125,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 int getMemFrame(int pid, int page){
 	puts("Buscando contenido en Memoria");
 
+	sleep(retardo_mem);
 	int frame;
 
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
@@ -132,7 +133,6 @@ int getMemFrame(int pid, int page){
 		return FRAME_NOT_FOUND;
 	}
 
-	sleep(retardo_mem);
 	return frame;
 }
 
@@ -149,7 +149,7 @@ int buscarEnMemoria(int pid, int page){
 	int frame_repr = marcos_inv + 1; // frame representativo de la posicion en MEMORIA FISICA posta
 
 	tEntradaInv *entry = (tEntradaInv *) MEM_FIS;
-	for(i = 0; i < marcos_inv; frame_repr++){
+	for(i = 0; i < marcos_inv; frame_repr++){ //todo: aumenar i cuando se deba
 		gotoFrameInvertida(frame_repr, &fr, &off);
 		entry = (tEntradaInv *) (MEM_FIS + fr * memoria->marco_size + off);
 		if (pid == entry->pid && page == entry->pag)

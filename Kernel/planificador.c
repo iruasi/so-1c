@@ -138,7 +138,7 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
 	freeAndNULL((void **) &pack_pid);
-	freeAndNULL((void **) &pcb_serial);
+	//freeAndNULL((void **) &pcb_serial); todo: ver por que falla; por ahora que leakee
 }
 
 void updateQueue(t_queue *Q){

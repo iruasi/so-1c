@@ -25,10 +25,10 @@
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 
-int pedirInstruccion(tPCB *pcb, int instr_size);
+int pedirInstruccion(int instr_size);
 int recibirInstruccion(char *linea, int instr_size);
 
-int ejecutarPrograma(tPCB *pcb);
+int ejecutarPrograma(void);
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
@@ -79,7 +79,6 @@ int main(int argc, char* argv[]){
 
 	tPackHeader *head = malloc(sizeof *head);
 	char *pcb_serial;
-	tPCB *pcb;
 
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
 		puts("Se recibio un paquete de Kernel");
@@ -100,7 +99,7 @@ int main(int argc, char* argv[]){
 			pcb = deserializarPCB(pcb_serial);
 
 			puts("Recibimos un PCB para ejecutar...");
-			if ((stat = ejecutarPrograma(pcb)) != 0){
+			if ((stat = ejecutarPrograma()) != 0){
 				fprintf(stderr, "Fallo ejecucion de programa. status: %d\n", stat);
 				puts("No se continua con la ejecucion del pcb");
 			}
@@ -132,19 +131,19 @@ int main(int argc, char* argv[]){
 
 
 
-int ejecutarPrograma(tPCB *pcb){
+int ejecutarPrograma(void){
 
 	int stat, instr_size;
-	char *linea;
+	char *linea = NULL;
 
 	termino = false;
 
 	puts("Empieza a ejecutar...");
 	do{
-		instr_size = abs(pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start);
+		instr_size = pcb->indiceDeCodigo->offset;
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		if ((stat = pedirInstruccion(pcb, instr_size)) != 0){
+		if ((stat = pedirInstruccion(instr_size)) != 0){
 			fprintf(stderr, "Fallo pedido de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
 		}
@@ -157,10 +156,10 @@ int ejecutarPrograma(tPCB *pcb){
 		printf("La linea %d es: %s", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(linea, &functions, &kernel_functions);
-		freeAndNULL((void **) &linea);
 		pcb->pc++;
 
 	} while(!termino);
+	freeAndNULL((void **) &linea);
 
 	puts("Termino de ejecutar...");
 	termino = false;
@@ -169,7 +168,7 @@ int ejecutarPrograma(tPCB *pcb){
 	return EXIT_SUCCESS;
 }
 
-int pedirInstruccion(tPCB *pcb, int instr_size){
+int pedirInstruccion(int instr_size){
 	puts("Pide instruccion");
 
 	int stat, pack_size;
@@ -186,10 +185,12 @@ int pedirInstruccion(tPCB *pcb, int instr_size){
 }
 
 int recibirInstruccion(char *linea, int instr_size){
+	puts("vamos a recibir instruccion");
+
 
 	int stat;
 	tPackHeader head;
-	if ((linea = realloc(linea, instr_size)) == NULL){ // todo: falla porque instr_size llegaba como negativo
+	if ((linea = realloc(linea, instr_size)) == NULL){
 		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		return FALLO_GRAL;
 	}

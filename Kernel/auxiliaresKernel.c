@@ -79,7 +79,7 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags){
 	globalPID++;
 	nuevoPCB->pc = 0;
 	nuevoPCB->paginasDeCodigo = cant_pags;
-
+	nuevoPCB->estado_proc = 0;
 	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
 	nuevoPCB->indiceDeCodigo->start  = meta->instrucciones_serializado->start;
 	nuevoPCB->indiceDeCodigo->offset = meta->instrucciones_serializado->offset;

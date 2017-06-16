@@ -74,7 +74,7 @@ int insertarEnCache(int pid, int page, char *cont){
 	int min_pos;
 
 	if (pageCachedQuantity(pid) >= memoria->cache_x_proc){
-		printf("El proceso %d tiene la maxima cantidad de entradas en CACHE permitidas. No se inserta entrada nueva", pid);
+		printf("El proceso %d tiene la maxima cantidad de entradas en CACHE permitidas\nNo se inserta entrada nueva\n", pid);
 		return MAX_CACHE_ENTRIES;
 	}
 

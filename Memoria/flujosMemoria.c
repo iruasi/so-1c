@@ -9,14 +9,14 @@
 
 #include "apiMemoria.h"
 
-
 int manejarSolicitudBytes(int sock_in){
 
 	int ret_val = 0;
 	int stat;
-	int solic_size; // size del buffer de bytes a send'ear al sock_in
+	int solic_size = 0; // size del buffer de bytes a send'ear al sock_in
 	char *bytes_solic;  // bytes obtenidos de Memoria Fisica
 	char *bytes_serial; // bytes aptos para send()
+	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = BYTES_GET};
 	tPackByteReq *pbyte_req;
 
 	if ((pbyte_req = deserializeByteRequest(sock_in)) == NULL){
@@ -24,6 +24,7 @@ int manejarSolicitudBytes(int sock_in){
 		ret_val = FALLO_DESERIALIZAC;
 		goto retorno;
 	}
+
 
 	if ((bytes_solic = malloc(pbyte_req->size)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para el buffer de bytes solicitados\n");
@@ -38,7 +39,8 @@ int manejarSolicitudBytes(int sock_in){
 		goto retorno;
 	}
 
-	if ((bytes_serial = serializeBytes(MEM, BYTES_GET, bytes_solic, pbyte_req->size, &solic_size)) == NULL){
+
+	if ((bytes_serial = serializeBytes(head, bytes_solic, pbyte_req->size, &solic_size)) == NULL){
 		fprintf(stderr, "Fallo la carga de bytes en el buffer para la solicitud\n");
 		ret_val = FALLO_SERIALIZAC;
 		goto retorno;
@@ -57,7 +59,7 @@ retorno:
 	return ret_val;
 }
 
-int manejarAlmacenamientoBytes(sock_in){
+int manejarAlmacenamientoBytes(int sock_in){
 
 	int stat;
 	tPackByteAlmac *pbyte_al;
