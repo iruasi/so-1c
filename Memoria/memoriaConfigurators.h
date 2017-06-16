@@ -19,6 +19,6 @@ typedef struct{
 
 tMemoria *getConfigMemoria(char* ruta);
 void mostrarConfiguracion(tMemoria *memoria);
-void liberarConfiguracionMemoria(tMemoria *memoria);
+void liberarConfiguracionMemoria(void);
 
 #endif /* MEMORIACONFIGURATORS_H_ */

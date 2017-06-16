@@ -13,15 +13,20 @@
 #include "memoriaConfigurators.h"
 #include "apiMemoria.h"
 
+#include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 
 
 
 int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
 
-extern float retardo_mem;      // latencia de acceso a Memoria Fisica
-extern tMemoria *memoria;    // configuracion de Memoria
-extern char *MEM_FIS;        // MEMORIA FISICA
+extern float retardo_mem;   // latencia de acceso a Memoria Fisica
+extern tMemoria *memoria;   // configuracion de Memoria
+extern char *MEM_FIS;       // MEMORIA FISICA
+extern char *CACHE;         // memoria CACHE
+extern int *CACHE_accs;     // vector de accesos a CACHE
+tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
+
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
@@ -34,61 +39,20 @@ void abortar(int pid){ // TODO: escribir el comportamiento de esta funcion
 }
 
 
-// Se sabe previamente que el frame corresponde a uno de HEAP
-char *reservarBytes(int pid, int heap_page, int sizeReserva){
-// por ahora trabaja con la unica pagina que existe
 
-	tHeapMeta *hmd = (tHeapMeta *) MEM_FIS;
-	int sizeLibre = memoria->marco_size - SIZEOF_HMD;
 
-	uint8_t rta = esReservable(sizeReserva, hmd);
-	while(rta != ULTIMO_HMD){
 
-		if (rta == true){
+void liberarEstructurasMemoria(void){
 
-			hmd->size = sizeReserva;
-			hmd->isFree = false;
+	liberarConfiguracionMemoria();
+	freeAndNULL((void **) &MEM_FIS);
+	freeAndNULL((void **) &CACHE);
+	freeAndNULL((void **) &CACHE_lines);
+	freeAndNULL((void **) &CACHE_accs);
 
-			sizeLibre -= sizeReserva;
-			uint8_t* dirNew_hmd = (uint8_t *) ((uint32_t) hmd + SIZEOF_HMD + hmd->size);
-			crearNuevoHMD(dirNew_hmd, sizeLibre);
-
-			return (char*) hmd;
-		}
-
-		sizeLibre -= hmd->size;
-
-		uint8_t* dir = (uint8_t *) ((uint32_t) hmd + SIZEOF_HMD + hmd->size);
-		hmd = (tHeapMeta *) dir;
-		rta = esReservable(sizeReserva, hmd);
-	}
-
-	return NULL; // en esta unica pagina no tuvimos espacio para reservar sizeReserva
 }
 
-
-tHeapMeta *crearNuevoHMD(uint8_t *dir_mem, int size){
-
-	tHeapMeta *new_hmd = (tHeapMeta *) dir_mem;
-	new_hmd->size = size;
-	new_hmd->isFree = true;
-
-	return new_hmd;
-}
-
-uint8_t esReservable(int size, tHeapMeta *hmd){
-
-	if(! hmd->isFree || hmd->size - SIZEOF_HMD < size)
-		return false;
-
-	else if (hmd->size == 0) // esta libre y con espacio cero => es el ultimo MetaData
-		return ULTIMO_HMD;
-
-	return true;
-}
-
-
-int setupMemoria(void){ // todo: cuando termina el proceso Memoria hay que liberar
+int setupMemoria(void){
 
 	MEM_FIS = malloc(memoria->marcos * memoria->marco_size);
 	if (MEM_FIS == NULL){
@@ -192,11 +156,92 @@ int buscarEnMemoria(int pid, int page){
 			return frame_repr;
 	}
 
-	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page); // todo: investigar y ver como hacer una buena funcion de hashing
+	/* Logica
+	 * buscar (pid , page){
+	 * 	dirPid = hashFunc(pid , page); guardamos el valor de la tabla
+	 * 	valorDirPid = traerValor(dirPid); trae el valor PID que esta en la posicion de la tabla
+	 * 	while (pid != valorDirPid){
+	 * 		dirPid = traerSiguiente(dirPid); trae la direccion siguiente a esa posicion del campo de la tabla
+	 * 		if( dirPid == NULL)
+	 * 			return FRAME_NOT_FOUND; // si no esta agregado en esa cadena de memoria, arroja este error
+	 * 		valorDirPid =  traerValor(dirPid);
+	 * 	return dirPid;
+	 *
+	 */
+
+
+
+	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page);
 
 	return FRAME_NOT_FOUND;
 }
 
+int funcionHash(int pid, int page){
+
+	int direccion = pid % marcos_inv;
+
+	if ((direccion + page) > marcos_inv)
+
+		direccion = (direccion + page) % marcos_inv;
+
+	else
+
+		direccion = (direccion + page);
+
+	return direccion;
+}
+
+int agregarEnMemoria (int pid, int page){
+
+	int *dirPidAnterior, *dirPid;
+	dirPidAnterior = malloc(sizeof(int));
+	dirPid = malloc(sizeof(int));
+	*dirPid = funcionHash(pid, page);
+
+
+	if (buscarEnMemoria(pid, page) == FRAME_NOT_FOUND){
+
+		int valorDirPid = traerValor(dirPid);
+
+		while(valorDirPid != pid){
+
+			dirPidAnterior = dirPid;
+
+			dirPid = traerSiguiente(dirPid);
+
+			if(dirPid == NULL){
+			/*TODO: crear metodo para agregar la nueva porción de memoria;
+			agrega en la dirAnterior una nueva direccóin para agregar el pid en la nueva posiócion */
+			}
+
+
+		}
+
+		return 1;
+	}
+	return -1; //todo: asignar codigo de error que no se pudo agregar en memoria
+}
+
+int traerSiguiente(int dirPid){
+	int siguienteDir;
+	/*
+		Busca en la tabla la direccion que se le pasa por parametro y devuelve la direccion del siguiente eslabon de la cadena
+	*/
+
+	return siguienteDir;
+}
+
+int traerValor(int pid){
+	int valorPid;
+	/*
+	 * Trae el valor de PID asociado a la direccion que se le pasa
+	 */
+	return valorPid;
+}
+
+
+
+/*
 void defragmentarHeap(uint8_t *heap_dir){
 	//para este checkpoint, heap_dir va a ser exactamente MEM_FIS
 
@@ -230,7 +275,7 @@ void defragmentarHeap(uint8_t *heap_dir){
 		off = 0;
 	}
 }
-
+*/
 void dumpMemStructs(void){
 
 	int i, fr, off;

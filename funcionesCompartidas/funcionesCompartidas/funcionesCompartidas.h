@@ -3,6 +3,14 @@
 
 #include <sys/select.h>
 #include <sys/types.h>
+#include <stdbool.h>
+
+#include <tiposRecursos/misc/pcb.h>
+
+/* Verifica que dos valores enteros sean equivalentes. Si lo son, retorna true.
+ * Si no coinciden, emite el mensaje `errmsg' en stderr junto con los valores obtenidos, y retorna false.
+ */
+bool assertEq(int expected, int actual, const char* errmsg);
 
 /* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL,
  * de esta manera, si se usare accidentalmente a futuro, es mas seguro que no toque nada critico
@@ -53,6 +61,10 @@ int handleNewListened(int sock_listen, fd_set *setFD);
  */
 void clearAndClose(int *fd, fd_set *setFD);
 
+/* Util para recibir cualquier struct sin campos variables
+ */
+int cantidadTotalDeBytesRecibidos(int fdServidor, char * buffer, int tamanioBytes);
 
+indiceStack crearStackVacio(void);
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

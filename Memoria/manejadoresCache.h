@@ -14,23 +14,27 @@ void setupCacheLines(void);
  */
 char *getCacheContent(int pid, int page);
 
-/* todo: descripcion
+/* Disminuye en 1 un contador de cada entrada para la CACHE,
+ * salvo el que esta indicado por el indice `accesed'
+ * Lo utiliza el LRU para desalojar segun el contador mas bajo.
  */
 void cachePenalizer(int accessed);
 
-/* todo: descripcion
+/* Si no alcanzo el limite, inserta una pagina nueva en CACHE.
+ * Utiliza el algoritmo LRU para elegir una victima, de ser necesario
  */
 int insertarEnCache(int pid, int page, char *cont);
 
-/* todo: description
+/* Esta funcion parece que no se utiliza
  */
 tCacheEntrada *allocateCacheEntry(void);
 
-/* todo: descripcion
+/* Busca la primera entrada libre o en su defecto la entrada menos utilizada (LRU)
+ * Retorna el puntero a la Linea de CACHE a ser reemplazada.
  */
 tCacheEntrada *getCacheVictim(int *min_index);
 
-/* todo: descripcion
+/* Retorna la cantidad de paginas que un PID dado tiene en CACHE
  */
 int pageCachedQuantity(int pid);
 

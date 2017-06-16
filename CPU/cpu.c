@@ -4,7 +4,9 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <stdbool.h>
+
 #include <commons/config.h>
+#include <commons/collections/list.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -13,6 +15,7 @@
 #include <tiposRecursos/misc/pcb.h>
 
 #include "cpuConfigurators.h"
+#include "funcionesAnsisop.h"
 
 #include <parser/parser.h>
 #include <parser/metadata_program.h>
@@ -22,157 +25,12 @@
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 
-int sock_mem; // SE PASA A VAR GLOBAL POR AHORA
-int sock_kern;
+int pedirInstruccion(tPCB *pcb, int instr_size);
+int recibirInstruccion(char *linea, int instr_size);
 
-
-int pedirInstruccion(tPCB *pcb);
-int recibirInstruccion(char **linea, int instr_size);
-
-int ejecutarPrograma(tPCB*);
-
+int ejecutarPrograma(tPCB *pcb);
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
-
-tPCB *recvPCB();
-
-bool termino = false;
-
-//FUNCIONES DE ANSISOP
-t_puntero definirVariable(t_nombre_variable variable) {
-	printf("definir la variable %c\n", variable);
-	return 20;
-}
-
-t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
-	printf("Obtener posicion de %c\n", variable);
-	return 20;
-}
-
-void finalizar(void){
-	termino = true;
-	printf("Finalizar\n");
-}
-
-t_valor_variable dereferenciar(t_puntero puntero) {
-	printf("Dereferenciar %d y su valor es: %d\n", puntero, 20);
-	return 20;
-}
-
-void asignar(t_puntero puntero, t_valor_variable variable) {
-	printf("Asignando en %d el valor %d\n", puntero, variable);
-}
-
-t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
-	printf("Asignado en %s el valor %d\n", variable, valor);
-	return valor;
-}
-
-void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){ // TODO: hacer. fseek?
-
-}
-void llamarSinRetorno (t_nombre_etiqueta etiqueta){
-	printf("Se llama a la funcion %s\n", etiqueta);
-	//TODO: faltaria llamar a la funcion.
-}
-
-void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
-	printf("Se llama a la funcion %s y se guarda el retorno\n", etiqueta);
-	//TODO: idem sin retorno. Seria un donde_retornar=etiqueta()?
-}
-
-void retornar (t_valor_variable retorno){
-	//TODO: Hacer
-}
-
-t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
-	printf("Se obtiene el valor de variable compartida.");
-	return 20;
-}
-
-AnSISOP_funciones functions = {
-		.AnSISOP_definirVariable		= definirVariable,
-		.AnSISOP_obtenerPosicionVariable= obtenerPosicionVariable,
-		.AnSISOP_finalizar 				= finalizar,
-		.AnSISOP_dereferenciar			= dereferenciar,
-		.AnSISOP_asignar				= asignar,
-		.AnSISOP_asignarValorCompartida = asignarValorCompartida,
-		.AnSISOP_irAlLabel				= irAlLabel,
-		.AnSISOP_llamarSinRetorno		= llamarSinRetorno,
-		.AnSISOP_llamarConRetorno		= llamarConRetorno,
-		.AnSISOP_retornar				= retornar,
-		.AnSISOP_obtenerValorCompartida = obtenerValorCompartida,
-};
-
-//FUNCIONES ANSISOP QUE LE PIDE AL KERNEL
-void wait (t_nombre_semaforo identificador_semaforo){
-	printf("Se pide al kernel un wait para el semaforo %s", identificador_semaforo);
-	tPackHeader h;
-	h.tipo_de_proceso = CPU;
-	h.tipo_de_mensaje = S_WAIT;
-	send(sock_kern, &h, sizeof(h), 0);
-}
-
-void signal (t_nombre_semaforo identificador_semaforo){
-	printf("Se pide al kernel un signal para el semaforo %s", identificador_semaforo);
-	//TODO: send al kernel
-}
-
-void liberar (t_puntero puntero){
-	printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
-	//TODO: send al kernel
-}
-
-t_descriptor_archivo abrir (t_direccion_archivo direccion, t_banderas flags){
-	printf("Se pide al kernel abrir el archivo %s\n", direccion);
-	//TODO: send al kernel
-	return 10;
-}
-
-void borrar (t_descriptor_archivo direccion){
-	printf("Se pide al kernel borrar el archivo %d\n", direccion);
-	//TODO: send al kernel
-}
-
-void cerrar (t_descriptor_archivo descriptor_archivo){
-	printf("Se pide al kernel cerrar el archivo %d\n", descriptor_archivo);
-	//TODO: send al kernel
-}
-
-void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
-	printf("Se pide al kernel movel el archivo %d a la posicion %d\n", descriptor_archivo, posicion);
-	//TODO: send al kernel
-}
-
-void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
-	printf("Se pide al kernel escribir el archivo %d con la informacion %s, cantidad de bytes: %d\n", descriptor_archivo, (char*)informacion, tamanio);
-	//TODO: send al kernel
-}
-
-void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio){
-	printf("Se pide al kernel leer el archivo %d, se guardara en %d, cantidad de bytes: %d\n", descriptor_archivo, informacion, tamanio);
-	//TODO: send al kernel
-}
-
-t_puntero reservar (t_valor_variable espacio){
-	printf("Se pide al kernel reservar %d espacio de memoria", espacio);
-	//TODO: send al kernel
-	return 40;
-}
-
-AnSISOP_kernel kernel_functions = {
-		.AnSISOP_wait 					= wait,
-		.AnSISOP_signal					= signal,
-		.AnSISOP_abrir					= abrir,
-		.AnSISOP_borrar					= borrar,
-		.AnSISOP_cerrar					= cerrar,
-		.AnSISOP_escribir				= escribir,
-		.AnSISOP_leer					= leer,
-		.AnSISOP_liberar				= liberar,
-		.AnSISOP_moverCursor			= moverCursor,
-		.AnSISOP_reservar				= reservar,
-};
-
 
 int main(int argc, char* argv[]){
 
@@ -185,6 +43,9 @@ int main(int argc, char* argv[]){
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
+
+	setupCPUFunciones();
+	setupCPUFuncionesKernel();
 
 	printf("Conectando con memoria...\n");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
@@ -213,22 +74,30 @@ int main(int argc, char* argv[]){
 		return FALLO_GRAL;
 	}
 	printf("Se enviaron: %d bytes a KERNEL\n", stat);
-	puts("Me conecte a kernel");
+	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
 
 	tPackHeader *head = malloc(sizeof *head);
+	char *pcb_serial;
 	tPCB *pcb;
+
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
 		puts("Se recibio un paquete de Kernel");
+
+		printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
 
 		if (head->tipo_de_mensaje == FIN){
 			puts("Kernel se va!");
 			liberarConfiguracionCPU(cpu_data);
 
 		} else if (head->tipo_de_mensaje == PCB_EXEC){
-			if((pcb = recvPCB()) == NULL){
+
+
+			if((pcb_serial = recvPCB(sock_kern)) == NULL){
 				return FALLO_RECV;
 			}
+
+			pcb = deserializarPCB(pcb_serial);
 
 			puts("Recibimos un PCB para ejecutar...");
 			if ((stat = ejecutarPrograma(pcb)) != 0){
@@ -238,6 +107,7 @@ int main(int argc, char* argv[]){
 
 
 		} else {
+			puts("Me re fui");
 			return -99;
 		}
 
@@ -254,58 +124,32 @@ int main(int argc, char* argv[]){
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);
 	close(sock_mem);
+	free(pcb);
 	liberarConfiguracionCPU(cpu_data);
 	return 0;
 }
 
-/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
- * por lo tanto hay que recibir el resto del paquete...
- */
-tPCB *recvPCB(void){
 
-	tPCB *pcb = malloc(sizeof *pcb);
 
-	pcb->indiceDeCodigo = malloc(sizeof pcb->indiceDeCodigo);
-	pcb->indiceDeCodigo->offsetInicio = 0;
-	pcb->indiceDeCodigo->offsetFin = 4;
-	//int sizeIndex; // TODO: se va a usar para recibir el size que ocupan los tres indices (por ahora comentados...)
 
-	int stat;
-	if((stat = recv(sock_kern, &pcb->id, sizeof pcb->id, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-	if((stat = recv(sock_kern, &pcb->pc, sizeof pcb->pc, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-	if((stat = recv(sock_kern, &pcb->paginasDeCodigo, sizeof pcb->paginasDeCodigo, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-	if((stat = recv(sock_kern, &pcb->exitCode, sizeof pcb->exitCode, 0)) == -1){
-		perror("Fallo recepcion de PCB. error");
-		return NULL;
-	}
-
-	return pcb;
-}
-
-int ejecutarPrograma(tPCB* pcb){
+int ejecutarPrograma(tPCB *pcb){
 
 	int stat, instr_size;
 	char *linea;
 
+	termino = false;
+
 	puts("Empieza a ejecutar...");
 	do{
+		instr_size = abs(pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start);
+
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		if ((stat = pedirInstruccion(pcb)) != 0){
+		if ((stat = pedirInstruccion(pcb, instr_size)) != 0){
 			fprintf(stderr, "Fallo pedido de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
 		}
 
-		instr_size = pcb->indiceDeCodigo->offsetFin - pcb->indiceDeCodigo->offsetInicio;
-		if ((stat = recibirInstruccion(&linea, instr_size)) != 0){
+		if ((stat = recibirInstruccion(linea, instr_size)) != 0){
 			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
 		}
@@ -325,12 +169,12 @@ int ejecutarPrograma(tPCB* pcb){
 	return EXIT_SUCCESS;
 }
 
-int pedirInstruccion(tPCB *pcb){
+int pedirInstruccion(tPCB *pcb, int instr_size){
 	puts("Pide instruccion");
 
 	int stat, pack_size;
 
-	char *bytereq_serial = serializeByteRequest(pcb, &pack_size);
+	char *bytereq_serial = serializeByteRequest(pcb, instr_size, &pack_size);
 
 	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de paquete de pedido de bytes. error");
@@ -341,11 +185,11 @@ int pedirInstruccion(tPCB *pcb){
 	return 0;
 }
 
-int recibirInstruccion(char **linea, int instr_size){
+int recibirInstruccion(char *linea, int instr_size){
 
 	int stat;
 	tPackHeader head;
-	if ((*linea = realloc(*linea, instr_size)) == NULL){
+	if ((linea = realloc(linea, instr_size)) == NULL){ // todo: falla porque instr_size llegaba como negativo
 		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		return FALLO_GRAL;
 	}
@@ -361,7 +205,7 @@ int recibirInstruccion(char **linea, int instr_size){
 		return FALLO_GRAL;
 	}
 
-	if ((stat = recv(sock_mem, *linea, instr_size, 0)) == -1){
+	if ((stat = recv(sock_mem, linea, instr_size, 0)) == -1){
 		perror("Fallo recepcion de instruccion. error");
 		return FALLO_RECV;
 	}

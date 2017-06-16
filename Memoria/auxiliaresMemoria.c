@@ -17,7 +17,8 @@ extern tMemoria *memoria;
 extern int marcos_inv;
 
 bool pid_match(int pid, int frame, int off){
-	return (pid == (int) (MEM_FIS + frame * memoria->marco_size + off))? true : false ;
+	int *dirval = (int*) (MEM_FIS + frame * memoria->marco_size + off);
+	return (pid == *dirval)? true : false;
 }
 
 bool frameLibre(int frame, int off){
@@ -48,18 +49,18 @@ int reservarPaginas(int pid, int pageCount){
 	int fr, off;
 	int pag_assign;
 	int max_page = pageQuantity(pid);
-
+	
 	gotoFrameInvertida(marcos_inv, &fr, &off);
 	pag_assign = 0;
 	while (fr < marcos_inv && pag_assign != pageCount){
 
 		if (frameLibre(fr, off)){
 			memcpy(MEM_FIS + fr * memoria->marco_size + off, &pid, sizeof pid);
-			nextFrameValue(&fr, &off, sizeof (int));
+			nextFrameValue(&fr, &off, sizeof (tEntradaInv));
 			memcpy(MEM_FIS + fr * memoria->marco_size + off, &max_page, sizeof max_page);
 			pag_assign++;
 		}
-		nextFrameValue(&fr, &off, sizeof (int));
+		nextFrameValue(&fr, &off, sizeof (tEntradaInv));
 
 	}
 
@@ -68,7 +69,7 @@ int reservarPaginas(int pid, int pageCount){
 		return MEMORIA_LLENA;
 	}
 
-	return 0;
+	return max_page; // no sumamos 1 porque contamos desde el 0
 }
 
 void nextFrameValue(int *fr, int *off, int step_size){

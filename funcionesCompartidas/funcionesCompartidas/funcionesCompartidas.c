@@ -6,12 +6,24 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <stdbool.h>
+#include <stdio.h>
 
+#include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include "funcionesCompartidas.h"
 
 #define BACKLOG 20
+
+bool assertEq(int expected, int actual, const char* errmsg){
+	if (expected != actual){
+		fprintf(stderr, "%s\n", errmsg);
+		fprintf(stderr, "Error. Se esperaba %d, se obtuvo %d\n", expected, actual);
+		return false;
+	}
+	return true;
+}
 
 void freeAndNULL(void **ptr){
 	free(*ptr);
@@ -161,3 +173,40 @@ void clearAndClose(int *fd, fd_set *setFD){
 }
 
 
+int cantidadTotalDeBytesRecibidos(int fdServidor, char *buffer, int tamanioBytes) { //Esta función va en funcionesCompartidas
+	int total = 0;
+	int bytes_recibidos;
+
+	while (total < tamanioBytes){
+
+	bytes_recibidos = recv(fdServidor, buffer+total, tamanioBytes, MSG_WAITALL);
+	// MSG_WAITALL: el recv queda completamente bloqueado hasta que el paquete sea recibido completamente
+
+	if (bytes_recibidos == -1) { // Error al recibir mensaje
+		perror("[SOCKETS] No se pudo recibir correctamente los datos.\n");
+		break;
+			}
+
+	if (bytes_recibidos == 0) { // Conexión cerrada
+		printf("[SOCKETS] La conexión fd #%d se ha cerrado.\n", fdServidor);
+		break;
+	}
+	total += bytes_recibidos;
+	tamanioBytes -= bytes_recibidos;
+		}
+	return bytes_recibidos; // En caso de éxito, se retorna la cantidad de bytes realmente recibida
+}
+
+
+indiceStack crearStackVacio(void){
+	indiceStack stack;
+
+	stack.args = list_create();
+	stack.vars = list_create();
+	stack.retPos = -1;
+	stack.retVar.pag = -1;
+	stack.retVar.offset = -1;
+	stack.retVar.size = -1;
+
+	return stack;
+}

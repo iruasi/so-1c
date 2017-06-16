@@ -10,6 +10,7 @@
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include <parser/parser.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -17,6 +18,8 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
+
+#include "capaMemoria.h"
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
@@ -37,9 +40,14 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
+tPackSrcCode *recibir_paqueteSrc(tPackHeader * header,int fd);
 
+
+tHeapProc *hProcs;
+int hProcs_cant;
+t_list * listaDeCpu;
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
-int sock_cpu;
+int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
 int main(int argc, char* argv[]){
@@ -49,12 +57,14 @@ int main(int argc, char* argv[]){
 	}
 
 	int stat, ready_fds;
+	int sock_cpu;
 	int fd, new_fd;
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	int frames, frame_size; // para guardar datos a recibir de Memoria
 
+
+	listaDeCpu = list_create();
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
 	FD_ZERO(&read_fd);
@@ -152,7 +162,7 @@ int main(int argc, char* argv[]){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
-
+				list_add(listaDeCpu,sock_cpu);
 				fd_max = MAX(sock_cpu, fd_max);
 				break;
 
@@ -181,15 +191,28 @@ int main(int argc, char* argv[]){
 			}
 
 			// Se recibio un header sin conflictos, procedemos con el flujo..
-			if (header_tmp->tipo_de_mensaje == SRC_CODE){
+			if (header_tmp->tipo_de_mensaje == SRC_CODE){ //PROGRAMA ANSISOP
 				puts("Consola quiere iniciar un programa");
 
 				int src_size;
-				puts("Entremos a passSrcCodeFromRecv");
-				passSrcCodeFromRecv(header_tmp, fd, sock_mem, &src_size);
+				tPackSrcCode *entradaPrograma = NULL;
+				entradaPrograma = recibir_paqueteSrc(header_tmp, fd);//Aca voy a recibir el tPackSrcCode
+				src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
+				printf("El size del paquete %d\n", src_size);
+				puts("Era ese el size");
+				int cant_pag = (int) ceil((float)src_size / frame_size);
+				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
+												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
-				tPCB *new_pcb = nuevoPCB((int) ceil((float) src_size / frame_size) + kernel->stack_size);
-				encolarPrograma(new_pcb, fd);
+
+				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready
+				//(hProcs+hProcs_cant)->pid = new_pcb->id;
+				//(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
+				//(hProcs+hProcs_cant)->pag_heap_cant++;
+
+				//char *serial_pcb = serializePCB(new_pcb, header_tmp); todo: va en planificador
+
+				encolarEnNEWPrograma(new_pcb, fd);
 
 				puts("Listo!");
 				break;
@@ -283,4 +306,30 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 		puts("Funcion no reconocida!");
 		break;
 	}
+}
+
+tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
+
+	int paqueteRecibido;
+	int *tamanioMensaje = malloc(sizeof (int));
+
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, (char *) tamanioMensaje, sizeof(int));
+	if(paqueteRecibido <= 0 ) return NULL;
+
+	void *mensaje = malloc(*tamanioMensaje);
+	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, mensaje, *tamanioMensaje);
+	if(paqueteRecibido <= 0) return NULL;
+
+	tPackSrcCode *pack_src = malloc(HEAD_SIZE + sizeof (int) + paqueteRecibido);
+	pack_src->sourceLen = paqueteRecibido;
+	pack_src->sourceCode = malloc(pack_src->sourceLen);
+	memcpy(pack_src->sourceCode, mensaje, paqueteRecibido);
+
+	//tPackSrcCode *buffer = deserializeSrcCode(fd);
+
+	free(tamanioMensaje);tamanioMensaje = NULL;
+	free(mensaje);mensaje = NULL;
+
+	return pack_src;
+
 }

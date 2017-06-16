@@ -3,7 +3,7 @@
 
 /* Para un pid y cantidad de paginas, asigna las paginas subsiguientes
  * a las que ya tenga en la Tabla de Paginas Invertida.
- * Retorna 0 si finaliza correctamente.
+ * Retorna el numero de la primera pagina nueva reservada, si finaliza correctamente.
  */
 int reservarPaginas(int pid, int pageCount);
 

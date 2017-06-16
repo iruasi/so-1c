@@ -16,6 +16,7 @@ typedef enum {
 	PCB_SAVE    = PCB_PREEMPT, // serian para Memoria
 	PCB_RESTORE = PCB_EXEC, // serian para Memoria
 	INSTRUC_GET = 23,
+	BYTES_GET   = INSTRUC_GET,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -36,6 +37,7 @@ typedef enum {
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
 	INSTR       = INSTRUC_GET,
+	ASIGN_SUCCS = 56,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
@@ -85,6 +87,15 @@ typedef struct {
 } tPackByteReq; // Solicitud de Bytes a Memoria
 
 typedef struct {
+	tPackHeader head;
+	int pid;
+	int page;
+	int offset;
+	int size;
+	char *bytes;
+} tPackByteAlmac; // Almacenamiento de Bytes a Memoria
+
+typedef struct {
 
 	tPackHeader head;
 	int bytelen;
@@ -93,10 +104,10 @@ typedef struct {
 
 typedef struct {
 	tPackHeader head;
-	int pid;
-	int pc;
-	int pages;
-	int exit;
+	int pid,
+		pc,
+		pages,
+		exit;
 } tPackPCBSimul; /* este paquete simula ser un PCB, todavia no aplica todos los campos;
                   * TODO: luego sera el tPackPCB para el proyecto completo */
 

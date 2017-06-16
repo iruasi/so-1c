@@ -20,7 +20,7 @@ void pausarPlanif(){
 }
 
 
-// TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
+// TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de New...
 // Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
 // Crear as funciones para el control de los semaforos de los planificadores
 
@@ -32,6 +32,8 @@ void pausarPlanif(){
  *
  */
 
+extern t_list * listaDeCpu;
+
 extern int sock_cpu;
 
 t_queue *New, *Exit, *Ready;
@@ -39,8 +41,7 @@ t_list *Exec, *Block;
 
 
 int grado_mult;
-extern tKernel *kernel; //Creo que este kernel no tiene los datos del archivoConfig,
-						//vamos a tener que juntar configurators y planificador
+extern tKernel *kernel;
 
 void setupPlanificador(void){
 
@@ -55,66 +56,84 @@ void setupPlanificador(void){
 
 }
 
-void planificador(){
+void mandarPCBaCPU(){
 
-	tPCB *pcb;
+	int pack_size;
+	puts("Creamos memoria para la variable");
+	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
+	puts("Comenzamos a serializar el PCB");
+	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
 
+	printf("pack_size: %d\n", pack_size);
 
-	if (list_size(Exec) >= grado_mult){
-		puts("No se agrega nada y esperamos a que vayan terminando");
+	puts("Enviamos el PCB a CPU");
+	if ((stat = send(sock_cpu, pcb_serial, pack_size, 0)) == -1)
+		perror("Fallo envio de PCB a CPU. error");
 
-	} else if(cpuDisponible() == 1){ //Esto asumiendo que hay solo 1 cpu, si hay más de 1, hay que cambiar kernel.c
+	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
-		switch(kernel->algo){
-		case (FIFO):
-			pcb = (pcb *) queue_pop(Ready);
-			list_add(Exec, pcb);
+	freeAndNULL((void **) &pcb_serial);
+}
 
-			//enviarPCBaCPU(sock_cpu,pcb);
+void planificar(){
+	int i = 0;
+	grado_mult = kernel->grado_multiprog;
+	tPCB * pcbAux;
+	int peticionPaginas;
 
-			break;
-		case (RR):
+	cpu * cpu;
 
-			setearQuamtumS();
-			pcb = (pcb *) queue_pop(Ready);
-			list_add(Exec, pcb);
-			//enviarPCBaCPU(sock_cpu,pcb);
-			break;
+	pcbAux = (tPCB*) queue_pop(New);
+
+	while(1){
+
+	switch(kernel->algo){
+
+	case (FIFO):
+
+		if(!queue_is_empty(New)){
+			pcbAux = (tPCB*) queue_pop(New);
+			if(grado_mult > 0){
+				grado_mult --;
+				queue_push(Ready,pcbAux);
 			}
+
+		if(!queue_is_empty(Ready)){
+			pcbAux = (tPCB*) queue_pop(Ready);
+			if(list_size(listaDeCpu) > 0){
+				//Hago manejo de cpu
+				queue_push(Exec,pcbAux);
+				}
+			}
+		}
+	case (RR):
+
+		setearQuamtumS();
+		//(pcb *) queue_pop(Ready);
+		//list_add(Exec, pcb);
+
+		break;
+
 /* Una vez que lo se envia el pcb a la cpu, la cpu debería avisar si se pudo ejecutar todo o no
  *
- * */
-	} // cierra else
+ * */}
+	}
 }
 
 void setearQuamtumS(){
 	int i;
 	for(i = 0; i < Ready->elements->elements_count ; i++){
 		tPCB * pcbReady = (tPCB*) list_get(Ready->elements,i);
-	//	pcbReady->quantum = kernerl-> quamtum;
+	//	pcbReady->quantum = kernel-> quamtum;
 	//	pcbReady->quamtumSleep = kernel -> quamtumSleep;
 
 	}
 }
 
-int cpuDisponible(){
-
+int hayCpuDisponible(){
+	return list_size(listaDeCpu) > 0;
 }
-void enviarPCBaCPU(sock_cpu,tPCB* pcb){
-	int off,tamanioProtocolo,tamanioTotalAEnviar;//El tamanioProtocolo seria el PCB dentro del enum, y
-		 	 	 	 	 	 	 	 	 	 	 //Y el tamanioTotalAEnviar, tengo que ver como calcularlo todavia, no se me ocurre una manera
 
-	tamanioProtocolo = calcularTamanioProtocolo(/*tengo que tratar de conseguir el head y el protocolo*/);
-	/* Para calcular bien el tamanioDelProtocolo, tengo que definir bien la estructura del pcb
-	 * Como definir el indiceDeStack, indiceDeCodigo e indiceDeEtiquetas
-	 *
-	 */
-	char * pcbSerealizado = serealizarPCBaCpu(&pcb);
-
-	char * buffer = malloc();
-
-	//Acá va un manejo de bytes que no se me ocurre como hacer ahora, y despues un send
-}
 
 void bloquearProceso(){
 
@@ -135,39 +154,50 @@ void largoPlazo(int multiprog){
 
 void cortoPlazo(){}
 
-void encolarPrograma(tPCB *nuevoPCB, int sock_con){
+void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
-	int stat;
+	int stat, pack_size;
+	pack_size = 0;
+
 //	queue_push(New, (void *) nuevoPCB);
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
 	pack_pid->head.tipo_de_proceso = KER;
 	pack_pid->head.tipo_de_mensaje = RECV_PID;
+
 	pack_pid->pid = nuevoPCB->id;
 
 	char *pid_serial = serializePID(pack_pid);
+	if (pid_serial == NULL){
+		puts("No se serializo bien");
 
+	}
 	printf("Aviso al sock consola %d su numero de PID\n", sock_con);
 	if ((stat = send(sock_con, pid_serial, sizeof (tPackPID), 0)) == -1)
 		perror("Fallo envio de PID a Consola. error");
 	printf("Se enviaron %d bytes a Consola\n", stat);
 
-	puts("Creamos memoria para la variable");
-	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC};
-	tPackPCBSimul *pcb = empaquetarPCBconStruct(head, nuevoPCB);
+	freeAndNULL((void **) &pack_pid);
 
+	nuevoPCB->estado_proceso = NEW;
+	queue_push(New,nuevoPCB);
+	planificar();
+/*
+	puts("Creamos memoria para la variable");
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_Exec};
 	puts("Comenzamos a serializar el PCB");
-	char *pcb_serial = serializarPCBACpu(pcb);
+	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
+
+	printf("pack_size: %d\n", pack_size);
 
 	puts("Enviamos el PCB a CPU");
-
-	if ((stat = send(sock_cpu, pcb_serial, sizeof *pcb, 0)) == -1)
+	if ((stat = send(sock_cpu, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a CPU. error");
 
-	printf("Se enviaron %d de %d bytes a CPU\n", stat, sizeof *pcb);
+	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
 	freeAndNULL((void **) &pack_pid);
-	freeAndNULL((void **) &pcb);
+	freeAndNULL((void **) &pcb_serial);*/
 }
 
 void updateQueue(t_queue *Q){
@@ -193,137 +223,7 @@ void freePCBs(t_queue *queue){
 void limpiarPlanificadores(){
 	freePCBs(New);   queue_destroy(New);
 	freePCBs(Ready); queue_destroy(Ready);
-	freePCBs(Exec);  queue_destroy(Exec);
-	freePCBs(Block); queue_destroy(Block);
+//	freePCBs(Exec);  list_destroy(Exec);
+//	freePCBs(Block); list_destroy(Block);
 	freePCBs(Exit);  queue_destroy(Exit);
-}
-
-void moverAColaReady(tPCB * proceso){
-	/*
-	int *yaEstaReady;
-	yaEstaReady = malloc(sizeof(int));
-	*yaEstaReady = 0;
-
-	switch(proceso->estado){
-	case NEW:
-//		mutexLock(mutexColaNew);
-		eliminarDeCola(New, proceso);
-//		mutexUnlock(mutexColaNew);
-		break;
-	case READY:
-		*yaEstaReady = 1;
-		break;
-	case EXEC:
-//		mutexLock(mutexColaExec);
-		eliminarDeCola(Exec, proceso);
-//		mutexUnlock(mutexColaExec);
-		break;
-	case BLOCK:
-//		mutexLock(mutexColaBlock);
-		eliminarDeCola(Block, proceso);
-//		mutexUnlock(mutexColaBlock);
-		break;
-	}
-
-	if (*yaEstaReady == 0){
-		proceso->estado = READY;
-//		mutexLock(mutexColaReady);
-		queue_push(Ready, proceso);
-//		mutexUnlock(mutexColaReady);
-	}
-
-	*///free(yaEstaReady);
-}
-
-void moverAColaExec(tPCB * proceso){
-/*
-//	mutexLock(mutexColaReady);
-	eliminarDeColaReady(Ready , proceso);
-//	mutexUnlock(mutexColaReady);
-	//proceso->estado = EXEC;
-
-//	mutexLock(mutexColaExec);
-	queue_push(Exec , proceso);
-//	mutexUnlock(mutexColaExec);
-
-}
-
-void moverAColaBlock(tPCB* proceso) {
-
-//	mutexLock(mutexColaExec);
-	eliminarDeCola(Exec, proceso);
-//	mutexUnlock(mutexColaExec);
-
-	proceso->estado = BLOCK;
-
-//	mutexLock(mutexColaBlock);44
-	agregarEnCoka(Block, proceso);
-//	mutexUnlock(mutexColaBlock);
-
-}
-
-void moverAColaExit(tPCB *proceso) {
-
-//	mutexLock(mutexColaExec);
-	eliminarDeCola(Exec, programa);
-//	mutexUnlock(mutexColaExec);
-
-	proceso->estado = EXIT;
-
-//	mutexLock(mutexColaExit);
-	queue_push(Exit, proceso);
-//	mutexUnlock(mutexColaExit);
-
-}
-*/
-void eliminarDeCola(t_queue *cola, tPCB *proceso){
-
-	tPCB *procesoAuxiliar;
-	procesoAuxiliar = malloc(sizeof(tPCB));
-	int *i;
-	i = malloc(sizeof(int));
-
-	for (*i = 0; i < queue_size(cola); *i++){
-
-		procesoAuxiliar = queue_peek(cola); //copiamos el primer elemento
-		queue_pop(cola);//lo sacamos de a cola para luego obtener el proximo
-
-		if(proceso == procesoAuxiliar)
-			i = queue_size(cola); // si es el buscado, sale del for con esto
-		else
-			queue_push(cola , procesoAuxiliar); //si no es el buscado, lo devuelve a la cola
-
-	}
-
-	free(procesoAuxiliar);
-	free(i);
-
-}
-
-int eliminarDeColaReady(t_queue *colaReady, tPCB *proceso){
-// Al ser FIFO tanto FCFS como RR pasar de READY a EXEC solo sucede con
-// el primer elemento de la lsita, esto comprueba que sea el que solicitamos
-//	caso contrario arroja error
-	tPCB *procesoAuxiliar;
-	procesoAuxiliar = malloc(sizeof(tPCB));
-	int *todoOK;
-	todoOK = malloc(sizeof(int));
-//	*procesoAuxiliar = queue_peek(colaReady); //copiamos el primer elemento
-
-		if(proceso == procesoAuxiliar){
-			queue_pop(colaReady);
-			todoOK = 1;
-		}else
-			todoOK = 0;
-
-	free(procesoAuxiliar);
-
-	if (todoOK == 0){
-		free(todoOK);
-		perror("Fallo, el proceso de la cola READY no es el mismo que el solicitado. error");
-		//return FALLO_MOVERAEXEC;
-	}else{
-		free(todoOK);
-		return 1;
-	}
 }

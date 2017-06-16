@@ -20,7 +20,7 @@
 #include "manejadoresCache.h"
 #include "memoriaConfigurators.h"
 #include "structsMem.h"
-
+#include "flujosMemoria.h"
 
 #define BACKLOG 20
 
@@ -31,7 +31,7 @@ tMemoria *memoria;          // configuracion del proceso Memoria
 char *MEM_FIS;              // Memoria Fisica
 char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
-int  *CACHE_accs;           // vector de accesos a CACHE
+int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
 int main(int argc, char* argv[]){
 
@@ -103,8 +103,7 @@ int main(int argc, char* argv[]){
 				}
 
 			} else {
-				errno = CONEX_INVAL;
-				perror("Se trato de conectar otro Kernel. error");
+				fprintf(stderr, "Se trato de conectar otro Kernel. Ignoramos el paquete...\n");
 			}
 
 			break;
@@ -127,7 +126,7 @@ int main(int argc, char* argv[]){
 	// Si salio del ciclo es porque fallo el accept()
 	perror("Fallo el accept(). error");
 
-	liberarConfiguracionMemoria(memoria);
+	liberarConfiguracionMemoria();
 	return 0;
 }
 
@@ -137,7 +136,7 @@ int main(int argc, char* argv[]){
 void* kernel_handler(void *sock_kernel){
 
 	int *sock_ker = (int *) sock_kernel;
-	int stat;
+	int stat, new_page;
 	int pid, pageCount;
 
 	tPackHeader *head = calloc(HEAD_SIZE, 1);
@@ -170,10 +169,16 @@ void* kernel_handler(void *sock_kernel){
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
 
+
 			recv(*sock_ker, &pid, sizeof pid, 0);
 			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
 
-			asignarPaginas(pid, pageCount);
+			if ((new_page = asignarPaginas(pid, pageCount)) != 0){
+				fprintf(stderr, "No se pudieron asignar %d paginas al proceso %d\n", pageCount, pid);
+				return new_page;
+			}
+
+			//responderAsignacion(*sock_ker, new_page); todo: send(sock_ker, ASIGN_PAG_SUCCESS ...);
 
 			break;
 
@@ -221,11 +226,18 @@ void* cpu_handler(void *socket_cpu){
 		switch(head->tipo_de_mensaje){
 		case SOLIC_BYTES:
 			puts("Se recibio solicitud de bytes");
-			// TODO: este ya se podria codificar un toque mas
+
+			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+
 			break;
 
 		case ALMAC_BYTES:
 			puts("Se recibio peticion de almacenamiento");
+
+			if ((stat = manejarAlmacenamientoBytes(*sock_cpu)) != 0)
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+
 			break;
 
 		default:

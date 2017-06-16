@@ -12,10 +12,6 @@
 #include "structsMem.h"
 #include "auxiliaresMemoria.h"
 
-#ifndef PID_MEM // es para la distinguir la Memoria de un PID cualquiera
-#define PID_MEM 0
-#endif
-
 float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
@@ -31,8 +27,8 @@ void flush(void){
 
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
-		(CACHE_lines +i)->pid  = 0;
-		(CACHE_lines +i)->page = 0;
+		(CACHE_lines +i)->pid  =  PID_MEM;
+		(CACHE_lines +i)->page = -1;
 	}
 }
 
@@ -110,15 +106,15 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 
 int asignarPaginas(int pid, int page_count){
 
-	int stat;
+	int new_page;
 
-	if((stat = reservarPaginas(pid, page_count)) != 0){
-		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d", stat);
+	if((new_page = reservarPaginas(pid, page_count)) != 0){
+		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d\n", new_page);
 		abortar(pid);
 	}
 
-	printf("Se reservaron correctamente %d paginas", page_count);
-	return 0;
+	printf("Se reservaron correctamente %d paginas\n", page_count);
+	return new_page;
 }
 
 /* Llamado por Kernel, libera una pagina de HEAP.

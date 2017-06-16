@@ -5,6 +5,9 @@
 #include <commons/config.h>
 #include "memoriaConfigurators.h"
 #include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
+
+extern tMemoria *memoria;
 
 tMemoria *getConfigMemoria(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
@@ -38,8 +41,8 @@ void mostrarConfiguracion(tMemoria *memoria){
 	printf("Tipo de proceso: %d\n", memoria->tipo_de_proceso);
 }
 
-void liberarConfiguracionMemoria(tMemoria *memoria){
+void liberarConfiguracionMemoria(void){
 
-	free(memoria->puerto_entrada);
-	free(memoria);
+	freeAndNULL((void **) &memoria->puerto_entrada);
+	freeAndNULL((void **) &memoria);
 }
