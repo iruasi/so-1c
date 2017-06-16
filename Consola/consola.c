@@ -28,7 +28,8 @@ void strncopylast(char *,char *,int );
 #define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
 
 //TODO: Esto global?!??
-t_list *listaProgramas;
+t_list *listaAtributos;
+int sock_kern;
 
 int main(int argc, char* argv[]){
 
@@ -37,11 +38,10 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	int sock_kern;
 	//Creo lista de programas para ir agregando a medida q vayan iniciandose.
 
-	listaProgramas = list_create();
-	// {hilo, pid}
+	listaAtributos = list_create();
+
 	tConsola *cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
 
@@ -76,13 +76,13 @@ int main(int argc, char* argv[]){
 			printf("Iniciar un nuevo programa\n");
 			char *ruta = opcion+15;
 
-			tPathYSock *args = malloc(sizeof *args);
-			args->sock = sock_kern;
-			args->path = ruta;
+			tAtributosProg *atributos = malloc(sizeof *atributos);
+			atributos->sock = sock_kern;
+			atributos->path = ruta;
 
-			printf("Ruta del programa: %s\n",args->path);
+			printf("Ruta del programa: %s\n",atributos->path);
 
-			int status = Iniciar_Programa(args);
+			int status = Iniciar_Programa(atributos);
 			if(status<0){
 				puts("Error al iniciar programa");
 				//TODO: Crear FALLO_INICIARPROGRAMA
@@ -245,7 +245,7 @@ void strncopylast(char *str1,char *str2,int n)
 }
 
 
-int agregarAListaDeProgramas(int pid){
+/*int agregarAListaDeProgramas(int pid){
 
 	int tamanioAntes = list_size(listaProgramas);
 	list_add(listaProgramas, &pid);
@@ -264,5 +264,5 @@ int agregarAListaDeProgramas(int pid){
 	//TODO: agregar PROGRAM_ADDED
 	return 1;
 
-}
+}*/
 

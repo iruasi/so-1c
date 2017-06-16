@@ -6,11 +6,14 @@
 typedef struct {
 	int sock;
 	char *path;
-} tPathYSock;
+	pthread_t hiloProg;
+	int pidProg;
+} tAtributosProg;
 
 
 
-int Iniciar_Programa(tPathYSock *pack);
+
+int Iniciar_Programa(tAtributosProg *pack);
 
 
 int Finalizar_Programa(int process_id, int sock_kernel, pthread_attr_t attr);
