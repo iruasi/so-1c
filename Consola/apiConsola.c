@@ -25,23 +25,27 @@
 
 int siguientePID(void){return 1;}
 int tamanioPrograma;
-int Iniciar_Programa(tPathYSock *args){
+extern t_list *listaAtributos;
+int Iniciar_Programa(tAtributosProg *atributos){
 
 	int stat, *retval;
 
-	handshakeCon(args->sock, CON);
+	handshakeCon(atributos->sock, CON);
 	puts("handshake realizado");
 
 	pthread_attr_t attr;
 	pthread_t hilo_prog;
-
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-	if(pthread_create(&hilo_prog, &attr, (void *) programa_handler, (void*) args) < 0){
+	if(pthread_create(&hilo_prog, &attr, (void *) programa_handler, (void*) atributos) < 0){
 		perror("No pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
+
+
+
+	list_add(listaAtributos,atributos);
 
 	puts("hilo creado");
 
@@ -107,9 +111,9 @@ void Limpiar_Mensajes(){
 	system("clear");
 }
 
-void *programa_handler(void *pathYSock){
+void *programa_handler(void *atributos){
 
-	tPathYSock *args = (tPathYSock *) pathYSock;
+	tAtributosProg *args = (tAtributosProg *) atributos;
 	int stat;
 
 	tPackHeader head_tmp;
@@ -138,12 +142,24 @@ void *programa_handler(void *pathYSock){
 	tPackPID ppid;
 	ppid.head = head_tmp;
 	puts("Esperando a recibir el PID");
+
+
+
+
 	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == RECV_PID){
 			puts("recibimos PID");
 			stat = recv(args->sock, &(ppid.pid), sizeof ppid.pid, 0);
-			int program_stat;
+			puts("Asigno pid a la estructura");
+			args->pidProg = ppid.pid;
+			args->hiloProg = pthread_self();
+
+			list_add(listaAtributos,args);
+			printf(" pid %d\n",args->pidProg);
+
+//			printf(" hilo %d\n",args->hiloProg);
+			/*int program_stat;
 			puts("agregamos el programa a la lista de progamas");
 
 			program_stat = agregarAListaDeProgramas(ppid.pid);
@@ -152,7 +168,7 @@ void *programa_handler(void *pathYSock){
 				puts("Error al agregar el programa");
 				//TODO: ADD_PROGRAM_ERROR
 				return -99;
-			}
+			}*/
 		}
 		//todo: aca vendria otro if cuando kernel tiene q imprimir algo por consola. le manda un mensaje.
 		/*if(head_tmp.tipo_de_mensaje == PRINT){
