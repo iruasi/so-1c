@@ -25,11 +25,10 @@
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 
-
-int pedirInstruccion();
+int pedirInstruccion(tPCB *pcb, int instr_size);
 int recibirInstruccion(char *linea, int instr_size);
 
-int ejecutarPrograma();
+int ejecutarPrograma(tPCB *pcb);
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
@@ -101,7 +100,7 @@ int main(int argc, char* argv[]){
 			pcb = deserializarPCB(pcb_serial);
 
 			puts("Recibimos un PCB para ejecutar...");
-			if ((stat = ejecutarPrograma()) != 0){
+			if ((stat = ejecutarPrograma(pcb)) != 0){
 				fprintf(stderr, "Fallo ejecucion de programa. status: %d\n", stat);
 				puts("No se continua con la ejecucion del pcb");
 			}
@@ -133,7 +132,7 @@ int main(int argc, char* argv[]){
 
 
 
-int ejecutarPrograma(){
+int ejecutarPrograma(tPCB *pcb){
 
 	int stat, instr_size;
 	char *linea;
@@ -142,13 +141,14 @@ int ejecutarPrograma(){
 
 	puts("Empieza a ejecutar...");
 	do{
+		instr_size = abs(pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start);
+
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		if ((stat = pedirInstruccion(pcb)) != 0){
+		if ((stat = pedirInstruccion(pcb, instr_size)) != 0){
 			fprintf(stderr, "Fallo pedido de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
 		}
 
-		instr_size = pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start;
 		if ((stat = recibirInstruccion(linea, instr_size)) != 0){
 			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
 			return FALLO_GRAL;
@@ -169,12 +169,12 @@ int ejecutarPrograma(){
 	return EXIT_SUCCESS;
 }
 
-int pedirInstruccion(tPCB *pcb){
+int pedirInstruccion(tPCB *pcb, int instr_size){
 	puts("Pide instruccion");
 
 	int stat, pack_size;
 
-	char *bytereq_serial = serializeByteRequest(pcb, &pack_size);
+	char *bytereq_serial = serializeByteRequest(pcb, instr_size, &pack_size);
 
 	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de paquete de pedido de bytes. error");
@@ -189,7 +189,7 @@ int recibirInstruccion(char *linea, int instr_size){
 
 	int stat;
 	tPackHeader head;
-	if ((linea = realloc(linea, instr_size)) == NULL){ // todo: falla
+	if ((linea = realloc(linea, instr_size)) == NULL){ // todo: falla porque instr_size llegaba como negativo
 		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		return FALLO_GRAL;
 	}

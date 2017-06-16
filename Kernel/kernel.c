@@ -230,12 +230,6 @@ int main(int argc, char* argv[]){
 
 				MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
 
-
-				stat = reservarPagHeap(sock_mem, 1, 1);
-				if (stat != 0)
-					puts("Fallo la reserva de paginas en heap");
-
-
 				break;
 
 			} else if (fd == sock_fs){

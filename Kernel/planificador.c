@@ -15,8 +15,6 @@
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
-char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size);
-
 void pausarPlanif(){
 
 }
@@ -102,6 +100,7 @@ void cortoPlazo(){}
 void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
 	int stat, pack_size;
+	pack_size = 0;
 
 //	queue_push(New, (void *) nuevoPCB);
 
@@ -169,136 +168,3 @@ void limpiarPlanificadores(){
 //	freePCBs(Block); list_destroy(Block);
 	freePCBs(Exit);  queue_destroy(Exit);
 }
-
-char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
-
-	int off = 0;
-	char *pcb_serial;
-	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
-
-	size_t ctesInt_size         = 6 * sizeof (int);
-	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
-	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
-	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
-
-	if ((pcb_serial = malloc(HEAD_SIZE + sizeof(int) + ctesInt_size + indiceCod_size + indiceStack_size + indiceEtiquetas_size)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para pcb serializado\n");
-		return NULL;
-	}
-
-	memcpy(pcb_serial + off, &head, HEAD_SIZE);
-	off += HEAD_SIZE;
-
-	// incremento para dar lugar al size_total al final del serializado
-	off += sizeof(int);
-
-	memcpy(pcb_serial + off, &pcb->id, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->pc, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->paginasDeCodigo, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->etiquetaSize, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
-	off += sizeof (int);
-
-	// serializamos indice de codigo
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start);
-	off += sizeof pcb->indiceDeCodigo->start;
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo->offset, sizeof pcb->indiceDeCodigo->offset);
-	off += sizeof pcb->indiceDeCodigo->offset;
-
-
-	// serializamos indice de stack
-	if (list_size(pcb->indiceDeStack) > 0){
-		char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
-		memcpy(pcb_serial + off, stack_serial, indiceStack_size);
-		off += indiceStack_size;
-	}
-
-	// serializamos indice de etiquetas
-	if (hayEtiquetas){
-		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
-		off += sizeof pcb->etiquetaSize;
-	}
-
-	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
-	*pack_size = off;
-
-	return pcb_serial;
-}
-
-/* Retorna el size de todas las listas sumadas del stack
- */
-int sumarPesosStack(t_list *stack){
-
-	int i, sum;
-	indiceStack *temp;
-
-	for (i = sum = 0; i < list_size(stack); ++i){
-		temp = list_get(stack, i);
-		sum += list_size(temp->args) * sizeof (posicionMemoria) + list_size(temp->vars) * sizeof (posicionMemoriaPid)
-				+ sizeof temp->retPos + sizeof temp->retVar;
-	}
-
-	return sum;
-}
-
-
-char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
-
-	int pesoExtra = list_size(pcb->indiceDeStack) * 2 * sizeof (int);
-
-	char *stack_serial;
-	if ((stack_serial = malloc(pesoStack + pesoExtra)) == NULL){
-		puts("No se pudo mallocar espacio para el stack serializado");
-		return NULL;
-	}
-
-	indiceStack *stack;
-	posicionMemoria *arg;
-	posicionMemoriaPid *var;
-	int args_size, vars_size, stack_size;
-	int i, j, off;
-
-
-
-	stack_size = list_size(pcb->indiceDeStack);
-	memcpy(stack_serial, &stack_size, sizeof(int));
-	off = sizeof (int);
-
-	for (i = 0; i < stack_size; ++i){
-		stack = list_get(pcb->indiceDeStack, i);
-
-		args_size = list_size(stack->args);
-		memcpy(stack_serial + off, &args_size, sizeof(int));
-		off += sizeof(int);
-		for(j = 0; j < args_size; j++){
-			arg = list_get(stack->args, j);
-			memcpy(stack_serial + off, &arg, sizeof (posicionMemoria));
-			off += sizeof (posicionMemoria);
-		}
-
-		vars_size = list_size(stack->vars);
-		memcpy(stack_serial, &vars_size, sizeof(int));
-		off += sizeof (int);
-		for(j = 0; j < vars_size; j++){
-			var = list_get(stack->vars, j);
-			memcpy(stack_serial + off, &var, sizeof (posicionMemoriaPid));
-			off += sizeof (posicionMemoriaPid);
-		}
-
-		memcpy(stack_serial + off, &stack->retPos, sizeof(int));
-		off += sizeof (int);
-
-		memcpy(stack_serial + off, &stack->retVar, sizeof(posicionMemoria));
-		off += sizeof (posicionMemoria);
-	}
-
-	*pack_size += off;
-	return stack_serial;
-}
-

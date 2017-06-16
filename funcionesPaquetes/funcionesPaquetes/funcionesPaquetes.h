@@ -41,6 +41,7 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size);
  */
 tPCB *deserializarPCB(char *pcb_serial);
 
+void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset);
 
 /* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
  * por lo tanto hay que recibir el resto del paquete...
@@ -50,7 +51,7 @@ char *recvPCB(int sock_in);
 
 /* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
  */
-char *serializeByteRequest(tPCB *pcb, int *pack_size);
+char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size);
 
 /* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Solicitud de Bytes a Memoria.
  */
@@ -89,7 +90,10 @@ char *serializePID(tPackPID *ppid);
  */
 char *serializePIDPaginas(tPackPidPag *ppidpag);
 
-/* Retorna el size de todas las listas sumadas del stack
+tPackPidPag *deserializePIDPaginas(char *pidpag_serial);
+
+/* Retorna el peso en bytes de todas las listas y variables sumadas del stack
  */
 int sumarPesosStack(t_list *stack);
+
 #endif /* FUNCIONESPAQUETES_H_ */

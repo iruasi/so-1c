@@ -14,7 +14,7 @@
 #include <tiposRecursos/misc/pcb.h>
 #include "funcionesPaquetes.h"
 
-void deserializarStack(tPCB *pcb, char *pcb_serial, int *off_stack);
+
 /*
  * funcionesPaquetes es el modulo que retiene el gruso de las funciones
  * que se utilizaran para operar con serializacion y deserializacion de
@@ -113,22 +113,6 @@ tPackBytes *deserializeBytes(int sock_in){
 	return pbytes;
 }
 
-/* Retorna el size de todas las listas sumadas del stack
- */
-int sumarPesosStack(t_list *stack){
-
-	int i, sum;
-	indiceStack *temp;
-
-	for (i = sum = 0; i < list_size(stack); ++i){
-		temp = list_get(stack, i);
-		sum += list_size(temp->args) * sizeof (posicionMemoria) + list_size(temp->vars) * sizeof (posicionMemoriaPid)
-				+ sizeof temp->retPos + sizeof temp->retVar;
-	}
-
-	return sum;
-}
-
 char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 
 	int off = 0;
@@ -172,8 +156,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 
 	// serializamos indice de stack
 	char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
-	memcpy(pcb_serial + off, stack_serial, indiceStack_size);
-	off += indiceStack_size;
+	memcpy(pcb_serial + off, stack_serial, *pack_size);
+	off += *pack_size;
 
 	// serializamos indice de etiquetas
 	if (hayEtiquetas){
@@ -184,15 +168,14 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
 	*pack_size = off;
 
+	//free(stack_serial); // todo: ver por que rompe
 	return pcb_serial;
 }
 
 
 char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 
-	int off;
 	int pesoExtra = sizeof(int) + list_size(pcb->indiceDeStack) * 2 * sizeof (int);
-	int stack_size = list_size(pcb->indiceDeStack);
 
 	char *stack_serial;
 	if ((stack_serial = malloc(pesoStack + pesoExtra)) == NULL){
@@ -200,18 +183,19 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 		return NULL;
 	}
 
-	memcpy(stack_serial, &stack_size, sizeof(int));
-	off = sizeof(int);
-	if (stack_size == 0){
-		*pack_size += off;
-		return stack_serial;
-	}
-
 	indiceStack *stack;
 	posicionMemoria *arg;
 	posicionMemoriaPid *var;
-	int args_size, vars_size;
-	int i, j;
+	int args_size, vars_size, stack_size;
+	int i, j, off;
+
+	stack_size = list_size(pcb->indiceDeStack);
+	memcpy(stack_serial, &stack_size, sizeof(int));
+	off = sizeof (int);
+	*pack_size += off;
+
+	if (!stack_size)
+		return stack_serial; // no hay mas stack que serializar, retornamos
 
 	for (i = 0; i < stack_size; ++i){
 		stack = list_get(pcb->indiceDeStack, i);
@@ -247,27 +231,19 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 
 
 tPCB *deserializarPCB(char *pcb_serial){
+	puts("Deserializamos PCB");
 
 	int offset = 0;
-	size_t ctesInt_size         = 6 * sizeof (int);
-	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
-	size_t indiceStack_size     = 2 * sizeof (posicionMemoria) + sizeof (posicionMemoriaPid) + sizeof (int);
+	size_t indiceCod_size = sizeof (t_puntero_instruccion) + sizeof (t_size);
 
 	tPCB *pcb;
-	pcb->indiceDeStack = list_create();
-	//crear
 
-	if ((pcb = malloc(ctesInt_size)) == NULL){
+	if ((pcb = malloc(sizeof *pcb)) == NULL){
 		fprintf(stderr, "Fallo malloc\n");
 		return NULL;
 	}
 
 	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
-		fprintf(stderr, "Fallo malloc\n");
-		return NULL;
-	}
-
-	if ((pcb->indiceDeStack = malloc(indiceStack_size)) == NULL){
 		fprintf(stderr, "Fallo malloc\n");
 		return NULL;
 	}
@@ -292,61 +268,69 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	deserializarStack(pcb, pcb_serial, &offset);
 
+	// si etiquetaSize es 0, malloc() retorna un puntero equivalente a NULL
 	pcb->indiceDeEtiquetas = malloc(pcb->etiquetaSize);
-	memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
-	offset += pcb->etiquetaSize;
+	if (pcb->etiquetaSize){ // si hay etiquetas, las memcpy'amos
+		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
+		offset += pcb->etiquetaSize;
+	}
 
 	return pcb;
 }
 
-void deserializarStack(tPCB *pcb, char *pcb_serial, int *off_stack){
 
-	int stack_size, arg_size, var_size;
-	memcpy(&stack_size, pcb_serial + *off_stack, sizeof (int));
-	*off_stack += sizeof(int);
+void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
+	puts("Deserializamos stack..");
 
-	if (stack_size == 0)
+	pcb->indiceDeStack = list_create();
+
+	int stack_depth;
+	memcpy(&stack_depth, pcb_serial + *offset, sizeof (int));
+	*offset += sizeof(int);
+
+	if (stack_depth == 0)
 		return;
 
 	indiceStack stack = crearStackVacio();
-	pcb->indiceDeStack = list_create();
 	list_add(pcb->indiceDeStack, &stack);
 
+	int arg_depth, var_depth;
 	posicionMemoria *arg, retVar;
 	posicionMemoriaPid *var;
 	int retPos;
 
-
 	int i, j;
-	for (i = 0; i < stack_size; ++i){
+	for (i = 0; i < stack_depth; ++i){
 
-		memcpy(&arg_size, pcb_serial + *off_stack, sizeof(int));
-		*off_stack += sizeof(int);
-		arg = realloc(arg, arg_size);
-		for (j = 0; j < arg_size; j++){
-			memcpy((arg + j), pcb_serial + *off_stack, sizeof(posicionMemoria));
-			*off_stack += sizeof(posicionMemoria);
+		memcpy(&arg_depth, pcb_serial + *offset, sizeof(int));
+		*offset += sizeof(int);
+		arg = realloc(arg, arg_depth);
+		for (j = 0; j < arg_depth; j++){
+			memcpy((arg + j), pcb_serial + *offset, sizeof(posicionMemoria));
+			*offset += sizeof(posicionMemoria);
 		}
 		list_add(stack.args, arg);
 
-		memcpy(&var_size, pcb_serial + *off_stack, sizeof(int));
-		*off_stack = sizeof(int);
-		var = realloc(var, var_size);
-		for (j = 0; j < var_size; j++){
-			memcpy((var + j), pcb_serial + *off_stack, sizeof(posicionMemoriaPid));
-			*off_stack += sizeof(posicionMemoriaPid);
+		memcpy(&var_depth, pcb_serial + *offset, sizeof(int));
+		*offset = sizeof(int);
+		var = realloc(var, var_depth);
+		for (j = 0; j < var_depth; j++){
+			memcpy((var + j), pcb_serial + *offset, sizeof(posicionMemoriaPid));
+			*offset += sizeof(posicionMemoriaPid);
 		}
 		list_add(stack.vars, var);
 
-		memcpy(&retPos, pcb_serial + *off_stack, sizeof (int));
-		*off_stack += sizeof(int);
+		memcpy(&retPos, pcb_serial + *offset, sizeof (int));
+		*offset += sizeof(int);
 		stack.retPos = retPos;
 
-		memcpy(&retVar, pcb_serial + *off_stack, sizeof(posicionMemoria));
-		*off_stack += sizeof(posicionMemoria);
+		memcpy(&retVar, pcb_serial + *offset, sizeof(posicionMemoria));
+		*offset += sizeof(posicionMemoria);
 		stack.retVar = retVar;
 
 		list_add(pcb->indiceDeStack, &stack);
+		list_clean(stack.args);
+		list_clean(stack.vars);
 	}
 }
 
@@ -372,10 +356,9 @@ char *recvPCB(int sock_in){
 	return pcb_serial;
 }
 
-char *serializeByteRequest(tPCB *pcb, int *pack_size){
+char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 
 	int code_page = 0;
-	int size_instr = pcb->indiceDeCodigo->offset - pcb->indiceDeCodigo->start;
 	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTRUC_GET};
 
 	char *bytereq_serial;
@@ -393,10 +376,9 @@ char *serializeByteRequest(tPCB *pcb, int *pack_size){
 	*pack_size += sizeof pcb->pc;
 	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
 	*pack_size += sizeof code_page;
-	memcpy(bytereq_serial, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->offset); // OFFSET_BEGIN
+	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->offset); // OFFSET_BEGIN
 	*pack_size += sizeof pcb->indiceDeCodigo->start;
-	memcpy(bytereq_serial, &size_instr, sizeof size_instr); 		// SIZE
-
+	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); 		// SIZE
 	*pack_size += sizeof size_instr;
 
 	return bytereq_serial;
@@ -586,7 +568,7 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 
 	// size total del paquete serializado
 	*packSize = HEAD_SIZE + sizeof (unsigned long) + bufferSize;
-	free(bufferCode);
+	freeAndNULL((void **) &bufferCode);
 	return src_pack;
 }
 
@@ -634,7 +616,27 @@ char *serializePIDPaginas(tPackPidPag *ppidpag){
 }
 
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
+// todo:
 	tPackPidPag *ppidpag;
 	return ppidpag;
 }
 
+/*
+ * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?
+ */
+
+/* Retorna el peso en bytes de todas las listas y variables sumadas del stack
+ */
+int sumarPesosStack(t_list *stack){
+
+	int i, sum;
+	indiceStack *temp;
+
+	for (i = sum = 0; i < list_size(stack); ++i){
+		temp = list_get(stack, i);
+		sum += list_size(temp->args) * sizeof (posicionMemoria) + list_size(temp->vars) * sizeof (posicionMemoriaPid)
+				+ sizeof temp->retPos + sizeof temp->retVar;
+	}
+
+	return sum;
+}
