@@ -34,7 +34,6 @@ void pausarPlanif(){
 
 extern t_list * listaDeCpu;
 
-extern int sock_cpu;
 
 t_queue *New, *Exit, *Ready;
 t_list *Exec, *Block;
@@ -56,9 +55,9 @@ void setupPlanificador(void){
 
 }
 
-void mandarPCBaCPU(){
+void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
 
-	int pack_size;
+	int pack_size, stat;
 	puts("Creamos memoria para la variable");
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
 	puts("Comenzamos a serializar el PCB");
@@ -81,7 +80,7 @@ void planificar(){
 	tPCB * pcbAux;
 	int peticionPaginas;
 
-	cpu * cpu;
+	t_cpu * cpu;
 
 	pcbAux = (tPCB*) queue_pop(New);
 
@@ -100,11 +99,29 @@ void planificar(){
 
 		if(!queue_is_empty(Ready)){
 			pcbAux = (tPCB*) queue_pop(Ready);
-			if(list_size(listaDeCpu) > 0){
-				//Hago manejo de cpu
+			if(list_size(listaDeCpu) > 0)
 				queue_push(Exec,pcbAux);
-				}
+
 			}
+		if(!queue_is_empty(Exec)){
+			for(i = 0; i < list_size(listaDeCpu);i){
+				cpu = (t_cpu *) list_get(listaDeCpu,i);
+				pcbAux = (tPCB *) queue_pop(Exec);
+				cpu->pid = pcbAux-> id;
+				cpu->disponibilidad = OCUPADO;
+				mandarPCBaCPU(pcbAux,cpu->fd_cpu);
+			}
+		//stat = recv(socket,MENSJAE,size,) el size del pcb ;
+		if(stat == 1){
+			switch(pcb->mensaje)://hacer este campo para el pcb
+				case(USEQUAMTUM):
+					break;
+				case(RECURSONODISPONIBLE):
+					break;
+				case(TERMINO):
+						//todo hacer typedef enum para los distintos cases
+		}
+		}
 		}
 	case (RR):
 
@@ -179,7 +196,7 @@ void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 
 	freeAndNULL((void **) &pack_pid);
 
-	nuevoPCB->estado_proceso = NEW;
+
 	queue_push(New,nuevoPCB);
 	planificar();
 /*

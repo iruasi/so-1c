@@ -62,7 +62,7 @@ int main(int argc, char* argv[]){
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-
+	t_cpu cpu;
 
 	listaDeCpu = list_create();
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
@@ -158,11 +158,18 @@ int main(int argc, char* argv[]){
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
 				sock_cpu = handleNewListened(fd, &master_fd);
+
 				if (sock_cpu < 0){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
-				list_add(listaDeCpu,sock_cpu);
+
+
+				cpu -> fd_cpu = sock_cpu;
+				cpu -> pid = -1;
+				cpu ->disponibilidad = 1;
+
+				list_add(listaDeCpu,cpu);
 				fd_max = MAX(sock_cpu, fd_max);
 				break;
 

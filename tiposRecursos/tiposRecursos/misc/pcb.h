@@ -33,7 +33,7 @@ typedef struct {
 			 paginasDeCodigo, // paginas de codigo
 			 etiquetaSize,
 			 cantidad_instrucciones,
-			 estado_proceso,
+			 id_cpu,
 			 exitCode;
 	t_intructions* indiceDeCodigo; //El t_instructions es del parser ansisop
 	t_list* indiceDeStack;

@@ -145,7 +145,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
 	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->estado_proceso,sizeof(int));
+	memcpy(pcb_serial + off, &pcb->id_cpu,sizeof(int));
 	off += sizeof(int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
@@ -260,7 +260,7 @@ tPCB *deserializarPCB(char *pcb_serial){
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
-	memcpy(&pcb->estado_proceso,pcb_serial + offset,sizeof(int));
+	memcpy(&pcb->id_cpu,pcb_serial + offset,sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);

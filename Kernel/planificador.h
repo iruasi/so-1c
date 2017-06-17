@@ -26,8 +26,8 @@ typedef enum {NEW = 1,
 
 
 typedef struct{
-	int id,pid,disponibilidad;
-}cpu;
+	int fd_cpu,pid,disponibilidad;
+}t_cpu;
 
 void setupPlanificador();
 void encolarEnNEWPrograma(tPCB *new_PCB, int sock_consola);
