@@ -3,18 +3,6 @@
 
 #include "structsMem.h"
 
-#ifndef PID_MEM // es para la distinguir la Memoria de un PID cualquiera
-#define PID_MEM -2
-#endif
-
-#ifndef PID_INV // es para la distinguir la Memoria de un PID cualquiera
-#define PID_INV -2
-#endif
-
-#ifndef FREE_PAGE
-#define FREE_PAGE -1
-#endif
-
 // OPERACIONES DE LA MEMORIA
 
 /* Cantidad de milisegundos de latencia de accesos a Memoria

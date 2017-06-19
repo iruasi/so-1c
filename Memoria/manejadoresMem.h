@@ -45,8 +45,6 @@ int escribirBytes(int pid, int frame, int offset, int size, void* buffer); // to
  */
 char *leerBytes(int pid, int frame, int offset, int size);
 
-int getMemFrame(int pid, int page);
-
 char *getMemContent(int frame, int offset);
 
 /* muestra el pid y pagina de cada entrada de la Tabla de Paginas Invertida,

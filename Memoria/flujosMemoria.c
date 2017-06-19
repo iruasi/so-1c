@@ -16,7 +16,7 @@ int manejarSolicitudBytes(int sock_in){
 	int solic_size = 0; // size del buffer de bytes a send'ear al sock_in
 	char *bytes_solic;  // bytes obtenidos de Memoria Fisica
 	char *bytes_serial; // bytes aptos para send()
-	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = BYTES_GET};
+	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = BYTES};
 	tPackByteReq *pbyte_req;
 
 	if ((pbyte_req = deserializeByteRequest(sock_in)) == NULL){

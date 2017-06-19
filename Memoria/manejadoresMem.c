@@ -17,7 +17,7 @@
 #include <tiposRecursos/tiposErrores.h>
 
 
-
+int pid_free, pid_inv, free_page;
 int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
 
 extern float retardo_mem;   // latencia de acceso a Memoria Fisica
@@ -39,9 +39,6 @@ void abortar(int pid){ // TODO: escribir el comportamiento de esta funcion
 }
 
 
-
-
-
 void liberarEstructurasMemoria(void){
 
 	liberarConfiguracionMemoria();
@@ -53,14 +50,22 @@ void liberarEstructurasMemoria(void){
 }
 
 int setupMemoria(void){
+	int stat;
 
-	MEM_FIS = malloc(memoria->marcos * memoria->marco_size);
-	if (MEM_FIS == NULL){
-		perror("No se pudo crear el espacio de Memoria. error");
+	pid_free   = -2;
+	pid_inv   = -3;
+	free_page = -1;
+
+	if ((MEM_FIS = malloc(memoria->marcos * memoria->marco_size)) == NULL){
+		puts("No se pudo crear el espacio de Memoria");
 		return MEM_EXCEPTION;
 	}
-
 	populateInvertidas();
+
+	// inicializamos la "CACHE"
+	if ((stat = setupCache()) != 0)
+		return MEM_EXCEPTION;
+
 	return 0;
 }
 
@@ -68,8 +73,8 @@ void populateInvertidas(void){
 
 	int i, off, fr;
 
-	tEntradaInv entry_inv  = {.pid = PID_INV, .pag = FREE_PAGE};
-	tEntradaInv entry_free = {.pid = PID_MEM, .pag = FREE_PAGE};
+	tEntradaInv entry_inv  = {.pid = pid_inv,  .pag = free_page};
+	tEntradaInv entry_free = {.pid = pid_free, .pag = free_page};
 
 	int size_inv_total = sizeof(tEntradaInv) * memoria->marcos;
 	marcos_inv = ceil((float) size_inv_total / memoria->marco_size);
@@ -77,17 +82,16 @@ void populateInvertidas(void){
 
 	// creamos las primeras entradas administrativas, una por cada `marco_invertido'
 	for(i = off = fr = 0; i < marcos_inv; i ++){
-		memcpy(MEM_FIS + fr * memoria->marco_size + off, &entry_inv, marcos_inv);
+		memcpy(MEM_FIS + fr * memoria->marco_size + off, &entry_inv, sizeof(tEntradaInv));
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
 	}
 
 	// creamos las otras entradas libres, una por cada marco restante
 	for(i = marcos_inv; i < memoria->marcos; i++){
-		memcpy(MEM_FIS + fr * memoria->marco_size + off, &entry_free, marcos_inv);
+		memcpy(MEM_FIS + fr * memoria->marco_size + off, &entry_free, sizeof(tEntradaInv));
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
 	}
 }
-
 
 int escribirBytes(int pid, int frame, int offset, int size, void* buffer){
 
@@ -97,51 +101,39 @@ int escribirBytes(int pid, int frame, int offset, int size, void* buffer){
 
 char *leerBytes(int pid, int page, int offset, int size){
 
-	int frame;
 	char *cont = NULL;
 
 	char *buffer;
 	if ((buffer = malloc(size)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para un buffer\n");
+		puts("No se pudo crear espacio de memoria para un buffer");
 		return NULL;
 	}
 
-	if ((cont = getCacheContent(pid, page)) != NULL){
-		memcpy(buffer, cont + offset, size);
-		return buffer;
-
-	} else if ((frame = getMemFrame(pid, page)) < 0){
-		fprintf(stderr, "No pudo obtener el frame\n");
-		return NULL;
+	if ((cont = getCacheContent(pid, page)) == NULL){
+		if ((cont = getMemContent(pid, page)) == NULL){
+			puts("No pudo obtener el frame");
+			return NULL;
+		}
 	}
 
-	cont = getMemContent(frame, offset);
-	insertarEnCache(pid, page, cont);
-
-	memcpy(buffer, cont, size);
+	memcpy(buffer, cont + offset, size);
 	return buffer;
 }
 
-int getMemFrame(int pid, int page){
-	puts("Buscando contenido en Memoria");
+char *getMemContent(int pid, int page){
 
-	sleep(retardo_mem);
 	int frame;
-
-	if ((frame = buscarEnMemoria(pid, page)) < 0){
-		fprintf(stderr, "No se encontro la pagina %d para el pid %d en Memoria\n", page, pid);
-		return FRAME_NOT_FOUND;
+	if ((frame = buscarEnMemoria(pid, page)) != 0){
+		printf("Fallo buscar En Memoria el pid %d y pagina %d\n", pid, page);
+		return NULL;
 	}
 
-	return frame;
-}
-
-char *getMemContent(int frame, int offset){
-	return MEM_FIS + frame * memoria->marco_size + offset;
+	return MEM_FIS + frame * memoria->marco_size;
 }
 
 int buscarEnMemoria(int pid, int page){
 // por ahora la busqueda es secuencial...
+	sleep(retardo_mem);
 
 	int i, off, fr; // frame y offset para recorrer la tabla de invertidas
 	gotoFrameInvertida(marcos_inv, &fr, &off);

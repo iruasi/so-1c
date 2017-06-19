@@ -15,6 +15,7 @@
 float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
+extern int pid_free, free_page;
 
 // OPERACIONES DE LA MEMORIA
 
@@ -27,8 +28,8 @@ void flush(void){
 
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
-		(CACHE_lines +i)->pid  = PID_MEM;
-		(CACHE_lines +i)->page = FREE_PAGE;
+		(CACHE_lines +i)->pid  = pid_free;
+		(CACHE_lines +i)->page = free_page;
 	}
 }
 
@@ -54,9 +55,9 @@ void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free){
 	// inicializamos todas las variables en 0, luego distinguimos si pide tamanio de Memoria o de un proc
 	*proc_size = *mem_frs = *mem_ocup = *mem_free = 0;
 
-	if (pid == PID_MEM){
+	if (pid == pid_free){
 		*mem_frs  = memoria->marcos; // TODO:
-		*mem_free = pageQuantity(PID_MEM);
+		*mem_free = pageQuantity(pid_free);
 		*mem_ocup = *mem_frs - *mem_free;
 
 	} else {
@@ -70,9 +71,10 @@ void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free){
 // API DE LA MEMORIA
 
 int inicializarPrograma(int pid, int pageCount){
+	puts("Se inicializa un programa");
 
 	int reservadas = reservarPaginas(pid, pageCount);
-	if (reservadas == pageCount)
+	if (reservadas != 0)
 		puts("Se reservo bien la cantidad de paginas solicitadas");
 
 	return 0;
@@ -96,7 +98,7 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 
 	char *buffer;
 	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
-		perror("No se pudieron leer los bytes de la pagina. error");
+		puts("No se pudieron leer los bytes de la pagina");
 		abortar(pid);
 		return NULL;
 	}

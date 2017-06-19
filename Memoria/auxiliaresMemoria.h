@@ -24,7 +24,7 @@ bool pid_match(int pid, int frame, int off);
  */
 bool frameLibre(int frame, int off);
 
-/* Se usa para trasladarse sobre la tabla de paginas invertida
+/* Se usa para trasladarse de frame a frame sobre la tabla de paginas invertida
  */
 void nextFrameValue(int *fr, int *off, int step_size);
 

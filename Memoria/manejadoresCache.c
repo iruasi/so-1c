@@ -13,6 +13,7 @@ extern char *CACHE; // memoria CACHE
 extern int *CACHE_accs;      // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 extern tMemoria *memoria;    // configuracion de Memoria
+extern int pid_free; // definiciones para paginas de Memoria, Tabla de Invertidas y paginas libres
 
 int setupCache(void){
 
@@ -39,7 +40,7 @@ void setupCacheLines(void){
 
 	int off, i;
 	for(i = off = 0; i < memoria->entradas_cache; i++){
-		CACHE_lines->cont = CACHE + off;
+		(CACHE_lines + i)->cont = CACHE + off;
 		off += memoria->marco_size;
 	}
 
@@ -114,7 +115,7 @@ tCacheEntrada *getCacheVictim(int *min_line){
 	int i;
 	for (i = *min_line = 0; i < memoria->entradas_cache; ++i){
 
-		if (CACHE_lines->pid == PID_MEM) // entrada libre
+		if (CACHE_lines->pid == pid_free) // entrada libre
 			return CACHE_lines + *min_line;
 
 		(CACHE_accs[i] < *min_line)? *min_line = i : *min_line;
