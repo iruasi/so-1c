@@ -288,14 +288,13 @@ void dumpMemContent(int pid){
 		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
 	} else {
 
-	int pag, frame;
+	int pag;
 	char *cont;
 	int page_count = pageQuantity(pid);
 
 	printf("PID \t\t PAGINA \t\t CONTENIDO");
 	for (pag = 0; pag < page_count; ++pag){
-		frame = buscarEnMemoria(pid, pag);
-		cont = getMemContent(frame, 0);
+		cont = getMemContent(pid, pag);
 		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);
 	}
 

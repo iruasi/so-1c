@@ -74,7 +74,7 @@ int inicializarPrograma(int pid, int pageCount){
 	puts("Se inicializa un programa");
 
 	int reservadas = reservarPaginas(pid, pageCount);
-	if (reservadas != 0)
+	if (reservadas >= 0)
 		puts("Se reservo bien la cantidad de paginas solicitadas");
 
 	return 0;
@@ -82,9 +82,9 @@ int inicializarPrograma(int pid, int pageCount){
 
 int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
 
-	int stat, frame;
+	int frame;
 
-	if ((frame = buscarEnMemoria(pid, page)) != 0){
+	if ((frame = buscarEnMemoria(pid, page)) < 0){
 		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
 		return frame;
 	}

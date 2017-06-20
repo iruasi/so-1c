@@ -62,9 +62,15 @@ retorno:
 int manejarAlmacenamientoBytes(int sock_in){
 
 	int stat;
+	char *buffer;
 	tPackByteAlmac *pbyte_al;
 
-	if ((pbyte_al = deserializeByteAlmacenamiento(sock_in)) == NULL){
+	if ((buffer = recvGeneric(sock_in)) == NULL){
+		printf("Fallo la recepcion de paquete del socket %d\n", sock_in);
+		return FALLO_RECV;
+	}
+
+	if ((pbyte_al = deserializeByteAlmacenamiento(buffer)) == NULL){
 		fprintf(stderr, "Fallo la deserializacion del paquete Solicitud de Bytes\n");
 		return FALLO_DESERIALIZAC;
 	}
