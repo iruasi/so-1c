@@ -82,13 +82,15 @@ int inicializarPrograma(int pid, int pageCount){
 
 int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
 
-	int stat;
+	int stat, frame;
 
-	if ((stat = escribirBytes(pid, page, offset, size, buffer)) < 0){
-		fprintf(stderr, "No se pudieron escribir los bytes a la pagina. stat: %d\n", stat);
-		abortar(pid);
-		return FALLO_ESCRITURA;
+	if ((frame = buscarEnMemoria(pid, page)) != 0){
+		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
+		return frame;
 	}
+
+	memcpy(MEM_FIS + frame * memoria->marco_size + offset, buffer, size);
+	actualizarCache(pid, page, frame);
 
 	return 0;
 }

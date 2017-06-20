@@ -14,6 +14,12 @@ void setupCacheLines(void);
  */
 char *getCacheContent(int pid, int page);
 
+/* Indica a la CACHE de debe actualizar el contenido que corresponde al pid y pagina,
+ * con el contenido que hay en MEM_FIS en el frame indicado.
+ * Si esa pagina y pid no existe en CACHE, no se realiza ningun efecto.
+ */
+void actualizarCache(int pid, int page, int frame);
+
 /* Disminuye en 1 un contador de cada entrada para la CACHE,
  * salvo el que esta indicado por el indice `accesed'
  * Lo utiliza el LRU para desalojar segun el contador mas bajo.

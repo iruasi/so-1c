@@ -93,12 +93,6 @@ void populateInvertidas(void){
 	}
 }
 
-int escribirBytes(int pid, int frame, int offset, int size, void* buffer){
-
-	memcpy(MEM_FIS + (frame * memoria->marco_size) + offset, buffer, size);
-	return 0;
-}
-
 char *leerBytes(int pid, int page, int offset, int size){
 
 	char *cont = NULL;
@@ -123,8 +117,8 @@ char *leerBytes(int pid, int page, int offset, int size){
 char *getMemContent(int pid, int page){
 
 	int frame;
-	if ((frame = buscarEnMemoria(pid, page)) != 0){
-		printf("Fallo buscar En Memoria el pid %d y pagina %d\n", pid, page);
+	if ((frame = buscarEnMemoria(pid, page)) < 0){
+		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
 		return NULL;
 	}
 
@@ -138,7 +132,7 @@ int buscarEnMemoria(int pid, int page){
 	int i, off, fr; // frame y offset para recorrer la tabla de invertidas
 	gotoFrameInvertida(marcos_inv, &fr, &off);
 
-	int frame_repr = marcos_inv + 1; // frame representativo de la posicion en MEMORIA FISICA posta
+	int frame_repr = marcos_inv; // frame representativo de la posicion en MEMORIA FISICA posta
 
 	tEntradaInv *entry = (tEntradaInv *) MEM_FIS;
 	for(i = 0; i < marcos_inv; frame_repr++){ //todo: aumenar i cuando se deba
