@@ -98,7 +98,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 	char *cont = NULL;
 
 	char *buffer;
-	if ((buffer = malloc(size)) == NULL){
+	if ((buffer = malloc(size + 1)) == NULL){
 		puts("No se pudo crear espacio de memoria para un buffer");
 		return NULL;
 	}
@@ -110,7 +110,8 @@ char *leerBytes(int pid, int page, int offset, int size){
 		}
 	}
 
-	memcpy(buffer, cont + offset, size);
+	memcpy(buffer, cont + offset, size + 1);
+	buffer[size] = '\0';
 	return buffer;
 }
 

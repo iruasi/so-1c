@@ -11,7 +11,7 @@
 
 int manejarSolicitudBytes(int sock_in){
 
-	int ret_val = 0;
+	int ret_val = 0; // setamos 0 como el valor inicial de retorno
 	int stat;
 	int solic_size = 0; // size del buffer de bytes a send'ear al sock_in
 	char *bytes_solic;  // bytes obtenidos de Memoria Fisica
@@ -25,13 +25,6 @@ int manejarSolicitudBytes(int sock_in){
 		goto retorno;
 	}
 
-
-	if ((bytes_solic = malloc(pbyte_req->size)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para el buffer de bytes solicitados\n");
-		ret_val = FALLO_GRAL;
-		goto retorno;
-	}
-
 	// Hacemos la solicitud de bytes propiamente dicha a Memoria Fisica
 	if ((bytes_solic = solicitarBytes(pbyte_req->pid, pbyte_req->page, pbyte_req->offset, pbyte_req->size)) == NULL){
 		fprintf(stderr, "Fallo la carga de bytes en el buffer para la solicitud\n");
@@ -39,13 +32,11 @@ int manejarSolicitudBytes(int sock_in){
 		goto retorno;
 	}
 
-
-	if ((bytes_serial = serializeBytes(head, bytes_solic, pbyte_req->size, &solic_size)) == NULL){
+	if ((bytes_serial = serializeBytes(head, bytes_solic, pbyte_req->size + 1, &solic_size)) == NULL){
 		fprintf(stderr, "Fallo la carga de bytes en el buffer para la solicitud\n");
 		ret_val = FALLO_SERIALIZAC;
 		goto retorno;
 	}
-
 
 	if ((stat = send(sock_in, bytes_serial, solic_size, 0)) == -1){
 		perror("Fallo envio de Bytes serializados. error");

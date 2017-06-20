@@ -17,14 +17,27 @@ int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
 int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
 
 
+/* Funcion generica de recepcion. Toda serializacion deberia dar un paquete
+ * que responda al formato |HEAD(8)|PAYLOAD_SIZE(int)|PAYLOAD(char*)|
+ * Luego cada funcion de deserializacion se debe encargar de interpretar el PAYLOAD
+ *  !!!!!! Esta funcion comprende que ya se recibio el HEAD de 8 bytes !!!!!!
+ */
+char *recvGeneric(int sock_in);
+
 /* Serializa un buffer de bytes para que respete el protocolo de HEADER
  * int *pack_size se usa para almacenar el size del paquete serializado, asi se lo puede send'ear
  */
 char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size);
 
+/* habiendo recibido los 8 bytes del header, se recibe el resto del paquete.
+ * Retorna el buffer recibido.
+ * Retorna NULL si algo falla.
+ */
+char *recvBytes(int sock_in);
+
 /* Deserializa un buffer en un Paquete de Bytes
  */
-tPackBytes *deserializeBytes(int sock_in);
+tPackBytes *deserializeBytes(char *bytes_serial);
 
 
 char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size);
@@ -48,7 +61,6 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset);
  */
 char *recvPCB(int sock_in);
 
-
 /* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
  */
 char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size);
@@ -57,9 +69,13 @@ char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size);
  */
 tPackByteReq *deserializeByteRequest(int sock_in);
 
-/* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Almacenamiento de Bytes a Memoria.
+/* serializa un paquete de peticion de almacenamiento.
  */
-tPackByteAlmac *deserializeByteAlmacenamiento(int sock_in);
+char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size);
+
+/* Deserializa un buffer en un paquete de Almacenamiento de Bytes a Memoria.
+ */
+tPackByteAlmac *deserializeByteAlmacenamiento(char * pbal_serial);
 
 /* recibimos codigo fuente del socket de entrada
  * devolvemos un puntero a memoria que lo contiene
