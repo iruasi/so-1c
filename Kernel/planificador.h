@@ -9,6 +9,7 @@
 #define DISPONIBLE 1
 #define OCUPADO 2
 
+
 typedef struct {
 	int pid;
 	int codeLen;
@@ -30,7 +31,7 @@ typedef struct{
 }t_cpu;
 
 void setupPlanificador();
-void encolarEnNEWPrograma(tPCB *new_PCB, int sock_consola);
+void encolarEnNewPrograma(tPCB *new_PCB, int sock_consola);
 void updateQueue(t_queue *queue);
 
 void freePCBs(t_queue *queue);

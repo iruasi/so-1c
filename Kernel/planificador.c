@@ -35,8 +35,9 @@ void pausarPlanif(){
 extern t_list * listaDeCpu;
 
 
-t_queue *New, *Exit, *Ready;
-t_list *Exec, *Block;
+t_queue *New, *Exit, *Ready,*Exec;
+t_list  *Block,
+		*cpu_exec;
 
 
 int grado_mult;
@@ -50,7 +51,7 @@ void setupPlanificador(void){
 	Ready = queue_create();
 	Exit = queue_create();
 
-	Exec = list_create();
+	Exec = queue_create();
 	Block = list_create();
 
 }
@@ -71,15 +72,16 @@ void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
 
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
+	list_add(cpu_exec,sock_cpu);
+	printf("Se agrego sock_cpu #%d a lista ",sock_cpu);
+
 	freeAndNULL((void **) &pcb_serial);
 }
 
 void planificar(){
-	int i = 0;
+
 	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
-	int peticionPaginas;
-
 	t_cpu * cpu;
 
 	pcbAux = (tPCB*) queue_pop(New);
@@ -96,6 +98,7 @@ void planificar(){
 				grado_mult --;
 				queue_push(Ready,pcbAux);
 			}
+		}
 
 		if(!queue_is_empty(Ready)){
 			pcbAux = (tPCB*) queue_pop(Ready);
@@ -104,6 +107,7 @@ void planificar(){
 
 			}
 		if(!queue_is_empty(Exec)){
+			int i;
 			for(i = 0; i < list_size(listaDeCpu);i){
 				cpu = (t_cpu *) list_get(listaDeCpu,i);
 				pcbAux = (tPCB *) queue_pop(Exec);
@@ -111,18 +115,42 @@ void planificar(){
 				cpu->disponibilidad = OCUPADO;
 				mandarPCBaCPU(pcbAux,cpu->fd_cpu);
 			}
-		//stat = recv(socket,MENSJAE,size,) el size del pcb ;
-		if(stat == 1){
-			switch(pcb->mensaje)://hacer este campo para el pcb
-				case(USEQUAMTUM):
+		}
+		//Para saber que hacer con BLOCK y EXIT, recibo mensajes de las cpus activas
+		int i,pcb_serial;
+		for(i = 0; i < list_size(cpu_exec); i ++){
+			int cpu = (int *) list_get(cpu_exec,i);
+			tPackHeader  header;
+			int head = recv(cpu,&header,HEAD_SIZE,0);
+			if(head == -1) printf("No se pudo recibir el mensaje");
+			if((pcb_serial = recvPCB(cpu)) == NULL){
+					printf("Fallo recvPCB");
 					break;
-				case(RECURSONODISPONIBLE):
+						}
+			pcbAux = deserializarPCB(pcb_serial);
+
+			switch(header.tipo_de_mensaje){//hacer este campo para el pcb
+
+				case(RECURSO_NO_DISPONIBLE):
+					list_add(Block,pcbAux);
+					printf("Se agrega pcb a lista de bloqueados por falta de recursos");
 					break;
-				case(TERMINO):
-						//todo hacer typedef enum para los distintos cases
-		}
-		}
-		}
+				case(FIN_PROCESO):case(ABORTO_PROCESO): //COLA EXIT
+					queue_push(Exit,pcbAux);
+					printf("Se finaliza un proceso, se agrega a la cola exit");
+					//Esta cola solo sirve para almacenar pcb (enunciado)
+					break;
+
+					}
+			if(!queue_is_empty(Block)){
+				pcbAux = (tPCB *) queue_pop(Block);
+				queue_push(Ready,pcbAux);
+				//Todo: tengo que pensar como saber si están o no disponibles los recursos
+			}
+
+
+				}
+	break;
 	case (RR):
 
 		setearQuamtumS();
@@ -130,12 +158,14 @@ void planificar(){
 		//list_add(Exec, pcb);
 
 		break;
+			}
+
+	}
 
 /* Una vez que lo se envia el pcb a la cpu, la cpu debería avisar si se pudo ejecutar todo o no
  *
  * */}
-	}
-}
+
 
 void setearQuamtumS(){
 	int i;

@@ -48,6 +48,13 @@ typedef enum {
 	SEND_SRC    = SRC_CODE,
 	SEND_BYTES  = SEND_SRC,
 
+	//Agrego mensaje para tratar planificador
+	RECURSO_NO_DISPONIBLE = 50,
+	FIN_PROCESO = 51,
+	ABORTO_PROCESO = 52,
+	//RR
+	FIN_QUAMTUM = 53,
+
 	FIN         = 11
 } tMensaje;
 

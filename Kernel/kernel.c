@@ -62,7 +62,7 @@ int main(int argc, char* argv[]){
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	t_cpu cpu;
+	t_cpu * cpu;
 
 	listaDeCpu = list_create();
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
@@ -167,10 +167,10 @@ int main(int argc, char* argv[]){
 
 				cpu -> fd_cpu = sock_cpu;
 				cpu -> pid = -1;
-				cpu ->disponibilidad = 1;
+				cpu ->disponibilidad = DISPONIBLE;
 
+				fd_max = MAX(cpu->fd_cpu, fd_max);
 				list_add(listaDeCpu,cpu);
-				fd_max = MAX(sock_cpu, fd_max);
 				break;
 
 			} else if (fd == sock_lis_con){
@@ -219,7 +219,7 @@ int main(int argc, char* argv[]){
 
 				//char *serial_pcb = serializePCB(new_pcb, header_tmp); todo: va en planificador
 
-				encolarEnNEWPrograma(new_pcb, fd);
+				encolarEnNewPrograma(new_pcb, fd);
 
 				puts("Listo!");
 				break;
