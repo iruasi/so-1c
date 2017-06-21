@@ -38,7 +38,6 @@
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
-char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size);
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code);
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
@@ -328,26 +327,7 @@ tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para re
 
 }
 
-
-char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
-
-	char *bytes_serial;
-
-	if ((bytes_serial = malloc(HEAD_SIZE + sizeof(int) + buffer_size)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para paquete de bytes\n");
-		return NULL;
-	}
-
-	memcpy(bytes_serial, &head, HEAD_SIZE);
-	*pack_size += HEAD_SIZE;
-	memcpy(bytes_serial + *pack_size, &buffer_size, sizeof buffer_size);
-	*pack_size += sizeof (int);
-	memcpy(bytes_serial + *pack_size, &buffer, buffer_size);
-	*pack_size += buffer_size;
-
-	return bytes_serial;
-}
-
+// todo: remover test cuando ya no sea necesario
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code){
 	puts("\n\n\t\tEmpieza el test....");
 
@@ -371,8 +351,16 @@ void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_cod
 	if ((stat = send(sock_mem, pidpag_serial, 16, 0)) == -1)
 		puts("Fallo pedido de inicializacion de prog en Memoria...");
 
+	tPackByteAlmac *pbal = malloc(sizeof *pbal);
+	memcpy(&pbal->head, &src, HEAD_SIZE);
+	pbal->pid = 0;
+	pbal->page = 0;
+	pbal->offset = 0;
+	pbal->size = size_code;
+	pbal->bytes = code;
+
 	char* packBytes;
-	if ((packBytes = serializeBytes(src, code, size_code, &pack_size)) == NULL){
+	if ((packBytes = serializeByteAlmacenamiento(pbal, &pack_size)) == NULL){
 		puts("fallo serialize Bytes");
 		return;
 	}
