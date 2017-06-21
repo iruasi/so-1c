@@ -12,7 +12,9 @@
 extern char *CACHE; // memoria CACHE
 extern int *CACHE_accs;      // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
+extern char* MEM_FIS;
 extern tMemoria *memoria;    // configuracion de Memoria
+extern int pid_free; // definiciones para paginas de Memoria, Tabla de Invertidas y paginas libres
 
 int setupCache(void){
 
@@ -39,7 +41,7 @@ void setupCacheLines(void){
 
 	int off, i;
 	for(i = off = 0; i < memoria->entradas_cache; i++){
-		CACHE_lines->cont = CACHE + off;
+		(CACHE_lines + i)->dir_cont = CACHE + off;
 		off += memoria->marco_size;
 	}
 
@@ -54,7 +56,7 @@ char *getCacheContent(int pid, int page){
 		if (CACHE_lines[i].pid == pid && CACHE_lines[i].page == page){
 			puts("CACHE hit");
 			cachePenalizer(i);
-			return CACHE_lines[i].cont;
+			return CACHE_lines[i].dir_cont;
 		}
 	}
 
@@ -62,7 +64,22 @@ char *getCacheContent(int pid, int page){
 	return NULL;
 }
 
+void actualizarCache(int pid, int page, int frame){
+
+	int i;
+	char *mem_cont = MEM_FIS + frame * memoria->marco_size;
+
+	for (i = 0; i < memoria->entradas_cache; ++i){
+		if ((CACHE_lines + i)->pid == pid && (CACHE_lines + i)->page == page){
+			puts("Se encontro el frame a actualizar en cache. Writeback...");
+			memcpy((CACHE_lines + i)->dir_cont, mem_cont, memoria->marco_size);
+			return;
+		}
+	}
+}
+
 void cachePenalizer(int accessed){
+
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i)
 		CACHE_accs[i]--;
@@ -83,30 +100,9 @@ int insertarEnCache(int pid, int page, char *cont){
 
 	entry->pid  = pid;
 	entry->page = page;
-	memcpy(entry->cont, cont, memoria->marco_size);
+	memcpy(entry->dir_cont, cont, memoria->marco_size);
 
 	return 0;
-}
-
-tCacheEntrada *allocateCacheEntry(void){
-
-	tCacheEntrada *entry;
-
-	if ((entry = malloc(sizeof *entry)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para una entrada de CACHE\n");
-		return NULL;
-	}
-
-	if ((entry->cont = malloc(memoria->marco_size)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para una entrada de CACHE\n");
-		return NULL;
-	}
-
-	entry->pid  = -1;
-	entry->page = -1;
-	entry->cont = NULL;
-
-	return entry;
 }
 
 tCacheEntrada *getCacheVictim(int *min_line){
@@ -114,7 +110,7 @@ tCacheEntrada *getCacheVictim(int *min_line){
 	int i;
 	for (i = *min_line = 0; i < memoria->entradas_cache; ++i){
 
-		if (CACHE_lines->pid == PID_MEM) // entrada libre
+		if (CACHE_lines->pid == pid_free) // entrada libre
 			return CACHE_lines + *min_line;
 
 		(CACHE_accs[i] < *min_line)? *min_line = i : *min_line;

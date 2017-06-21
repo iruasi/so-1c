@@ -12,10 +12,10 @@ create-dirs:
 	mkdir -p build/funcionesCompartidas
 
 build/libfuncionesCompartidas.so: create-dirs $(OBJS)
-	$(CC)  -shared -Wall -o "build/libfuncionesCompartidas.so" $(OBJS)
+	$(CC)  -shared -Wextra -Wall -o "build/libfuncionesCompartidas.so" $(OBJS)
 
 build/funcionesCompartidas/%.o: funcionesCompartidas/%.c
-	$(CC)  -c -fmessage-length=0 -fPIC -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	$(CC)  -c -Wextra -Wall -fmessage-length=0 -fPIC -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 
 # Clean build files
 clean:

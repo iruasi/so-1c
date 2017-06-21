@@ -12,10 +12,10 @@ create-dirs:
 	mkdir -p build/funcionesPaquetes
 
 build/libfuncionesPaquetes.so: create-dirs $(OBJS)
-	$(CC)  -shared -Wall -o "build/libfuncionesPaquetes.so" $(OBJS)
+	$(CC)  -shared -Wextra -Wall -o "build/libfuncionesPaquetes.so" $(OBJS)
 
 build/funcionesPaquetes/%.o: funcionesPaquetes/%.c
-	$(CC)  -c -fmessage-length=0 -fPIC -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	$(CC)  -c -Wall -Wextra -fmessage-length=0 -fPIC -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 
 # Clean build files
 clean:

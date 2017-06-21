@@ -15,8 +15,8 @@ typedef enum {
 	PCB_PREEMPT = 22, // serian para Planificador
 	PCB_SAVE    = PCB_PREEMPT, // serian para Memoria
 	PCB_RESTORE = PCB_EXEC, // serian para Memoria
-	INSTRUC_GET = 23,
-	BYTES_GET   = INSTRUC_GET,
+	INSTR       = 23,
+	BYTES       = INSTR,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -36,17 +36,14 @@ typedef enum {
 	SOLIC_BYTES = 53,
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
-	INSTR       = INSTRUC_GET,
 	ASIGN_SUCCS = 56,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
 	NEWPROG     = 42,
-	RECV_PID    = 43,
+	PID         = 43,
 	KILL_PID    = 44,
 	KER_KILLED  = KILL_PID,
-	SEND_SRC    = SRC_CODE,
-	SEND_BYTES  = SEND_SRC,
 
 	FIN         = 11
 } tMensaje;

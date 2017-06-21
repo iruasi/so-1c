@@ -11,24 +11,17 @@
 
 int manejarSolicitudBytes(int sock_in){
 
-	int ret_val = 0;
+	int ret_val = 0; // setamos 0 como el valor inicial de retorno
 	int stat;
 	int solic_size = 0; // size del buffer de bytes a send'ear al sock_in
 	char *bytes_solic;  // bytes obtenidos de Memoria Fisica
 	char *bytes_serial; // bytes aptos para send()
-	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = BYTES_GET};
+	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = BYTES};
 	tPackByteReq *pbyte_req;
 
 	if ((pbyte_req = deserializeByteRequest(sock_in)) == NULL){
 		fprintf(stderr, "Fallo la deserializacion del paquete Solicitud de Bytes\n");
 		ret_val = FALLO_DESERIALIZAC;
-		goto retorno;
-	}
-
-
-	if ((bytes_solic = malloc(pbyte_req->size)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para el buffer de bytes solicitados\n");
-		ret_val = FALLO_GRAL;
 		goto retorno;
 	}
 
@@ -39,13 +32,11 @@ int manejarSolicitudBytes(int sock_in){
 		goto retorno;
 	}
 
-
-	if ((bytes_serial = serializeBytes(head, bytes_solic, pbyte_req->size, &solic_size)) == NULL){
+	if ((bytes_serial = serializeBytes(head, bytes_solic, pbyte_req->size + 1, &solic_size)) == NULL){
 		fprintf(stderr, "Fallo la carga de bytes en el buffer para la solicitud\n");
 		ret_val = FALLO_SERIALIZAC;
 		goto retorno;
 	}
-
 
 	if ((stat = send(sock_in, bytes_serial, solic_size, 0)) == -1){
 		perror("Fallo envio de Bytes serializados. error");
@@ -62,9 +53,15 @@ retorno:
 int manejarAlmacenamientoBytes(int sock_in){
 
 	int stat;
+	char *buffer;
 	tPackByteAlmac *pbyte_al;
 
-	if ((pbyte_al = deserializeByteAlmacenamiento(sock_in)) == NULL){
+	if ((buffer = recvGeneric(sock_in)) == NULL){
+		printf("Fallo la recepcion de paquete del socket %d\n", sock_in);
+		return FALLO_RECV;
+	}
+
+	if ((pbyte_al = deserializeByteAlmacenamiento(buffer)) == NULL){
 		fprintf(stderr, "Fallo la deserializacion del paquete Solicitud de Bytes\n");
 		return FALLO_DESERIALIZAC;
 	}

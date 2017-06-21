@@ -9,12 +9,12 @@
 typedef struct{
 
 	char* puerto_entrada;
-	uint32_t marcos;
-	uint32_t marco_size;
-	uint32_t entradas_cache;
-	uint32_t cache_x_proc;
-	uint32_t retardo_memoria;
-	uint32_t tipo_de_proceso;
+	int marcos,
+		marco_size,
+		entradas_cache,
+		cache_x_proc,
+		retardo_memoria,
+		tipo_de_proceso;
 }tMemoria;
 
 tMemoria *getConfigMemoria(char* ruta);

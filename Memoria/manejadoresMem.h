@@ -34,18 +34,14 @@ void populateInvertidas(void);
 
 /* Realiza una busqueda secuencial en la Tabla de Paginas Invertida. TODO: Deberia usar una funcion de hashing
  * mediante la funcion de hash encuentra el frame que corresponde a la pagina de un proceso
+ * Retorna el frame necesitado (valor 0 o positivo)
+ * Retorna valor negativo en caso de fallos.
  */
 int buscarEnMemoria(int pid, int page);
-
-/* esta la utiliza `almacenarBytes', una vez que ya conoce en que frame debe almacenar el buffer
- */
-int escribirBytes(int pid, int frame, int offset, int size, void* buffer); // todo: revisar implementacion
 
 /* Esta es la funcion que en el TP viene a ser "Solicitar Bytes de una Pagina"
  */
 char *leerBytes(int pid, int frame, int offset, int size);
-
-int getMemFrame(int pid, int page);
 
 char *getMemContent(int frame, int offset);
 

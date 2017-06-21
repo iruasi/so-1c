@@ -24,7 +24,7 @@ typedef struct {
 
 	int pid;
 	int page;
-	char *cont;
+	char *dir_cont;
 } tCacheEntrada;
 
 typedef struct {

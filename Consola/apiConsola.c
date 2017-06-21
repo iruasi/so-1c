@@ -148,7 +148,7 @@ void *programa_handler(void *atributos){
 
 	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
-		if (head_tmp.tipo_de_mensaje == RECV_PID){
+		if (head_tmp.tipo_de_mensaje == PID){
 			puts("recibimos PID");
 			stat = recv(args->sock, &(ppid.pid), sizeof ppid.pid, 0);
 			puts("Asigno pid a la estructura");

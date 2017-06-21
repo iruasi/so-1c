@@ -26,7 +26,7 @@
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
 
 int pedirInstruccion(int instr_size);
-int recibirInstruccion(char *linea, int instr_size);
+int recibirInstruccion(char **linea, int instr_size);
 
 int ejecutarPrograma(void);
 
@@ -134,7 +134,8 @@ int main(int argc, char* argv[]){
 int ejecutarPrograma(void){
 
 	int stat, instr_size;
-	char *linea = NULL;
+	char **linea = malloc(0);
+	*linea = NULL;
 
 	termino = false;
 
@@ -153,13 +154,13 @@ int ejecutarPrograma(void){
 			return FALLO_GRAL;
 		}
 
-		printf("La linea %d es: %s", (pcb->pc+1), linea);
+		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
-		analizadorLinea(linea, &functions, &kernel_functions);
+		analizadorLinea(*linea, &functions, &kernel_functions);
 		pcb->pc++;
 
 	} while(!termino);
-	freeAndNULL((void **) &linea);
+	freeAndNULL((void **) linea);
 
 	puts("Termino de ejecutar...");
 	termino = false;
@@ -184,32 +185,40 @@ int pedirInstruccion(int instr_size){
 	return 0;
 }
 
-int recibirInstruccion(char *linea, int instr_size){
+int recibirInstruccion(char **linea, int instr_size){
 	puts("vamos a recibir instruccion");
 
-
 	int stat;
+	char *byte_serial;
 	tPackHeader head;
-	if ((linea = realloc(linea, instr_size)) == NULL){
+	tPackBytes *instr;
+
+	if ((*linea = realloc(*linea, instr_size)) == NULL){
 		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		return FALLO_GRAL;
 	}
 
-	if ((stat = recv(sock_mem, &head, sizeof head, 0)) == -1){
+	if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
 		perror("Fallo recepcion de header. error");
 		return FALLO_RECV;
 	}
 
-	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != SEND_BYTES){
+	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != BYTES){
 		fprintf(stderr, "Error de comunicacion. Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
 				head.tipo_de_proceso, head.tipo_de_mensaje);
 		return FALLO_GRAL;
 	}
 
-	if ((stat = recv(sock_mem, linea, instr_size, 0)) == -1){
-		perror("Fallo recepcion de instruccion. error");
+	if ((byte_serial = recvGeneric(sock_mem)) == NULL){
+		puts("Fallo recepcion de bytes");
 		return FALLO_RECV;
 	}
+
+	if ((instr = deserializeBytes(byte_serial)) == NULL){
+		puts("Fallo deserializacion de bytes");
+		return FALLO_DESERIALIZAC;
+	}
+	memcpy(*linea, instr->bytes, instr->bytelen);
 
 	return 0;
 }

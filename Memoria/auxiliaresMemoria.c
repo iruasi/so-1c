@@ -20,14 +20,15 @@
 extern char *MEM_FIS;
 extern tMemoria *memoria;
 extern int marcos_inv;
+extern int pid_free;
 
 bool pid_match(int pid, int frame, int off){
-	int *dirval = (int*) (MEM_FIS + frame * memoria->marco_size + off);
-	return (pid == *dirval)? true : false;
+	char *dirval = (MEM_FIS + frame * memoria->marco_size + off);
+	return (pid == (int) *dirval)? true : false;
 }
 
 bool frameLibre(int frame, int off){
-	return pid_match(PID_FREE, frame, off);
+	return pid_match(pid_free, frame, off);
 }
 
 int pageQuantity(int pid){
@@ -53,20 +54,24 @@ int reservarPaginas(int pid, int pageCount){
 
 	int fr, off;
 	int pag_assign;
-	int max_page = pageQuantity(pid);
+	int max_page;
+	if ((max_page = pageQuantity(pid)) != 0){
+		printf("Fallo conteo de paginas para el pid %d\n", pid);
+		return max_page;
+	}
 	
+	// posiciono fr y off al comienzo de las Invertidas que apuntan a frames de memoria utilizables
 	gotoFrameInvertida(marcos_inv, &fr, &off);
+
 	pag_assign = 0;
 	while (fr < marcos_inv && pag_assign != pageCount){
 
 		if (frameLibre(fr, off)){
-			memcpy(MEM_FIS + fr * memoria->marco_size + off, &pid, sizeof pid);
-			nextFrameValue(&fr, &off, sizeof (tEntradaInv));
-			memcpy(MEM_FIS + fr * memoria->marco_size + off, &max_page, sizeof max_page);
+			memcpy(MEM_FIS + fr * memoria->marco_size +  off               , &pid     , sizeof (int));
+			memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &max_page, sizeof (int));
 			pag_assign++;
 		}
 		nextFrameValue(&fr, &off, sizeof (tEntradaInv));
-
 	}
 
 	if (fr == marcos_inv){

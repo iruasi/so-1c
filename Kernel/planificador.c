@@ -106,7 +106,7 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
 	pack_pid->head.tipo_de_proceso = KER;
-	pack_pid->head.tipo_de_mensaje = RECV_PID;
+	pack_pid->head.tipo_de_mensaje = PID;
 
 	pack_pid->pid = nuevoPCB->id;
 

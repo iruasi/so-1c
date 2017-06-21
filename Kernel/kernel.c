@@ -38,10 +38,10 @@
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
-char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size);
+void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code);
 
 void cpu_manejador(int sock_cpu, tMensaje msj);
-tPackSrcCode *recibir_paqueteSrc(tPackHeader * header,int fd);
+tPackSrcCode *recibir_paqueteSrc(int fd);
 
 
 tHeapProc *hProcs;
@@ -195,7 +195,7 @@ int main(int argc, char* argv[]){
 
 				int src_size;
 				tPackSrcCode *entradaPrograma = NULL;
-				entradaPrograma = recibir_paqueteSrc(header_tmp, fd);//Aca voy a recibir el tPackSrcCode
+				entradaPrograma = recibir_paqueteSrc(fd);//Aca voy a recibir el tPackSrcCode
 				src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
 				printf("El size del paquete %d\n", src_size);
 				puts("Era ese el size");
@@ -203,23 +203,7 @@ int main(int argc, char* argv[]){
 				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
-
-
-				puts("Hagamos lo nuevo");
-				int pack_size = 0;
-				tPackHeader headX={ .tipo_de_proceso = KER, .tipo_de_mensaje = INI_PROG };
-				char* packBytes = serializeBytes(headX, entradaPrograma->sourceCode, src_size, &pack_size);
-
-				puts("Enviamos el srccode");
-				if ((stat = send(sock_mem, packBytes, pack_size, 0)) == -1)
-					puts("Fallo envio src code a Memoria...");
-
-				// TODO: esto deberia suceder en el Planificador, en el pasaje de New a Ready. O tal vez no.
-				//(hProcs+hProcs_cant)->pid = new_pcb->id;
-				//(hProcs+hProcs_cant)->static_pages = new_pcb->paginasDeCodigo;
-				//(hProcs+hProcs_cant)->pag_heap_cant++;
-
-				//char *serial_pcb = serializePCB(new_pcb, header_tmp); todo: va en planificador
+				test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
 
 				encolarEnNEWPrograma(new_pcb, fd);
 
@@ -317,7 +301,7 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 	}
 }
 
-tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
+tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
 
 	int paqueteRecibido;
 	int *tamanioMensaje = malloc(sizeof (int));
@@ -329,7 +313,7 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, mensaje, *tamanioMensaje);
 	if(paqueteRecibido <= 0) return NULL;
 
-	tPackSrcCode *pack_src = malloc(HEAD_SIZE + sizeof (int) + paqueteRecibido);
+	tPackSrcCode *pack_src = malloc(sizeof *pack_src);
 	pack_src->sourceLen = paqueteRecibido;
 	pack_src->sourceCode = malloc(pack_src->sourceLen);
 	memcpy(pack_src->sourceCode, mensaje, paqueteRecibido);
@@ -343,22 +327,50 @@ tPackSrcCode *recibir_paqueteSrc(tPackHeader *header,int fd){ //Esta funcion tie
 
 }
 
+// todo: remover test cuando ya no sea necesario
+void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code){
+	puts("\n\n\t\tEmpieza el test....");
 
-char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
+	int stat;
+	int pack_size = 0;
+	tPackHeader ini = { .tipo_de_proceso = KER, .tipo_de_mensaje = INI_PROG };
+	tPackHeader src = { .tipo_de_proceso = KER, .tipo_de_mensaje = ALMAC_BYTES };
 
-	char *bytes_serial;
+	tPackPidPag p;
+	p.head = ini;
+	p.pid = 0;
+	p.pageCount = 3;
 
-	if ((bytes_serial = malloc(HEAD_SIZE + sizeof(int) + buffer_size)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para paquete de bytes\n");
-		return NULL;
+	char * pidpag_serial = serializePIDPaginas(&p);
+	if (pidpag_serial == NULL){
+		puts("fallo serialize PID Paginas");
+		return;
 	}
 
-	memcpy(bytes_serial, &head, HEAD_SIZE);
-	*pack_size += HEAD_SIZE;
-	memcpy(bytes_serial + *pack_size, &buffer_size, sizeof buffer_size);
-	*pack_size += sizeof buffer_size;
-	memcpy(bytes_serial + *pack_size, &buffer, buffer_size);
-	*pack_size += buffer_size;
+	puts("Enviamos inicializacion de progama");
+	if ((stat = send(sock_mem, pidpag_serial, 16, 0)) == -1)
+		puts("Fallo pedido de inicializacion de prog en Memoria...");
 
-	return bytes_serial;
+	tPackByteAlmac *pbal = malloc(sizeof *pbal);
+	memcpy(&pbal->head, &src, HEAD_SIZE);
+	pbal->pid = 0;
+	pbal->page = 0;
+	pbal->offset = 0;
+	pbal->size = size_code;
+	pbal->bytes = code;
+
+	char* packBytes;
+	if ((packBytes = serializeByteAlmacenamiento(pbal, &pack_size)) == NULL){
+		puts("fallo serialize Bytes");
+		return;
+	}
+
+	puts("Enviamos el srccode");
+	if ((stat = send(sock_mem, packBytes, pack_size, 0)) == -1)
+		puts("Fallo envio src code a Memoria...");
+
+	printf("se enviaron %d bytes\n", stat);
+
+	puts("\n\n\t\tSe completo el test.\n\n");
+	//sleep(4);
 }
