@@ -49,7 +49,7 @@ int Iniciar_Programa(tAtributosProg *atributos){
 
 	puts("hilo creado");
 
-	if ((stat = pthread_join(hilo_prog, &retval)) < 0){
+	if ((stat = pthread_join(hilo_prog, (void **) &retval)) < 0){
 		fprintf(stderr, "pthread joineo de forma erronea. status: %d\n", stat);
 		return FALLO_HILO_JOIN;
 	}

@@ -65,8 +65,8 @@ typedef struct {
 typedef struct {
 
 	tPackHeader head;
-	uint32_t pid;
-	uint32_t pageCount;
+	int pid;
+	int pageCount;
 } tPackPidPag; // este paquete se utiliza para enviar un pid y una cant de paginas
 
 typedef struct {

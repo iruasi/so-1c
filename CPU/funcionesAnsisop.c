@@ -2,6 +2,7 @@
 #include <netdb.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
 
 #include "funcionesAnsisop.h"
 
@@ -106,9 +107,9 @@ void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 	printf("Se llama a la funcion %s\n", etiqueta);
 	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
-	indiceStack* nuevoStack = crearStackVacio();
+	indiceStack nuevoStack = crearStackVacio();
 	pcb->etiquetaSize = tamlineaStack;
-	list_add(pcb->indiceDeStack, nuevoStack);
+	list_add(pcb->indiceDeStack, &nuevoStack);
 	pcb->contextoActual++;
 
 	irAlLabel(etiqueta);
@@ -120,10 +121,10 @@ void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	//posicionMemoria* varRetorno = malloc(sizeof(posicionMemoria));
 	//varRetorno->pag=donde_retornar/tamPagina
 	//varRetorno->offset = donde_retornar%tamPagina
-	indiceStack* nuevoStack = crearStackVacio();
+	indiceStack nuevoStack = crearStackVacio();
 	//nuevoStack->retVar = varRetorno;
 	pcb->etiquetaSize = tamlineaStack;
-	list_add(pcb->indiceDeStack, nuevoStack);
+	list_add(pcb->indiceDeStack, &nuevoStack);
 	pcb->contextoActual++;
 	irAlLabel(etiqueta);
 }
@@ -141,8 +142,8 @@ void retornar (t_valor_variable retorno){
 		posicionMemoria* var = list_get(stackActual->vars, i);
 		free(var); // se liberan las variables
 	}
-	posicionMemoria* retVar = stackActual->retVar;
-	t_puntero direcVariable = (retVar->pag) + retVar->offset; // TODO: la pag habria que dividirla por el tam de la pagina
+	posicionMemoria retVar = stackActual->retVar;
+	t_puntero direcVariable = (retVar.pag) + retVar.offset; // TODO: la pag habria que dividirla por el tam de la pagina (Propuesta: obtener frame_size en el handshake con Memoria, como hace el Kernel)
 	asignar(direcVariable,retorno);
 	pcb->pc = stackActual->retPos;
 	free(stackActual);

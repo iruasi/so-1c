@@ -171,7 +171,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	char *pcb_serial;
 	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
 
-	size_t ctesInt_size         = 7 * sizeof (int);
+	size_t ctesInt_size         = CTES_INT_PCB * sizeof (int);
 	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
 	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
 	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
@@ -198,6 +198,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->contextoActual, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
@@ -314,6 +316,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 	offset += sizeof(int);
 	memcpy(&pcb->estado_proc, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
+	memcpy(&pcb->contextoActual, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
 	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 
@@ -427,13 +431,13 @@ char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 	memcpy(bytereq_serial, &head_tmp, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 	memcpy(bytereq_serial + *pack_size, &pcb->id, sizeof pcb->id);
-	*pack_size += sizeof pcb->id;
+	*pack_size += sizeof (int);
 	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
-	*pack_size += sizeof code_page;
+	*pack_size += sizeof (int);
 	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start); // OFFSET_BEGIN
-	*pack_size += sizeof pcb->indiceDeCodigo->start;
-	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); 		// SIZE
-	*pack_size += sizeof size_instr;
+	*pack_size += sizeof (t_puntero_instruccion);
+	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); // SIZE
+	*pack_size += sizeof (int);
 
 	return bytereq_serial;
 }

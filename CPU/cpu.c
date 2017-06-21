@@ -92,7 +92,7 @@ int main(int argc, char* argv[]){
 		} else if (head->tipo_de_mensaje == PCB_EXEC){
 
 
-			if((pcb_serial = recvPCB(sock_kern)) == NULL){
+			if((pcb_serial = recvGeneric(sock_kern)) == NULL){
 				return FALLO_RECV;
 			}
 
