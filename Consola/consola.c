@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <time.h>
+#include <signal.h>
 #include <commons/collections/list.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -16,6 +17,8 @@
 #include "apiConsola.h"
 
 #define MAXMSJ 100
+
+tConsola *cons_data;
 
 /*Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
  */
@@ -42,17 +45,8 @@ int main(int argc, char* argv[]){
 
 	listaAtributos = list_create();
 
-	tConsola *cons_data = getConfigConsola(argv[1]);
+	cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
-
-	printf("Conectando con kernel...\n");
-	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
-	if (sock_kern < 0){
-		errno = FALLO_CONEXION;
-		perror("No se pudo establecer conexion con Kernel. error");
-		return sock_kern;
-	}
-
 
 
 	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
@@ -61,7 +55,7 @@ int main(int argc, char* argv[]){
 	int finalizar = 0;
 	while(finalizar !=1){
 
-		printf("Para iniciar un programa: 'nuevo programa <ruta>'\n");
+		printf ("Para iniciar un programa: 'nuevo programa <ruta>'\n");
 		printf ("Para finlizar un programa: 'finalizar <PID>'\n");
 		printf ("Para desconectar consola: 'desconectar'\n");
 		printf ("Para limpiar mensajes: 'limpiar'\n");
@@ -75,7 +69,7 @@ int main(int argc, char* argv[]){
 		{
 			printf("Iniciar un nuevo programa\n");
 			char *ruta = opcion+15;
-
+			//TODO:Chequear error de ruta..
 			tAtributosProg *atributos = malloc(sizeof *atributos);
 			atributos->sock = sock_kern;
 			atributos->path = ruta;
@@ -101,9 +95,11 @@ int main(int argc, char* argv[]){
 			//int status = Finalizar_Programa(pidElegido,sock_kern,HILOAMATAR);
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
-			//int status = Desconectar_Consola()
-			printf("Eligio desconectar esta consola !\n");
+			Desconectar_Consola(cons_data);
 			finalizar = 1;
+
+			close(sock_kern);
+			liberarConfiguracionConsola(cons_data);
 		}
 		if(strncmp(opcion,"limpiar",7)==0){
 			Limpiar_Mensajes();

@@ -9,6 +9,8 @@
 #include <commons/collections/list.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <semaphore.h>
+#include <signal.h>
 
 #include "apiConsola.h"
 #include "auxiliaresConsola.h"
@@ -23,9 +25,27 @@
 #define HEAD_SIZE 8
 #endif
 
+#define SIGDISCONNECT 80
+#define MUTEX 1
+
 int siguientePID(void){return 1;}
 int tamanioPrograma;
 extern t_list *listaAtributos;
+sem_t *semLista;
+extern tConsola *cons_data;
+
+void inicializarSemaforos(void){
+	int stat;
+	semLista = malloc(sizeof (sem_t));
+	 if ((stat = sem_init(semLista, 0, MUTEX)) == -1)
+		perror("No se pudo inicializar semaforo lista. error");
+
+}
+
+void eliminarSemaforos(void){
+	sem_destroy(semLista);
+}
+
 int Iniciar_Programa(tAtributosProg *atributos){
 
 	int stat, *retval;
@@ -43,18 +63,8 @@ int Iniciar_Programa(tAtributosProg *atributos){
 		return FALLO_GRAL;
 	}
 
-
-
-	list_add(listaAtributos,atributos);
-
 	puts("hilo creado");
 
-	if ((stat = pthread_join(hilo_prog, (void **) &retval)) < 0){
-		fprintf(stderr, "pthread joineo de forma erronea. status: %d\n", stat);
-		return FALLO_HILO_JOIN;
-	}
-
-	printf("El hilo retorno con valor retorno: %d\n", *retval);
 	return 0;
 }
 
@@ -92,18 +102,14 @@ int Finalizar_Programa(int pid, int sock_ker, pthread_attr_t attr){
 	return 0;
 }
 
-// todo: depende de como tengamos almacenados los PIDs (con attributos, o algunoa otra info)
-// segun eso, depende la cantidad de parametros de esta funcion etc...
-void Desconectar_Consola(int sock_ker, pthread_attr_t attr, tConsola *cons_data){
+void Desconectar_Consola(tConsola *cons_data){
+	puts("Eligio desconectar esta consola !\n");
+	int i;
 
-	int pid;
-
-	while((pid = siguientePID())){
-		Finalizar_Programa(pid, sock_ker, attr);
+	for(i = 0; i < list_size(listaAtributos); i++){
+		tAtributosProg *aux = list_get(listaAtributos, i);
+		pthread_kill(aux->hiloProg, SIGDISCONNECT);
 	}
-
-	close(sock_ker);
-	liberarConfiguracionConsola(cons_data);
 }
 
 
@@ -113,9 +119,19 @@ void Limpiar_Mensajes(){
 
 void *programa_handler(void *atributos){
 
+	printf("Conectando con kernel...\n");
+	int sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
+	if (sock_kern < 0){
+		errno = FALLO_CONEXION;
+		perror("No se pudo establecer conexion con Kernel. error");
+		return NULL;
+	}
+
 	tAtributosProg *args = (tAtributosProg *) atributos;
 	int stat;
 
+	handshakeCon(sock_kern, CON);
+	puts("handshake realizado");
 	tPackHeader head_tmp;
 
 	puts("Creando codigo fuente...");
@@ -127,7 +143,7 @@ void *programa_handler(void *atributos){
 	puts("codigo fuente serializado");
 	puts("Enviando codigo fuente...");
 	int packSize = sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen;
-	if ((stat = send(args->sock, paquete_serializado, packSize, 0)) < 0){
+	if ((stat = send(sock_kern, paquete_serializado, packSize, 0)) < 0){
 		perror("No se pudo enviar codigo fuente a Kernel. error");
 		return (void *) FALLO_SEND;
 	}
@@ -142,10 +158,10 @@ void *programa_handler(void *atributos){
 	tPackPID ppid;
 	ppid.head = head_tmp;
 	puts("Esperando a recibir el PID");
+	int fin = 0;
 
 
-
-
+while(fin !=1){
 	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == PID){
@@ -155,7 +171,10 @@ void *programa_handler(void *atributos){
 			args->pidProg = ppid.pid;
 			args->hiloProg = pthread_self();
 
+			sem_wait(semLista);
 			list_add(listaAtributos,args);
+			sem_post(semLista);
+
 			printf(" pid %d\n",args->pidProg);
 
 //			printf(" hilo %d\n",args->hiloProg);
@@ -177,7 +196,15 @@ void *programa_handler(void *atributos){
 			stat = recv(args->sock,mensaje,tamanoAImprimir,0);
 			puts(mensaje);
 		}*/
+
+		if (head_tmp.tipo_de_mensaje == FIN_PROG){
+
+
+			puts("Se finaliza el hilo");
+			pthread_exit(NULL);
+		}
 	}
+}
 
 	if (stat == -1){
 		perror("Fallo recepcion header en thread de programa. error");
@@ -187,6 +214,7 @@ void *programa_handler(void *atributos){
 	puts("Kernel cerro conexion con thread de programa");
 	return NULL;
 }
+
 
 
 

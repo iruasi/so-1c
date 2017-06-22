@@ -40,6 +40,7 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code);
 
+void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj);
 void cpu_manejador(int sock_cpu, tMensaje msj);
 tPackSrcCode *recibir_paqueteSrc(int fd);
 
@@ -52,11 +53,15 @@ int sock_cpu;
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
+t_list *listaProgramas;
+
 int main(int argc, char* argv[]){
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
+
+	listaProgramas = list_create();
 
 	int stat, ready_fds;
 	int fd, new_fd;
@@ -189,28 +194,6 @@ int main(int argc, char* argv[]){
 				break;
 			}
 
-			// Se recibio un header sin conflictos, procedemos con el flujo..
-			if (header_tmp->tipo_de_mensaje == SRC_CODE){ //PROGRAMA ANSISOP
-				puts("Consola quiere iniciar un programa");
-
-				int src_size;
-				tPackSrcCode *entradaPrograma = NULL;
-				entradaPrograma = recibir_paqueteSrc(fd);//Aca voy a recibir el tPackSrcCode
-				src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
-				printf("El size del paquete %d\n", src_size);
-				puts("Era ese el size");
-				int cant_pag = (int) ceil((float)src_size / frame_size);
-				tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
-												//En nuevoPcb, casteo entradaPrograma para que me de los valores.
-
-				test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
-
-				encolarEnNEWPrograma(new_pcb, fd);
-
-				puts("Listo!");
-				break;
-			}
-
 			if (fd == sock_mem){
 				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
 
@@ -238,6 +221,7 @@ int main(int argc, char* argv[]){
 
 			if (header_tmp->tipo_de_proceso == CON){
 				printf("Llego algo desde Consola!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				cons_manejador(sock_mem, fd, header_tmp->tipo_de_mensaje);
 				break;
 			}
 
@@ -269,7 +253,38 @@ limpieza:
 	return stat;
 }
 
+void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
+
+	switch(msj){
+	case SRC_CODE:
+		puts("Consola quiere iniciar un programa");
+
+		int src_size;
+		tPackSrcCode *entradaPrograma = NULL;
+		entradaPrograma = recibir_paqueteSrc(sock_hilo);//Aca voy a recibir el tPackSrcCode
+		src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
+		printf("El size del paquete %d\n", src_size);
+		puts("Era ese el size");
+		int cant_pag = (int) ceil((float)src_size / frame_size);
+		tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size, sock_hilo);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
+		//En nuevoPcb, casteo entradaPrograma para que me de los valores.
+
+		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
+
+		encolarEnNEWPrograma(new_pcb, sock_hilo);
+
+		puts("Listo!");
+		break;
+	default:
+		break;
+	}
+
+
+}
+
 void cpu_manejador(int sock_cpu, tMensaje msj){
+	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
+
 
 	switch(msj){
 	case S_WAIT:
@@ -371,6 +386,6 @@ void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_cod
 
 	printf("se enviaron %d bytes\n", stat);
 
+	//freeAndNULL((void **) pbal); todo: rompe
 	puts("\n\n\t\tSe completo el test.\n\n");
-	//sleep(4);
 }
