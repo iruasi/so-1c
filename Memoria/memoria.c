@@ -45,11 +45,15 @@ int main(int argc, char* argv[]){
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
-	// inicializamos la "MEMORIA FISICA"
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
-	//sv multihilo
+	pthread_t consola_mem;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	pthread_create(&consola_mem, &attr, consolaUsuario(), NULL);
+
 	pthread_t kern_thread;
 	bool kernExists = false;
 	int sock_entrada , client_sock , clientSize;
@@ -70,8 +74,7 @@ int main(int argc, char* argv[]){
 	//acepta y escucha comunicaciones
 	tPackHeader head;
 	puts("esperando comunicaciones entrantes...");
-	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)) != -1)
-	{
+	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)) != -1){
 		puts("Conexion aceptada");
 
 		pthread_t sniffer_thread;

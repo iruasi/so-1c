@@ -45,23 +45,19 @@ void dump(int pid){
 }
 
 
-void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free){
+void size(int pid){
+	int mem_ocup, mem_free = 0;
 
 	if (pid < 0){
-		fprintf(stderr, "Se intento pedir el tamanio de un proceso invalido\n");
-		*proc_size = *mem_frs = *mem_ocup = *mem_free = MEM_EXCEPTION;
-	}
+		mem_free = pageQuantity(pid_free);
+		mem_ocup = memoria->marcos - mem_free;
 
-	// inicializamos todas las variables en 0, luego distinguimos si pide tamanio de Memoria o de un proc
-	*proc_size = *mem_frs = *mem_ocup = *mem_free = 0;
-
-	if (pid == pid_free){
-		*mem_frs  = memoria->marcos; // TODO:
-		*mem_free = pageQuantity(pid_free);
-		*mem_ocup = *mem_frs - *mem_free;
+		printf("Cantidad de frames en Memoria: %d\n", memoria->marcos);
+		printf("Cantidad de frames ocupados:   %d\n", mem_ocup);
+		printf("Cantidad de frames libres:     %d\n", mem_free);
 
 	} else {
-		*proc_size = pageQuantity(pid);
+		printf("Tamanio total del proceso %d:  %d\n", pid, pageQuantity(pid));
 	}
 }
 

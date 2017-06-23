@@ -3,6 +3,10 @@
 
 #include "structsMem.h"
 
+// CONSOLA DE LA MEMORIA
+
+void *consolaUsuario(void);
+
 // OPERACIONES DE LA MEMORIA
 
 /* Cantidad de milisegundos de latencia de accesos a Memoria
@@ -23,7 +27,7 @@ void dump(int pid);
  * Si se lo llama con un pid de proceso (mayor que 0), afecta a proc_size
  * Si se lo llama con PID_MEM, solo afecta las ultimas tres variables
  */
-void size(int pid, int *proc_size, int *mem_frs, int *mem_ocup, int *mem_free);
+void size(int pid);
 
 
 // API DE LA MEMORIA
