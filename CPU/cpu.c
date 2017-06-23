@@ -92,7 +92,7 @@ int main(int argc, char* argv[]){
 		} else if (head->tipo_de_mensaje == PCB_EXEC){
 
 
-			if((pcb_serial = recvPCB(sock_kern)) == NULL){
+			if((pcb_serial = recvGeneric(sock_kern)) == NULL){
 				return FALLO_RECV;
 			}
 
@@ -129,8 +129,6 @@ int main(int argc, char* argv[]){
 }
 
 
-
-
 int ejecutarPrograma(void){
 
 	int stat, instr_size;
@@ -158,6 +156,7 @@ int ejecutarPrograma(void){
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(*linea, &functions, &kernel_functions);
 		pcb->pc++;
+		pcb->indiceDeCodigo++;
 
 	} while(!termino);
 	freeAndNULL((void **) linea);

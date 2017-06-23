@@ -2,6 +2,7 @@
 #include <netdb.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesCompartidas/funcionesCompartidas.h>
 
 #include "funcionesAnsisop.h"
 
@@ -56,9 +57,27 @@ t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
 }
 
 void finalizar(void){
-	termino = true;
 	printf("Finalizar\n");
-	list_remove(pcb->indiceDeStack, list_size(pcb->indiceDeStack)-1);
+	if(pcb->contextoActual==0){
+		termino = true;
+		return;
+	}
+	indiceStack* stackActual = list_get(pcb->indiceDeStack, pcb->contextoActual);
+	int i;
+	for(i=0 ; list_size(stackActual->args) ; i++){
+		posicionMemoria* arg = list_get(stackActual->args, i);
+		free(arg); // se liberan los argumentos
+	}
+
+	for(i=0 ; list_size(stackActual->vars) ; i++){
+		posicionMemoria* var = list_get(stackActual->vars, i);
+		free(var);//se liberan las variables
+	}
+	free(stackActual);
+	list_remove(pcb->indiceDeStack, pcb->contextoActual);
+	pcb->contextoActual--;
+	indiceStack* nuevoContexto=list_get(pcb->indiceDeStack,pcb->contextoActual);
+	pcb->pc=nuevoContexto->retPos;
 }
 
 t_valor_variable dereferenciar(t_puntero puntero) {
@@ -83,31 +102,54 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 
 void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
 	printf("Se va al label %s\n", t_nombre_etiqueta);
-	pcb->etiquetaSize = 4*sizeof(int32_t) + 2*sizeof(t_list); //TODO: ver esta formula, la vi por ahi
 	pcb->pc = metadata_buscar_etiqueta(t_nombre_etiqueta, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
 }
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 	printf("Se llama a la funcion %s\n", etiqueta);
+	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
+	indiceStack nuevoStack = crearStackVacio();
+	pcb->etiquetaSize = tamlineaStack;
+	list_add(pcb->indiceDeStack, &nuevoStack);
+	pcb->contextoActual++;
+
 	irAlLabel(etiqueta);
 }
 
 void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	printf("Se llama a la funcion %s y se guarda el retorno\n", etiqueta);
-	//TODO: Hacer
+	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
+	//posicionMemoria* varRetorno = malloc(sizeof(posicionMemoria));
+	//varRetorno->pag=donde_retornar/tamPagina
+	//varRetorno->offset = donde_retornar%tamPagina
+	indiceStack nuevoStack = crearStackVacio();
+	//nuevoStack->retVar = varRetorno;
+	pcb->etiquetaSize = tamlineaStack;
+	list_add(pcb->indiceDeStack, &nuevoStack);
+	pcb->contextoActual++;
+	irAlLabel(etiqueta);
 }
 
 void retornar (t_valor_variable retorno){
-	//int ret;
-	/*
-		 * tPackHeader h;
-			h.tipo_de_proceso = CPU;
-			h.tipo_de_mensaje = DEREFERENCIAR;
-			send(sock_mem, &h, sizeof(h), 0);
-		 */
-	//pcb->pc = pcb->indiceDeStack->retPos;
-	//TODO: Hacer
-}
+	int contextoActual= pcb->contextoActual;
+	indiceStack* stackActual = list_get(pcb->indiceDeStack,contextoActual);
+	int i;
+	for(i=0 ; list_size(stackActual->args) ; i++){
+		posicionMemoria* argumento = list_get(stackActual->args, i);
+		free(argumento); // se liberan los argumentos
+	}
 
+	for(i=0 ; list_size(stackActual->vars) ; i++){
+		posicionMemoria* var = list_get(stackActual->vars, i);
+		free(var); // se liberan las variables
+	}
+	posicionMemoria retVar = stackActual->retVar;
+	t_puntero direcVariable = (retVar.pag) + retVar.offset; // TODO: la pag habria que dividirla por el tam de la pagina (Propuesta: obtener frame_size en el handshake con Memoria, como hace el Kernel)
+	asignar(direcVariable,retorno);
+	pcb->pc = stackActual->retPos;
+	free(stackActual);
+	list_remove(pcb->indiceDeStack,pcb->contextoActual);
+	pcb->contextoActual--;
+}
 t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 	printf("Se obtiene el valor de variable compartida.");
 	return 20;

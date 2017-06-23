@@ -171,8 +171,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	char *pcb_serial;
 	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
 
-	size_t ctesInt_size         = 7 * sizeof (int);
-	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
+	size_t ctesInt_size         = CTES_INT_PCB * sizeof (int);
+	size_t indiceCod_size       = pcb->cantidad_instrucciones * 2 * sizeof(int);
 	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
 	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
 
@@ -199,14 +199,14 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
 	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->contextoActual, sizeof (int));
+	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
 
 	// serializamos indice de codigo
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start);
-	off += sizeof pcb->indiceDeCodigo->start;
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo->offset, sizeof pcb->indiceDeCodigo->offset);
-	off += sizeof pcb->indiceDeCodigo->offset;
+	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
+	off += indiceCod_size;
 
 	// serializamos indice de stack
 	char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
@@ -222,7 +222,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
 	*pack_size = off;
 
-	//free(stack_serial); // todo: ver por que rompe
+	freeAndNULL((void **) &stack_serial);
 	return pcb_serial;
 }
 
@@ -288,16 +288,10 @@ tPCB *deserializarPCB(char *pcb_serial){
 	puts("Deserializamos PCB");
 
 	int offset = 0;
-	size_t indiceCod_size = sizeof (t_puntero_instruccion) + sizeof (t_size);
-
+	size_t indiceCod_size;
 	tPCB *pcb;
 
 	if ((pcb = malloc(sizeof *pcb)) == NULL){
-		fprintf(stderr, "Fallo malloc\n");
-		return NULL;
-	}
-
-	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
 		fprintf(stderr, "Fallo malloc\n");
 		return NULL;
 	}
@@ -314,13 +308,19 @@ tPCB *deserializarPCB(char *pcb_serial){
 	offset += sizeof(int);
 	memcpy(&pcb->estado_proc, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
+	memcpy(&pcb->contextoActual, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
 	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 
-	memcpy(&pcb->indiceDeCodigo->start, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->start));
-	offset += sizeof (pcb->indiceDeCodigo->start);
-	memcpy(&pcb->indiceDeCodigo->offset, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->offset));
-	offset += sizeof (pcb->indiceDeCodigo->offset);
+	indiceCod_size = pcb->cantidad_instrucciones * 2 * sizeof(int);
+	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	memcpy(pcb->indiceDeCodigo, pcb_serial + offset, indiceCod_size);
+	offset += indiceCod_size;
 
 	deserializarStack(pcb, pcb_serial, &offset);
 
@@ -333,7 +333,6 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	return pcb;
 }
-
 
 void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	puts("Deserializamos stack..");
@@ -390,28 +389,6 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	}
 }
 
-char *recvPCB(int sock_in){
-	puts("Se recibe el PCB..");
-
-	int stat, pack_size;
-	char *pcb_serial;
-
-	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	printf("Paquete de size: %d\n", pack_size);
-
-	pcb_serial = malloc(pack_size);
-	if ((stat = recv(sock_in, pcb_serial, pack_size, 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	return pcb_serial;
-}
-
 char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 
 	int code_page = 0;
@@ -427,13 +404,13 @@ char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 	memcpy(bytereq_serial, &head_tmp, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 	memcpy(bytereq_serial + *pack_size, &pcb->id, sizeof pcb->id);
-	*pack_size += sizeof pcb->id;
+	*pack_size += sizeof (int);
 	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
-	*pack_size += sizeof code_page;
+	*pack_size += sizeof (int);
 	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start); // OFFSET_BEGIN
-	*pack_size += sizeof pcb->indiceDeCodigo->start;
-	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); 		// SIZE
-	*pack_size += sizeof size_instr;
+	*pack_size += sizeof (t_puntero_instruccion);
+	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); // SIZE
+	*pack_size += sizeof (int);
 
 	return bytereq_serial;
 }
@@ -702,6 +679,8 @@ char *serializePIDPaginas(tPackPidPag *ppidpag){
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
 // todo:
 	tPackPidPag *ppidpag;
+	ppidpag = malloc(3);
+	memcpy(ppidpag, pidpag_serial, 3);
 	return ppidpag;
 }
 

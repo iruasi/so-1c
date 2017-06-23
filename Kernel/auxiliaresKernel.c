@@ -22,6 +22,7 @@
 
 uint32_t globalPID;
 
+extern t_list *listaProgramas;
 
 
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size){
@@ -57,14 +58,20 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 
 // todo: persisitir
-tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags){
+tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
+	dataHiloProg hp;
+	hp.pid = globalPID;
+	hp.sock = sock_hilo;
+	list_add(listaProgramas, &hp);
+
 
 	t_metadata_program *meta = metadata_desde_literal(src_code->sourceCode);
+	t_size indiceCod_size = meta->instrucciones_size * 2 * sizeof(int);
 
 	bool hayEtiquetas = (meta->etiquetas_size > 0)? true : false;
 
 	tPCB *nuevoPCB = malloc(sizeof *nuevoPCB);
-	nuevoPCB->indiceDeCodigo = malloc(sizeof nuevoPCB->indiceDeCodigo);
+	nuevoPCB->indiceDeCodigo = malloc(indiceCod_size);
 
 	nuevoPCB->indiceDeStack = list_create();
 
@@ -80,9 +87,9 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags){
 	nuevoPCB->pc = 0;
 	nuevoPCB->paginasDeCodigo = cant_pags;
 	nuevoPCB->estado_proc = 0;
+	nuevoPCB->contextoActual = 0; // todo: verificar que esta inicializacion sea coherente
 	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
-	nuevoPCB->indiceDeCodigo->start  = meta->instrucciones_serializado->start;
-	nuevoPCB->indiceDeCodigo->offset = meta->instrucciones_serializado->offset;
+	memcpy(nuevoPCB->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
 
 	nuevoPCB->indiceDeEtiquetas = meta->etiquetas;
 
