@@ -21,7 +21,7 @@ extern int pid_free, free_page;
 
 void retardo(int ms){
 	retardo_mem = ms / 1000.0;
-	printf("Se cambio la latencia de acceso a Memoria a %f segundos", retardo_mem);
+	printf("Se cambio la latencia de acceso a Memoria a %f segundos\n", retardo_mem);
 }
 
 void flush(void){

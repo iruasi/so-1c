@@ -48,11 +48,13 @@ int main(int argc, char* argv[]){
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
+/*  Esto bloquea la ejecucion del resto de la Memoria... queda comentado de momento
 	pthread_t consola_mem;
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	pthread_create(&consola_mem, &attr, consolaUsuario(), NULL);
+*/
 
 	pthread_t kern_thread;
 	bool kernExists = false;

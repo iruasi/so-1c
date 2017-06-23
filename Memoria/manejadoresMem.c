@@ -16,6 +16,7 @@
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 
+int frameHash(int pid, int page);
 
 int pid_free, pid_inv, free_page;
 int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
@@ -46,11 +47,12 @@ void liberarEstructurasMemoria(void){
 	freeAndNULL((void **) &CACHE);
 	freeAndNULL((void **) &CACHE_lines);
 	freeAndNULL((void **) &CACHE_accs);
-
 }
 
 int setupMemoria(void){
 	int stat;
+
+	retardo(1500);
 
 	pid_free   = -2;
 	pid_inv   = -3;
@@ -108,6 +110,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 			puts("No pudo obtener el frame");
 			return NULL;
 		}
+		insertarEnCache(pid, page, cont);
 	}
 
 	memcpy(buffer, cont + offset, size + 1);
@@ -130,139 +133,33 @@ int buscarEnMemoria(int pid, int page){
 // por ahora la busqueda es secuencial...
 	sleep(retardo_mem);
 
-	int i, off, fr; // frame y offset para recorrer la tabla de invertidas
-	gotoFrameInvertida(marcos_inv, &fr, &off);
+	tEntradaInv *entry;
+	int cic, off, fr; // frame y offset para recorrer la tabla de invertidas
+	int frame_ap = frameHash(pid, page); // aproximacion de frame buscado
 
-	int frame_repr = marcos_inv; // frame representativo de la posicion en MEMORIA FISICA posta
+	for(cic = 0; cic < memoria->marcos; cic++){
 
-	tEntradaInv *entry = (tEntradaInv *) MEM_FIS;
-	for(i = 0; i < marcos_inv; frame_repr++){ //todo: aumenar i cuando se deba
-		gotoFrameInvertida(frame_repr, &fr, &off);
+		gotoFrameInvertida(frame_ap, &fr, &off);
 		entry = (tEntradaInv *) (MEM_FIS + fr * memoria->marco_size + off);
+
 		if (pid == entry->pid && page == entry->pag)
-			return frame_repr;
+			return frame_ap;
+		frame_ap = (frame_ap+1) % memoria->marcos;
 	}
-
-	/* Logica
-	 * buscar (pid , page){
-	 * 	dirPid = hashFunc(pid , page); guardamos el valor de la tabla
-	 * 	valorDirPid = traerValor(dirPid); trae el valor PID que esta en la posicion de la tabla
-	 * 	while (pid != valorDirPid){
-	 * 		dirPid = traerSiguiente(dirPid); trae la direccion siguiente a esa posicion del campo de la tabla
-	 * 		if( dirPid == NULL)
-	 * 			return FRAME_NOT_FOUND; // si no esta agregado en esa cadena de memoria, arroja este error
-	 * 		valorDirPid =  traerValor(dirPid);
-	 * 	return dirPid;
-	 *
-	 */
-
-
-
-	//uint8_t *frame = MEM_FIS; //hashFunction(pid, page);
 
 	return FRAME_NOT_FOUND;
 }
 
-int funcionHash(int pid, int page){
-
-	int direccion = pid % marcos_inv;
-
-	if ((direccion + page) > marcos_inv)
-
-		direccion = (direccion + page) % marcos_inv;
-
-	else
-
-		direccion = (direccion + page);
-
-	return direccion;
+int frameHash(int pid, int page){
+	char str1[20];
+	char str2[20];
+	sprintf(str1, "%d", pid);
+	sprintf(str2, "%d", page);
+	strcat(str1, str2);
+	int frame_apr = atoi(str1) % memoria->marcos;
+	return frame_apr;
 }
 
-int agregarEnMemoria (int pid, int page){
-
-	int *dirPidAnterior, *dirPid;
-	dirPidAnterior = malloc(sizeof(int));
-	dirPid = malloc(sizeof(int));
-	*dirPid = funcionHash(pid, page);
-
-
-	if (buscarEnMemoria(pid, page) == FRAME_NOT_FOUND){
-
-		int valorDirPid = traerValor(dirPid);
-
-		while(valorDirPid != pid){
-
-			dirPidAnterior = dirPid;
-
-			dirPid = traerSiguiente(dirPid);
-
-			if(dirPid == NULL){
-			/*TODO: crear metodo para agregar la nueva porción de memoria;
-			agrega en la dirAnterior una nueva direccóin para agregar el pid en la nueva posiócion */
-			}
-
-
-		}
-
-		return 1;
-	}
-	return -1; //todo: asignar codigo de error que no se pudo agregar en memoria
-}
-
-int traerSiguiente(int dirPid){
-	int siguienteDir;
-	/*
-		Busca en la tabla la direccion que se le pasa por parametro y devuelve la direccion del siguiente eslabon de la cadena
-	*/
-
-	return siguienteDir;
-}
-
-int traerValor(int pid){
-	int valorPid;
-	/*
-	 * Trae el valor de PID asociado a la direccion que se le pasa
-	 */
-	return valorPid;
-}
-
-
-
-/*
-void defragmentarHeap(uint8_t *heap_dir){
-	//para este checkpoint, heap_dir va a ser exactamente MEM_FIS
-
-	uint8_t *head = heap_dir;
-
-	tHeapMeta *head_hmd = (tHeapMeta *) head;
-	uint32_t off = 0;
-
-	bool rta = esReservable(0, head_hmd);
-	int compact = 0;
-
-	while (rta != ULTIMO_HMD){
-		if (rta == true){
-
-			off += head_hmd->size + SIZEOF_HMD;
-			compact++;
-			rta = esReservable(0, (tHeapMeta *) off);
-
-		} else if (compact) { // no es un bloque reservable, pero es compactable
-
-			printf("Se compactan %d bloques de memoria..\n", compact);
-			head_hmd->size = ((uint32_t) head_hmd) + off - SIZEOF_HMD;
-			compact = 0;
-			head_hmd = (tHeapMeta *) off;
-
-		} else { // no es un bloque reservable, ni es compactable
-			head_hmd += head_hmd->size + SIZEOF_HMD;
-		}
-
-		rta = esReservable(0, head_hmd);
-		off = 0;
-	}
-}
-*/
 void dumpMemStructs(void){
 
 	int i, fr, off;
@@ -285,7 +182,7 @@ void dumpMemStructs(void){
 
 void dumpMemContent(int pid){
 
-	if (pid == 0){
+	if (pid == -4){
 		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
 	} else {
 
@@ -301,8 +198,3 @@ void dumpMemContent(int pid){
 
 	}
 }
-
-
-
-
-
