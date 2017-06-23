@@ -50,6 +50,8 @@ int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas q
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
+t_cpu * cpu;
+
 int main(int argc, char* argv[]){
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
@@ -62,7 +64,7 @@ int main(int argc, char* argv[]){
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	t_cpu * cpu;
+	cpu = malloc(sizeof cpu);
 
 	listaDeCpu = list_create();
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
@@ -164,13 +166,12 @@ int main(int argc, char* argv[]){
 					return FALLO_CONEXION;
 				}
 
-
 				cpu -> fd_cpu = sock_cpu;
 				cpu -> pid = -1;
 				cpu ->disponibilidad = DISPONIBLE;
 
-				fd_max = MAX(cpu->fd_cpu, fd_max);
 				list_add(listaDeCpu,cpu);
+				fd_max = MAX(cpu->fd_cpu, fd_max);
 				break;
 
 			} else if (fd == sock_lis_con){
@@ -271,14 +272,14 @@ limpieza:
 	// Un poco mas de limpieza antes de cerrar
 
 	free(header_tmp);
-
+	free(cpu);cpu = NULL;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 	close(sock_mem);
 	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
-
+	list_destroy(listaDeCpu);
 	liberarConfiguracionKernel(kernel);
 	return stat;
 }

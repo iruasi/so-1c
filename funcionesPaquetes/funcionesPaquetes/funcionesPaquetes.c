@@ -58,36 +58,91 @@ int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
 	return stat;
 }
 
+char *recvGeneric(int sock_in){
+	puts("Se recibe el paquete serializado..");
+
+	int stat, pack_size;
+	char *p_serial;
+
+	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+
+	printf("Paquete de size: %d\n", pack_size);
+
+	if ((p_serial = malloc(pack_size)) == NULL){
+		printf("No se pudieron mallocar %d bytes para paquete generico\n", pack_size);
+		return NULL;
+	}
+
+	if ((stat = recv(sock_in, p_serial, pack_size, 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+
+	return p_serial;
+}
 
 /****** Definiciones de [De]Serializaciones ******/
 
-
-char *serializeBytes(tProceso proc, tMensaje msj, char* buffer, int buffer_size, int *pack_size){
+char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
 
 	char *bytes_serial;
+	int payload_size;
 
-	if ((bytes_serial = malloc(buffer_size + HEAD_SIZE)) == NULL){
+	if ((bytes_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + buffer_size)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para paquete de bytes\n");
 		return NULL;
 	}
 
-	memcpy(bytes_serial, &proc, sizeof proc);
-	*pack_size += sizeof proc;
-	memcpy(bytes_serial + *pack_size, &msj, sizeof msj);
-	*pack_size += sizeof msj;
+	*pack_size = 0;
+	memcpy(bytes_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+	// hacemos lugar para el payload_size
+	*pack_size += sizeof(int);
+
 	memcpy(bytes_serial + *pack_size, &buffer_size, sizeof buffer_size);
-	*pack_size += sizeof buffer_size;
+	*pack_size += sizeof (int);
 	memcpy(bytes_serial + *pack_size, buffer, buffer_size);
 	*pack_size += buffer_size;
 
-//	assertEq(sizeof *) TODO: assertEquals
+	payload_size = *pack_size - (HEAD_SIZE + sizeof(int));
+	printf("El size del payload es: %d\n", payload_size);
+	memcpy(bytes_serial + HEAD_SIZE, &payload_size, sizeof(int));
 
 	return bytes_serial;
 }
 
-tPackBytes *deserializeBytes(int sock_in){
+char *recvBytes(int sock_in){
+	puts("Se reciben Bytes..");
 
-	int stat, bytelen;
+	int stat, byte_len;
+	char *pbytes_serial;
+
+	if ((stat = recv(sock_in, &byte_len, sizeof(int), 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+
+	printf("Paquete de size: %d\n", byte_len);
+
+	if ((pbytes_serial = malloc(byte_len)) == NULL){
+		puts("Fallo de allocacion para paquete de bytes");
+		return NULL;
+	}
+
+	if ((stat = recv(sock_in, pbytes_serial, byte_len, 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+
+	return pbytes_serial;
+}
+
+tPackBytes *deserializeBytes(char *bytes_serial){
+
+	int off;
 	tPackBytes *pbytes;
 
 	if ((pbytes = malloc(sizeof *pbytes)) == NULL){
@@ -95,20 +150,17 @@ tPackBytes *deserializeBytes(int sock_in){
 		return NULL;
 	}
 
-	if((stat = recv(sock_in, &bytelen, sizeof bytelen, 0)) == -1){
-		perror("Fallo recepcion de size de paquete de bytes. error");
+	off = 0;
+	memcpy(&pbytes->bytelen, bytes_serial + off, sizeof (int));
+	off += sizeof (int);
+
+	if ((pbytes->bytes = malloc(pbytes->bytelen)) == NULL){
+		printf("No se pudieron mallocar %d bytes al Paquete De Bytes\n", pbytes->bytelen);
 		return NULL;
 	}
 
-	if ((pbytes->bytes = malloc(bytelen)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para los bytes del paquete de bytes\n");
-		return NULL;
-	}
-
-	if((stat = recv(sock_in, pbytes->bytes, sizeof bytelen, 0)) == -1){
-		perror("Fallo recepcion de bytes del paquete de bytes. error");
-		return NULL;
-	}
+	memcpy(pbytes->bytes, bytes_serial + off, pbytes->bytelen);
+	off += pbytes->bytelen;
 
 	return pbytes;
 }
@@ -119,8 +171,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	char *pcb_serial;
 	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
 
-	size_t ctesInt_size         = 7 * sizeof (int);
-	size_t indiceCod_size       = sizeof (t_puntero_instruccion) + sizeof (t_size);
+	size_t ctesInt_size         = CTES_INT_PCB * sizeof (int);
+	size_t indiceCod_size       = pcb->cantidad_instrucciones * 2 * sizeof(int);
 	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
 	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
 
@@ -145,16 +197,16 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
 	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->id_cpu,sizeof(int));
-	off += sizeof(int);
+	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->contextoActual, sizeof (int));
+	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
 
 	// serializamos indice de codigo
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start);
-	off += sizeof pcb->indiceDeCodigo->start;
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo->offset, sizeof pcb->indiceDeCodigo->offset);
-	off += sizeof pcb->indiceDeCodigo->offset;
+	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
+	off += indiceCod_size;
 
 	// serializamos indice de stack
 	char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
@@ -170,7 +222,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
 	*pack_size = off;
 
-	//free(stack_serial); // todo: ver por que rompe
+	freeAndNULL((void **) &stack_serial);
 	return pcb_serial;
 }
 
@@ -236,16 +288,10 @@ tPCB *deserializarPCB(char *pcb_serial){
 	puts("Deserializamos PCB");
 
 	int offset = 0;
-	size_t indiceCod_size = sizeof (t_puntero_instruccion) + sizeof (t_size);
-
+	size_t indiceCod_size;
 	tPCB *pcb;
 
 	if ((pcb = malloc(sizeof *pcb)) == NULL){
-		fprintf(stderr, "Fallo malloc\n");
-		return NULL;
-	}
-
-	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
 		fprintf(stderr, "Fallo malloc\n");
 		return NULL;
 	}
@@ -260,15 +306,21 @@ tPCB *deserializarPCB(char *pcb_serial){
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
-	memcpy(&pcb->id_cpu,pcb_serial + offset,sizeof(int));
+	memcpy(&pcb->estado_proc, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->contextoActual, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 
-	memcpy(&pcb->indiceDeCodigo->start, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->start));
-	offset += sizeof (pcb->indiceDeCodigo->start);
-	memcpy(&pcb->indiceDeCodigo->offset, pcb_serial + offset, sizeof (pcb->indiceDeCodigo->offset));
-	offset += sizeof (pcb->indiceDeCodigo->offset);
+	indiceCod_size = pcb->cantidad_instrucciones * 2 * sizeof(int);
+	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
+		fprintf(stderr, "Fallo malloc\n");
+		return NULL;
+	}
+
+	memcpy(pcb->indiceDeCodigo, pcb_serial + offset, indiceCod_size);
+	offset += indiceCod_size;
 
 	deserializarStack(pcb, pcb_serial, &offset);
 
@@ -281,7 +333,6 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	return pcb;
 }
-
 
 void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	puts("Deserializamos stack..");
@@ -338,32 +389,10 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	}
 }
 
-char *recvPCB(int sock_in){
-	puts("Se recibe el PCB..");
-
-	int stat, pack_size;
-	char *pcb_serial;
-
-	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	printf("Paquete de size: %d\n", pack_size);
-
-	pcb_serial = malloc(pack_size);
-	if ((stat = recv(sock_in, pcb_serial, pack_size, 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	return pcb_serial;
-}
-
 char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 
 	int code_page = 0;
-	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTRUC_GET};
+	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTR};
 
 	char *bytereq_serial;
 	if ((bytereq_serial = malloc(sizeof(tPackByteReq))) == NULL){
@@ -375,15 +404,13 @@ char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
 	memcpy(bytereq_serial, &head_tmp, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 	memcpy(bytereq_serial + *pack_size, &pcb->id, sizeof pcb->id);
-	*pack_size += sizeof pcb->id;
-	memcpy(bytereq_serial + *pack_size, &pcb->pc, sizeof pcb->pc);
-	*pack_size += sizeof pcb->pc;
+	*pack_size += sizeof (int);
 	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
-	*pack_size += sizeof code_page;
-	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->offset); // OFFSET_BEGIN
-	*pack_size += sizeof pcb->indiceDeCodigo->start;
-	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); 		// SIZE
-	*pack_size += sizeof size_instr;
+	*pack_size += sizeof (int);
+	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start); // OFFSET_BEGIN
+	*pack_size += sizeof (t_puntero_instruccion);
+	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); // SIZE
+	*pack_size += sizeof (int);
 
 	return bytereq_serial;
 }
@@ -419,38 +446,68 @@ tPackByteReq *deserializeByteRequest(int sock_in){
 	return pbrq;
 }
 
-tPackByteAlmac *deserializeByteAlmacenamiento(int sock_in){
+char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size){
 
-	int stat;
+	int payload_size;
+
+	char *pbyte_al;
+	if ((pbyte_al = malloc(sizeof (tPackByteAlmac))) == NULL){
+		printf("No se pudo mallocar %d bytes para el paquete de bytes almacenamiento\n", sizeof *pbyte_al);
+		return NULL;
+	}
+
+	*pack_size = 0;
+	memcpy(pbyte_al + *pack_size, &pbal->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	// dejamos espacio para el payload_size
+	*pack_size += sizeof(int);
+
+	memcpy(pbyte_al + *pack_size, &pbal->pid, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(pbyte_al + *pack_size, &pbal->page, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(pbyte_al + *pack_size, &pbal->offset, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(pbyte_al + *pack_size, &pbal->size, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(pbyte_al + *pack_size, pbal->bytes, pbal->size);
+	*pack_size += pbal->size;
+
+	payload_size = *pack_size - (HEAD_SIZE + sizeof(int));
+	memcpy(pbyte_al + HEAD_SIZE, &payload_size, sizeof(int));
+
+	return pbyte_al;
+}
+
+tPackByteAlmac *deserializeByteAlmacenamiento(char *pbal_serial){
+	puts("deserializamos bytes almacenamiento");
+
+	int off;
 	tPackByteAlmac *pbal;
 	if ((pbal = malloc(sizeof *pbal)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para el paquete de bytes deserializado\n");
-	}
-
-	if ((stat = recv(sock_in, &pbal->pid, sizeof pbal->pid, 0)) == -1){
-		perror("Fallo la recepcion del PID del pedido de almacenamiento. error");
+		printf("No se pudo mallocar %d bytes para el paquete de bytes deserializado\n", sizeof *pbal);
 		return NULL;
 	}
 
-	if ((stat = recv(sock_in, &pbal->page, sizeof pbal->page, 0)) == -1){
-		perror("Fallo la recepcion de la pagina del pedido de almacenamiento. error");
+	off = 0;
+	memcpy(&pbal->pid,    pbal_serial + off, sizeof (int));
+	off += sizeof (int);
+	memcpy(&pbal->page,   pbal_serial + off, sizeof (int));
+	off += sizeof (int);
+	memcpy(&pbal->offset, pbal_serial + off, sizeof (int));
+	off += sizeof (int);
+	memcpy(&pbal->size,   pbal_serial + off, sizeof (int));
+	off += sizeof (int);
+
+	if ((pbal->bytes = malloc(pbal->size)) == NULL){
+		printf("No se pudieron mallocar %d bytes para el paquete de Almacenamiento\n", pbal->size);
+		freeAndNULL((void **) &pbal);
 		return NULL;
 	}
 
-	if ((stat = recv(sock_in, &pbal->offset, sizeof pbal->offset, 0)) == -1){
-		perror("Fallo la recepcion del offset del pedido de almacenamiento. error");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, &pbal->size, sizeof pbal->size, 0)) == -1){
-		perror("Fallo la recepcion del size del pedido de almacenamiento. error");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, &pbal->bytes, pbal->size, 0)) == -1){
-		perror("Fallo la recepcion de los bytes del pedido de almacenamiento. error");
-		return NULL;
-	}
+	memcpy(pbal->bytes,  pbal_serial + off, pbal->size);
+	off += pbal->size;
 
 	return pbal;
 }
@@ -607,7 +664,6 @@ char *serializePIDPaginas(tPackPidPag *ppidpag){
 		return NULL;
 	}
 
-
 	memcpy(pidpag_serial + off, &ppidpag->head.tipo_de_proceso, sizeof ppidpag->head.tipo_de_proceso);
 	off += sizeof ppidpag->head.tipo_de_proceso;
 	memcpy(pidpag_serial + off, &ppidpag->head.tipo_de_mensaje, sizeof ppidpag->head.tipo_de_mensaje);
@@ -617,13 +673,14 @@ char *serializePIDPaginas(tPackPidPag *ppidpag){
 	memcpy(pidpag_serial + off, &ppidpag->pageCount, sizeof ppidpag->pageCount);
 	off += sizeof ppidpag->pageCount;
 
-
 	return pidpag_serial;
 }
 
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
 // todo:
 	tPackPidPag *ppidpag;
+	ppidpag = malloc(3);
+	memcpy(ppidpag, pidpag_serial, 3);
 	return ppidpag;
 }
 

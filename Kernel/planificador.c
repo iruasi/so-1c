@@ -35,9 +35,8 @@ void pausarPlanif(){
 extern t_list * listaDeCpu;
 
 
-t_queue *New, *Exit, *Ready,*Exec;
-t_list  *Block,
-		*cpu_exec;
+t_queue *New, *Exit, *Block,*Ready,*Exec;
+t_list	*cpu_exec;
 
 
 int grado_mult;
@@ -52,16 +51,21 @@ void setupPlanificador(void){
 	Exit = queue_create();
 
 	Exec = queue_create();
-	Block = list_create();
+	Block = queue_create();
+
+	cpu_exec = list_create();
 
 }
 
 void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
 
 	int pack_size, stat;
-	puts("Creamos memoria para la variable");
+	puts("Creamos memoria para la variable\n");
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
 	puts("Comenzamos a serializar el PCB");
+
+	printf("Valor del id del pcb %d",nuevoPCB->id);
+
 	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
 
 	printf("pack_size: %d\n", pack_size);
@@ -84,14 +88,12 @@ void planificar(){
 	tPCB * pcbAux;
 	t_cpu * cpu;
 
-	pcbAux = (tPCB*) queue_pop(New);
-
 	while(1){
 
 	switch(kernel->algo){
 
 	case (FIFO):
-
+		printf("Estoy en fifo\n");
 		if(!queue_is_empty(New)){
 			pcbAux = (tPCB*) queue_pop(New);
 			if(grado_mult > 0){
@@ -119,28 +121,34 @@ void planificar(){
 		//Para saber que hacer con BLOCK y EXIT, recibo mensajes de las cpus activas
 		int i,pcb_serial;
 		for(i = 0; i < list_size(cpu_exec); i ++){
-			int cpu = (int *) list_get(cpu_exec,i);
+			int * cpu = (int *) list_get(cpu_exec,i);
 			tPackHeader  header;
-			int head = recv(cpu,&header,HEAD_SIZE,0);
+
+			int head = recv(*cpu,&header,HEAD_SIZE,0);
 			if(head == -1) printf("No se pudo recibir el mensaje");
-			if((pcb_serial = recvPCB(cpu)) == NULL){
+
+			if((pcb_serial = recvGeneric(*cpu)) == NULL){
 					printf("Fallo recvPCB");
 					break;
 						}
 			pcbAux = deserializarPCB(pcb_serial);
 
-			switch(header.tipo_de_mensaje){//hacer este campo para el pcb
+			switch(header.tipo_de_mensaje){
 
 				case(RECURSO_NO_DISPONIBLE):
-					list_add(Block,pcbAux);
+					queue_push(Block,pcbAux);
 					printf("Se agrega pcb a lista de bloqueados por falta de recursos");
 					break;
 				case(FIN_PROCESO):case(ABORTO_PROCESO): //COLA EXIT
 					queue_push(Exit,pcbAux);
 					printf("Se finaliza un proceso, se agrega a la cola exit");
+					//ConsolaAsociada()
+					//LiberarCpuAsociada()
+					//LiberarMemoriaDelPrograma()
 					//Esta cola solo sirve para almacenar pcb (enunciado)
 					break;
-
+				default:
+					break;
 					}
 			if(!queue_is_empty(Block)){
 				pcbAux = (tPCB *) queue_pop(Block);
@@ -159,7 +167,9 @@ void planificar(){
 
 		break;
 			}
-
+	free(cpu);cpu = NULL;
+	free(pcbAux); pcbAux = NULL;
+	list_destroy(cpu_exec);
 	}
 
 /* Una vez que lo se envia el pcb a la cpu, la cpu debería avisar si se pudo ejecutar todo o no
