@@ -24,9 +24,6 @@
 #define MAX_PORT_LEN 6
 
 #define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
-tPCB *deserializarPCB(char *pcb_serial);
-char *recvGeneric(int sock_in);
-tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo);
 
 int pedirInstruccion(int instr_size);
 int recibirInstruccion(char **linea, int instr_size);
@@ -101,8 +98,6 @@ int main(int argc, char* argv[]){
 
 			pcb = deserializarPCB(pcb_serial);
 
-			pcb = nuevoPCB(NULL, 3, 3);
-
 			puts("Recibimos un PCB para ejecutar...");
 			if ((stat = ejecutarPrograma()) != 0){
 				fprintf(stderr, "Fallo ejecucion de programa. status: %d\n", stat);
@@ -134,8 +129,6 @@ int main(int argc, char* argv[]){
 }
 
 
-
-
 int ejecutarPrograma(void){
 
 	int stat, instr_size;
@@ -164,7 +157,6 @@ int ejecutarPrograma(void){
 		analizadorLinea(*linea, &functions, &kernel_functions);
 		pcb->pc++;
 		pcb->indiceDeCodigo++;
-
 
 	} while(!termino);
 	freeAndNULL((void **) linea);
@@ -234,121 +226,4 @@ char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLa
 	char *aRetornar = calloc(1, 100);
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
 	return aRetornar;
-}
-
-tPCB *deserializarPCB(char *pcb_serial){
-	puts("Deserializamos PCB");
-
-	int offset = 0;
-	size_t indiceCod_size;
-	tPCB *pcb;
-
-	if ((pcb = malloc(sizeof *pcb)) == NULL){
-		fprintf(stderr, "Fallo malloc\n");
-		return NULL;
-	}
-
-	memcpy(&pcb->id, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->pc, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->paginasDeCodigo, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->etiquetaSize, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->estado_proc, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->contextoActual, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
-	offset += sizeof(int);
-
-	indiceCod_size = pcb->cantidad_instrucciones * 2 * sizeof(int);
-	if ((pcb->indiceDeCodigo = malloc(indiceCod_size)) == NULL){
-		fprintf(stderr, "Fallo malloc\n");
-		return NULL;
-	}
-
-	memcpy(pcb->indiceDeCodigo, pcb_serial + offset, indiceCod_size);
-	offset += indiceCod_size;
-
-	deserializarStack(pcb, pcb_serial, &offset);
-
-	// si etiquetaSize es 0, malloc() retorna un puntero equivalente a NULL
-	pcb->indiceDeEtiquetas = malloc(pcb->etiquetaSize);
-	if (pcb->etiquetaSize){ // si hay etiquetas, las memcpy'amos
-		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
-		offset += pcb->etiquetaSize;
-	}
-
-	return pcb;
-}
-
-char *recvGeneric(int sock_in){
-	puts("Se recibe el paquete serializado..");
-
-	int stat, pack_size;
-	char *p_serial;
-
-	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	printf("Paquete de size: %d\n", pack_size);
-
-	if ((p_serial = malloc(pack_size)) == NULL){
-		printf("No se pudieron mallocar %d bytes para paquete generico\n", pack_size);
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, p_serial, pack_size, 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	return p_serial;
-}
-
-
-tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
-
-	FILE * f = fopen("/home/utnso/CPU/facil.ansisop", "rb");
-	char *src_cod = malloc(72);
-	fread(src_cod, 72, 1, f);
-
-	t_metadata_program *meta = metadata_desde_literal(src_code->sourceCode);
-	t_size indiceCod_size = meta->instrucciones_size * 2 * sizeof(int);
-
-	bool hayEtiquetas = (meta->etiquetas_size > 0)? true : false;
-
-	tPCB *nuevoPCB = malloc(sizeof *nuevoPCB);
-	nuevoPCB->indiceDeCodigo = malloc(indiceCod_size);
-
-	nuevoPCB->indiceDeStack = list_create();
-
-	nuevoPCB->etiquetaSize = 0;
-	if (hayEtiquetas){
-		nuevoPCB->etiquetaSize = meta->etiquetas_size;
-		nuevoPCB->indiceDeEtiquetas = malloc(nuevoPCB->etiquetaSize);
-		memcpy(nuevoPCB->indiceDeEtiquetas, meta->etiquetas, nuevoPCB->etiquetaSize);
-	}
-
-	nuevoPCB->id = 0;
-	nuevoPCB->pc = 0;
-	nuevoPCB->paginasDeCodigo = cant_pags;
-	nuevoPCB->estado_proc = 0;
-	nuevoPCB->contextoActual = 0; // todo: verificar que esta inicializacion sea coherente
-	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
-	memcpy(nuevoPCB->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
-
-	nuevoPCB->indiceDeEtiquetas = meta->etiquetas;
-
-	nuevoPCB->exitCode = 0;
-
-	//almacenar(nuevoPCB->id, meta);
-
-	return nuevoPCB;
 }

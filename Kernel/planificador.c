@@ -20,11 +20,6 @@ void pausarPlanif(){
 }
 
 
-// TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de NEW...
-// Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
-// Crear as funciones para el control de los semaforos de los planificadores
-
-
 
 /*
  * Se podria manejar la planificacion actuando en base a eventos. Cada vez que un evento sucede,
@@ -123,8 +118,6 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 
 	puts("Creamos memoria para la variable");
 
-
-
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC};
 	puts("Comenzamos a serializar el PCB");
 	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
@@ -138,33 +131,5 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
 	freeAndNULL((void **) &pack_pid);
-	//freeAndNULL((void **) &pcb_serial); todo: ver por que falla; por ahora que leakee
-}
-
-void updateQueue(t_queue *Q){
-
-
-
-}
-
-void freePCBs(t_queue *queue){
-
-	tPCB* pcb;
-	puts("Liberando todos los PCBs de la cola...");
-	while(queue_size(queue) > 0){
-
-		pcb = (tPCB *) queue_pop(queue);
-		freeAndNULL((void **) &pcb->indiceDeCodigo);
-		//freeAndNULL(pcb->indiceDeEtiquetas);
-		//freeAndNULL(pcb->indiceDeStack);
-		freeAndNULL((void **) &pcb);
-	}
-}
-
-void limpiarPlanificadores(){
-	freePCBs(New);   queue_destroy(New);
-	freePCBs(Ready); queue_destroy(Ready);
-//	freePCBs(Exec);  list_destroy(Exec);
-//	freePCBs(Block); list_destroy(Block);
-	freePCBs(Exit);  queue_destroy(Exit);
+	//freeAndNULL((void **) &pcb_serial); //todo: falla por 'double free or corruption'; pero ni idea que implica...
 }

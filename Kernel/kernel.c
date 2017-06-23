@@ -386,6 +386,7 @@ void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_cod
 
 	printf("se enviaron %d bytes\n", stat);
 
-	//freeAndNULL((void **) pbal); todo: rompe
+	freeAndNULL((void **) &pbal);
+	sleep(2);
 	puts("\n\n\t\tSe completo el test.\n\n");
 }

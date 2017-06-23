@@ -205,7 +205,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 
 	// serializamos indice de codigo
-	memcpy(pcb_serial + off, &pcb->indiceDeCodigo, indiceCod_size);
+	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
 	off += indiceCod_size;
 
 	// serializamos indice de stack
@@ -222,7 +222,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
 	*pack_size = off;
 
-	//free(stack_serial); // todo: ver por que rompe
+	freeAndNULL((void **) &stack_serial);
 	return pcb_serial;
 }
 
@@ -333,7 +333,6 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	return pcb;
 }
-
 
 void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	puts("Deserializamos stack..");
@@ -680,6 +679,8 @@ char *serializePIDPaginas(tPackPidPag *ppidpag){
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
 // todo:
 	tPackPidPag *ppidpag;
+	ppidpag = malloc(3);
+	memcpy(ppidpag, pidpag_serial, 3);
 	return ppidpag;
 }
 

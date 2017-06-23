@@ -108,6 +108,8 @@ char *leerBytes(int pid, int page, int offset, int size){
 			puts("No pudo obtener el frame");
 			return NULL;
 		}
+
+		insertarEnCache(pid, page, cont);
 	}
 
 	memcpy(buffer, cont + offset, size + 1);
