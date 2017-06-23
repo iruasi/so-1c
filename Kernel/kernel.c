@@ -47,13 +47,16 @@ tPackSrcCode *recibir_paqueteSrc(int fd);
 
 tHeapProc *hProcs;
 int hProcs_cant;
-
+t_list * listaDeCpu;
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
-int sock_cpu;
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
+
 t_list *listaProgramas;
+
+t_cpu * cpu;
+
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -64,11 +67,14 @@ int main(int argc, char* argv[]){
 	listaProgramas = list_create();
 
 	int stat, ready_fds;
+	int sock_cpu;
 	int fd, new_fd;
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
+	cpu = malloc(sizeof cpu);
 
+	listaDeCpu = list_create();
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
 	FD_ZERO(&read_fd);
@@ -162,12 +168,18 @@ int main(int argc, char* argv[]){
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
 				sock_cpu = handleNewListened(fd, &master_fd);
+
 				if (sock_cpu < 0){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
 
-				fd_max = MAX(sock_cpu, fd_max);
+				cpu -> fd_cpu = sock_cpu;
+				cpu -> pid = -1;
+				cpu ->disponibilidad = DISPONIBLE;
+
+				list_add(listaDeCpu,cpu);
+				fd_max = MAX(cpu->fd_cpu, fd_max);
 				break;
 
 			} else if (fd == sock_lis_con){
@@ -193,6 +205,7 @@ int main(int argc, char* argv[]){
 				clearAndClose(&fd, &master_fd);
 				break;
 			}
+
 
 			if (fd == sock_mem){
 				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
@@ -241,14 +254,14 @@ limpieza:
 	// Un poco mas de limpieza antes de cerrar
 
 	free(header_tmp);
-
+	free(cpu);cpu = NULL;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 	close(sock_mem);
 	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
-
+	list_destroy(listaDeCpu);
 	liberarConfiguracionKernel(kernel);
 	return stat;
 }
@@ -271,7 +284,7 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 
 		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
 
-		encolarEnNEWPrograma(new_pcb, sock_hilo);
+		encolarEnNewPrograma(new_pcb, sock_hilo);
 
 		puts("Listo!");
 		break;

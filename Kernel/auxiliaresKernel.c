@@ -93,6 +93,8 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 
 	nuevoPCB->indiceDeEtiquetas = meta->etiquetas;
 
+	//nuevoPCB->estado_proceso = NULL;
+
 	nuevoPCB->exitCode = 0;
 
 	//almacenar(nuevoPCB->id, meta);

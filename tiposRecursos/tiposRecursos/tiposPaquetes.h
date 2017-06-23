@@ -45,9 +45,15 @@ typedef enum {
 	KILL_PID    = 44,
 	KER_KILLED  = KILL_PID,
 
+	//Agrego mensaje para tratar planificador
+	RECURSO_NO_DISPONIBLE = 50,
+	FIN_PROCESO = 51,
+	ABORTO_PROCESO = 52,
+	//RR
+	FIN_QUAMTUM = 53,
+
 	FIN         = 11
 } tMensaje;
-
 
 typedef struct {
 
