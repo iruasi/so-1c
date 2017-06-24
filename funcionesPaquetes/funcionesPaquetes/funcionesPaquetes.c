@@ -684,6 +684,112 @@ tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
 	return ppidpag;
 }
 
+
+
+/****** Definiciones de [De]Serializaciones CPU ******/
+
+char *serializeAbrir(t_direccion_archivo direccion, t_banderas flags, int *pack_size){
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABRIR};
+	int dirSize = strlen(direccion);
+
+	char *abrir_serial;
+	abrir_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof flags);
+
+	*pack_size = 0;
+	memcpy(abrir_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(abrir_serial + *pack_size, &dirSize, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(abrir_serial + *pack_size, direccion, dirSize);
+	*pack_size += dirSize;
+	memcpy(abrir_serial + *pack_size, &flags, sizeof flags);
+	*pack_size += sizeof flags;
+
+	memcpy(abrir_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return abrir_serial;
+}
+
+
+char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size){
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = MOVERCURSOR};
+
+	char *mov_serial;
+	mov_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof descriptor_archivo + sizeof posicion);
+
+	*pack_size = 0;
+	memcpy(mov_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(mov_serial + *pack_size, &descriptor_archivo, sizeof descriptor_archivo);
+	*pack_size += sizeof descriptor_archivo;
+	memcpy(mov_serial + *pack_size, &posicion, sizeof posicion);
+	*pack_size += sizeof posicion;
+
+	memcpy(mov_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return mov_serial;
+}
+
+
+char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size){
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ESCRIBIR};
+
+	char *escr_serial;
+	escr_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof descriptor_archivo + sizeof tamanio + tamanio);
+
+	*pack_size = 0;
+	memcpy(escr_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(escr_serial + *pack_size, &descriptor_archivo, sizeof descriptor_archivo);
+	*pack_size += sizeof descriptor_archivo;
+	memcpy(escr_serial + *pack_size, &tamanio, sizeof tamanio);
+	*pack_size += sizeof tamanio;
+	memcpy(escr_serial + *pack_size, informacion, tamanio);
+	*pack_size += tamanio;
+
+	memcpy(escr_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return escr_serial;
+}
+
+char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size){
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = LEER};
+
+	char *leer_serial;
+	leer_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof descriptor_archivo + sizeof tamanio + tamanio);
+
+	*pack_size = 0;
+	memcpy(leer_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(leer_serial + *pack_size, &descriptor_archivo, sizeof descriptor_archivo);
+	*pack_size += sizeof descriptor_archivo;
+	memcpy(leer_serial + *pack_size, &tamanio, sizeof tamanio);
+	*pack_size += sizeof tamanio;
+	memcpy(leer_serial + *pack_size, &informacion, tamanio);
+	*pack_size += tamanio;
+
+	memcpy(leer_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return leer_serial;
+}
+
+
 /*
  * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?
  */

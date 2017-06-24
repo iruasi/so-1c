@@ -3,6 +3,8 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
+#include <tiposRecursos/tiposErrores.h>
 
 #include "funcionesAnsisop.h"
 
@@ -159,60 +161,164 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 
 //FUNCIONES ANSISOP QUE LE PIDE AL KERNEL
 void wait (t_nombre_semaforo identificador_semaforo){
-	printf("Se pide al kernel un wait para el semaforo %s", identificador_semaforo);
-	enviarAlKernel(S_WAIT);
+	printf("Se pide al kernel un wait para el semaforo %s\n", identificador_semaforo);
+
+	tPackHeader head = {.tipo_de_proceso = CON, .tipo_de_mensaje = S_WAIT};
+	int pack_size = 0;
+
+	int lenId = strlen(identificador_semaforo);
+	char *wait_serial;
+	if ((wait_serial = serializeBytes(head, identificador_semaforo, lenId, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de wait");
+		return;
+	}
+
+	enviar(wait_serial, pack_size);
 }
 
 void signal (t_nombre_semaforo identificador_semaforo){
-	printf("Se pide al kernel un signal para el semaforo %s", identificador_semaforo);
-	enviarAlKernel(S_SIGNAL);
+	printf("Se pide al kernel un signal para el semaforo %s\n", identificador_semaforo);
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
+	int pack_size = 0;
+
+	int lenId = strlen(identificador_semaforo);
+	char *sig_serial;
+	if ((sig_serial = serializeBytes(head, identificador_semaforo, lenId, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de signal");
+		return;
+	}
+
+	enviar(sig_serial, pack_size);
 }
 
 void liberar (t_puntero puntero){
 	printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
-	enviarAlKernel(LIBERAR);
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = LIBERAR};
+	int pack_size = 0;
+
+	char *free_serial;
+	if ((free_serial = serializeBytes(head, (char*) &puntero, sizeof puntero, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de signal");
+		return;
+	}
+
+	enviar(free_serial, pack_size);
 }
 
-t_descriptor_archivo abrir (t_direccion_archivo direccion, t_banderas flags){
+t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags){
 	printf("Se pide al kernel abrir el archivo %s\n", direccion);
-	enviarAlKernel(ABRIR);
+
+	int pack_size = 0;
+
+	char *abrir_serial;
+	if ((abrir_serial = serializeAbrir(direccion, flags, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de signal");
+		return FALLO_SERIALIZAC;
+	}
+
+	enviar(abrir_serial, pack_size);
 	return 10;
 }
 
 void borrar (t_descriptor_archivo direccion){
 	printf("Se pide al kernel borrar el archivo %d\n", direccion);
-	enviarAlKernel(BORRAR);
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BORRAR};
+	int pack_size = 0;
+
+	char *borrar_serial;
+	if ((borrar_serial = serializeBytes(head, (char*) &direccion, sizeof direccion, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de signal");
+		return;
+	}
+
+	enviar(borrar_serial, pack_size);
 }
 
 void cerrar (t_descriptor_archivo descriptor_archivo){
 	printf("Se pide al kernel cerrar el archivo %d\n", descriptor_archivo);
-	enviarAlKernel(CERRAR);
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = CERRAR};
+	int pack_size = 0;
+
+	char *cerrar_serial;
+	if ((cerrar_serial = serializeBytes(head, (char*) &descriptor_archivo, sizeof descriptor_archivo, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de signal");
+		return;
+	}
+
+	enviar(cerrar_serial, pack_size);
 }
 
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
 	printf("Se pide al kernel movel el archivo %d a la posicion %d\n", descriptor_archivo, posicion);
-	enviarAlKernel(MOVERCURSOR);
+
+	int pack_size = 0;
+
+	char *mov_serial;
+	if ((mov_serial = serializeMoverCursor(descriptor_archivo, posicion, &pack_size)) == NULL){
+		puts("No se pudo serializar la posicion a mover el cursor");
+		return;
+	}
+
+	enviar(mov_serial, pack_size);
 }
 
 void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
 	printf("Se pide al kernel escribir el archivo %d con la informacion %s, cantidad de bytes: %d\n", descriptor_archivo, (char*)informacion, tamanio);
-	enviarAlKernel(ESCRIBIR);
+
+	int pack_size = 0;
+
+	char *esc_serial;
+	if ((esc_serial = serializeEscribir(descriptor_archivo, informacion, tamanio, &pack_size)) == NULL){
+		puts("No se pudo serializar la posicion a mover el cursor");
+		return;
+	}
+
+	enviar(esc_serial, pack_size);
 }
+
 
 void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio){
 	printf("Se pide al kernel leer el archivo %d, se guardara en %d, cantidad de bytes: %d\n", descriptor_archivo, informacion, tamanio);
-	enviarAlKernel(LEER);
+
+	int pack_size = 0;
+
+	char *leer_serial;
+	if ((leer_serial = serializeLeer(descriptor_archivo, informacion, tamanio, &pack_size)) == NULL){
+		puts("No se pudo serializar la posicion a mover el cursor");
+		return;
+	}
+
+	enviar(leer_serial, pack_size);
 }
 
+
+
 t_puntero reservar (t_valor_variable espacio){
-	printf("Se pide al kernel reservar %d espacio de memoria", espacio);
-	enviarAlKernel(RESERVAR);
+	printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = RESERVAR};
+	int pack_size = 0;
+
+	char *reserva_serial;
+	if ((reserva_serial = serializeBytes(head, (char*) &espacio, sizeof espacio, &pack_size)) == NULL){
+		puts("No se pudo serializar el semaforo de signal");
+		return FALLO_SERIALIZAC;
+	}
+
+	enviar(reserva_serial, pack_size);
 	return 40;
 }
 
-void enviarAlKernel(tMensaje mensaje){ // TODO: armar paquetes para funciones al ker y a la mem (para que le mande los parametros en caso de necesitar)
-	tPackHeader h;
-	h.tipo_de_proceso = CPU;
-	h.tipo_de_mensaje = mensaje;
-	send(sock_kern, &h, sizeof(h), 0);
+void enviar(char *op_kern_serial, int pack_size){
+	int stat;
+	if ((stat = send(sock_kern, op_kern_serial, pack_size, 0)) == -1){
+		perror("No se pudo enviar la operacion privilegiada a Kernel. error");
+		return;
+	}
+	printf("Se enviaron %d bytes a Kernel\n", stat);
 }
+

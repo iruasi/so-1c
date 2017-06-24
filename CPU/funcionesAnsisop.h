@@ -21,6 +21,13 @@ int sock_kern;
 AnSISOP_funciones functions;
 AnSISOP_kernel kernel_functions;
 
+/* Wrapper para send().
+ * Lo utilizaria solamente la CPU para solicitar a Kernel
+ * que ejecute una operacion privilegiada
+ */
+void enviar(char *op_kern_serial, int pack_size);
+
+
 void setupCPUFunciones(void);
 void setupCPUFuncionesKernel(void);
 

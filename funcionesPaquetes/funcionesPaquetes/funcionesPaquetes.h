@@ -108,6 +108,20 @@ char *serializePIDPaginas(tPackPidPag *ppidpag);
 
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial);
 
+
+
+char *serializeAbrir(t_direccion_archivo direccion, t_banderas flags, int *pack_size);
+
+char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size);
+
+char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size);
+
+char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size);
+
+
+
+
+
 /* Retorna el peso en bytes de todas las listas y variables sumadas del stack
  */
 int sumarPesosStack(t_list *stack);

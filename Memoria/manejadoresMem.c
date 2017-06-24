@@ -130,7 +130,6 @@ char *getMemContent(int pid, int page){
 }
 
 int buscarEnMemoria(int pid, int page){
-// por ahora la busqueda es secuencial...
 	sleep(retardo_mem);
 
 	tEntradaInv *entry;
@@ -184,7 +183,8 @@ void dumpMemContent(int pid){
 
 	if (pid == -4){
 		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
-	} else {
+		return;
+	}
 
 	int pag;
 	char *cont;
@@ -194,7 +194,5 @@ void dumpMemContent(int pid){
 	for (pag = 0; pag < page_count; ++pag){
 		cont = getMemContent(pid, pag);
 		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);
-	}
-
 	}
 }
