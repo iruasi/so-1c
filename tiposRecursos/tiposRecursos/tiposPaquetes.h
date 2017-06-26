@@ -46,11 +46,11 @@ typedef enum {
 	KER_KILLED  = KILL_PID,
 
 	//Agrego mensaje para tratar planificador
-	RECURSO_NO_DISPONIBLE = 50,
-	FIN_PROCESO = 51,
-	ABORTO_PROCESO = 52,
+	RECURSO_NO_DISPONIBLE = 60,
+	FIN_PROCESO = 61,
+	ABORTO_PROCESO = 62,
 	//RR
-	FIN_QUAMTUM = 53,
+	FIN_QUAMTUM = 63,
 
 	FIN         = 11
 } tMensaje;

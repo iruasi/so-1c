@@ -90,7 +90,7 @@ int Finalizar_Programa(int pid, int sock_ker, pthread_attr_t attr){
 
 	} else if (stat == 0){
 		puts("Kernel cerro la conexion, antes de dar una respuesta...");
-		return FALLO_GRAL;
+		return FALLO_GRAL;programa_handler
 	}
 
 	if (recv_head.tipo_de_mensaje != KER_KILLED){

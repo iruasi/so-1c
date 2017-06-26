@@ -87,6 +87,7 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 	nuevoPCB->pc = 0;
 	nuevoPCB->paginasDeCodigo = cant_pags;
 	nuevoPCB->estado_proc = 0;
+	nuevoPCB->proxima_rafaga = 0;
 	nuevoPCB->contextoActual = 0; // todo: verificar que esta inicializacion sea coherente
 	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
 	memcpy(nuevoPCB->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);

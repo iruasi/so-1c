@@ -134,10 +134,16 @@ int ejecutarPrograma(void){
 	int stat, instr_size;
 	char **linea = malloc(0);
 	*linea = NULL;
-
+	bool fin_quantum = false;
 	termino = false;
+	tPCB * pcbAux = malloc(sizeof (pcbAux));
+	tPackHeader header;
+
+
+	int cantidadDeRafagas = 0;
 
 	puts("Empieza a ejecutar...");
+
 	do{
 		instr_size = pcb->indiceDeCodigo->offset;
 
@@ -152,17 +158,45 @@ int ejecutarPrograma(void){
 			return FALLO_GRAL;
 		}
 
+
 		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(*linea, &functions, &kernel_functions);
+
+		cantidadDeRafagas ++;
+
 		pcb->pc++;
 		pcb->indiceDeCodigo++;
+
+		if(cantidadDeRafagas == pcb->proxima_rafaga){
+			fin_quantum = true;
+			termino = true;
+
+		}
+
 
 	} while(!termino);
 	freeAndNULL((void **) linea);
 
 	puts("Termino de ejecutar...");
 	termino = false;
+	/*
+	 *
+	 *	if(fin_quantum == true){
+	 *
+	 * }
+	 */
+
+	header.tipo_de_mensaje = FIN_PROCESO;
+	header.tipo_de_proceso = CPU;
+	pcbAux = pcb;
+	int pack_size = 0;
+	char * pcb_serial = serializePCB(pcbAux , header, &pack_size);
+	printf("Se serealizo bien el pcb con tamaño: %d\n",pack_size);
+	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1)
+		perror("Fallo envio de PCB a Kernel. error");
+	printf("Tiene stat: %d \n",stat);
+	printf("Mande bien el paquete al kernel\n");
 
 	freeAndNULL((void **) &linea);
 	return EXIT_SUCCESS;
@@ -227,3 +261,14 @@ char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLa
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
 	return aRetornar;
 }
+
+
+
+
+
+
+
+
+
+
+

@@ -15,6 +15,9 @@
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
+
+#define FIFO_INST -1
+
 void pausarPlanif(){
 
 }
@@ -38,7 +41,7 @@ extern t_list * listaDeCpu;
 
 t_queue *New, *Exit, *Block,*Ready;
 t_list	*cpu_exec,*Exec;
-
+char *recvHeader(int sock_in, tPackHeader *header);
 
 int grado_mult;
 extern tKernel *kernel;
@@ -61,11 +64,16 @@ void setupPlanificador(void){
 void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
 
 	int pack_size, stat;
+	pack_size = 0;
 	puts("Creamos memoria para la variable\n");
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
 	puts("Comenzamos a serializar el PCB");
 
-	printf("Valor del id del pcb %d\n",nuevoPCB->id);
+	if(kernel->algo == FIFO){
+		nuevoPCB->proxima_rafaga = FIFO_INST;
+	}else{
+		nuevoPCB->proxima_rafaga = kernel->quantum;
+	}
 
 	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
 
@@ -77,10 +85,10 @@ void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
 
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
-	list_add(cpu_exec,sock_cpu);
-	printf("Se agrego sock_cpu #%d a lista ",sock_cpu);
+	list_add(cpu_exec,(int *) sock_cpu);
+	printf("Se agrego sock_cpu #%d a lista \n",sock_cpu);
 
-	freeAndNULL((void **) &pcb_serial);
+	//freeAndNULL((void **) &pcb_serial);
 }
 
 void planificar(){
@@ -110,7 +118,7 @@ void planificar(){
 
 		if(!list_is_empty(Exec)){
 			int i;
-			for(i = 0; i < list_size(listaDeCpu);i){
+			for(i = 0; i < list_size(listaDeCpu);i++){
 				cpu = (t_cpu *) list_get(listaDeCpu,i);
 				pcbAux = (tPCB *) list_get(Exec,i);
 				cpu->pid = pcbAux-> id;
@@ -119,21 +127,19 @@ void planificar(){
 			}
 		}
 		//Para saber que hacer con BLOCK y EXIT, recibo mensajes de las cpus activas
-		int i,pcb_serial;
+		int i;
+		char *paquete_pcb_serial;
+		tPackHeader * header;
 		for(i = 0; i < list_size(cpu_exec); i ++){
-			int * cpu = (int *) list_get(cpu_exec,i);
-			tPackHeader  header;
+			int * cpu2 = (int *) list_get(cpu_exec,i);
 
-			int head = recv(*cpu,&header,HEAD_SIZE,0);
-			if(head == -1) printf("No se pudo recibir el mensaje");
-
-			if((pcb_serial = recvGeneric(*cpu)) == NULL){
+			if((paquete_pcb_serial = recvHeader(cpu->fd_cpu,header)) == NULL){
 					printf("Fallo recvPCB");
 					break;
 						}
-			pcbAux = deserializarPCB(pcb_serial);
+			pcbAux = deserializarPCB(paquete_pcb_serial);
 
-			switch(header.tipo_de_mensaje){
+			switch(header->tipo_de_mensaje){
 
 				case(RECURSO_NO_DISPONIBLE):
 					queue_push(Block,pcbAux);
@@ -213,9 +219,7 @@ void cortoPlazo(){}
 
 void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
-	int stat, pack_size;
-	pack_size = 0;
-
+	int stat;
 //	queue_push(New, (void *) nuevoPCB);
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
@@ -285,138 +289,39 @@ void freePCBs(t_queue *queue){
 void limpiarPlanificadores(){
 	freePCBs(New);   queue_destroy(New);
 	freePCBs(Ready); queue_destroy(Ready);
-    freePCBs(Exec);  queue_destroy(Exec);
+    freePCBs(Exec);  list_destroy(Exec);
 	freePCBs(Block); queue_destroy(Block);
 	freePCBs(Exit);  queue_destroy(Exit);
 
 }
-char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 
-	int off = 0;
-	char *pcb_serial;
-	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
+char *recvHeader(int sock_in, tPackHeader *header){
+	puts("Se recibe el paquete serializado..");
 
-	size_t ctesInt_size         = CTES_INT_PCB * sizeof (int);
-	size_t indiceCod_size       = pcb->cantidad_instrucciones * 2 * sizeof(int);
-	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
-	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
+	int stat, pack_size;
+	char *p_serial;
 
-	if ((pcb_serial = malloc(HEAD_SIZE + sizeof(int) + ctesInt_size + indiceCod_size + indiceStack_size + indiceEtiquetas_size)) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para pcb serializado\n");
+	if((stat = recv(sock_in, header, sizeof(tPackHeader),0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
+	}
+	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) <= 0){
+		perror("Fallo de recv. error");
 		return NULL;
 	}
 
-	memcpy(pcb_serial + off, &head, HEAD_SIZE);
-	off += HEAD_SIZE;
+	printf("Paquete de size: %d\n", pack_size);
 
-	// incremento para dar lugar al size_total al final del serializado
-	off += sizeof(int);
-
-	memcpy(pcb_serial + off, &pcb->id, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->pc, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->paginasDeCodigo, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->etiquetaSize, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->contextoActual, sizeof (int));
-	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
-	off += sizeof (int);
-
-	// serializamos indice de codigo
-	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
-	off += indiceCod_size;
-
-	// serializamos indice de stack
-	char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
-	memcpy(pcb_serial + off, stack_serial, *pack_size);
-	off += *pack_size;
-
-	// serializamos indice de etiquetas
-	if (hayEtiquetas){
-		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
-		off += sizeof pcb->etiquetaSize;
-	}
-
-	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
-	*pack_size = off;
-
-	freeAndNULL((void **) &stack_serial);
-	return pcb_serial;
-}
-
-
-char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
-
-	int pesoExtra = sizeof(int) + list_size(pcb->indiceDeStack) * 2 * sizeof (int);
-
-	char *stack_serial;
-	if ((stack_serial = malloc(pesoStack + pesoExtra)) == NULL){
-		puts("No se pudo mallocar espacio para el stack serializado");
+	if ((p_serial = malloc(pack_size-12)) == NULL){
+		printf("No se pudieron mallocar %d bytes para paquete generico\n", pack_size);
 		return NULL;
 	}
 
-	indiceStack *stack;
-	posicionMemoria *arg;
-	posicionMemoriaPid *var;
-	int args_size, vars_size, stack_size;
-	int i, j, off;
-
-	stack_size = list_size(pcb->indiceDeStack);
-	memcpy(stack_serial, &stack_size, sizeof(int));
-	off = sizeof (int);
-	*pack_size += off;
-
-	if (!stack_size)
-		return stack_serial; // no hay mas stack que serializar, retornamos
-
-	for (i = 0; i < stack_size; ++i){
-		stack = list_get(pcb->indiceDeStack, i);
-
-		args_size = list_size(stack->args);
-		memcpy(stack_serial + off, &args_size, sizeof(int));
-		off += sizeof(int);
-		for(j = 0; j < args_size; j++){
-			arg = list_get(stack->args, j);
-			memcpy(stack_serial + off, &arg, sizeof (posicionMemoria));
-			off += sizeof (posicionMemoria);
-		}
-
-		vars_size = list_size(stack->vars);
-		memcpy(stack_serial, &vars_size, sizeof(int));
-		off += sizeof (int);
-		for(j = 0; j < vars_size; j++){
-			var = list_get(stack->vars, j);
-			memcpy(stack_serial + off, &var, sizeof (posicionMemoriaPid));
-			off += sizeof (posicionMemoriaPid);
-		}
-
-		memcpy(stack_serial + off, &stack->retPos, sizeof(int));
-		off += sizeof (int);
-
-		memcpy(stack_serial + off, &stack->retVar, sizeof(posicionMemoria));
-		off += sizeof (posicionMemoria);
+	if ((stat = recv(sock_in, p_serial, pack_size-12, 0)) <= 0){
+		perror("Fallo de recv. error");
+		return NULL;
 	}
 
-	*pack_size += off;
-	return stack_serial;
+	return p_serial;
 }
-int sumarPesosStack(t_list *stack){
 
-	int i, sum;
-	indiceStack *temp;
-
-	for (i = sum = 0; i < list_size(stack); ++i){
-		temp = list_get(stack, i);
-		sum += list_size(temp->args) * sizeof (posicionMemoria) + list_size(temp->vars) * sizeof (posicionMemoriaPid)
-				+ sizeof temp->retPos + sizeof temp->retVar;
-	}
-
-	return sum;
-}
