@@ -61,9 +61,9 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset);
  */
 char *recvPCB(int sock_in);
 
-/* Serializa un pcb para poder hacer una Solicitud de Bytes a Memoria
+/* Serializa un pcb para poder hacer una Solicitud de Instruccion a Memoria
  */
-char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size);
+char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size);
 
 /* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Solicitud de Bytes a Memoria.
  */

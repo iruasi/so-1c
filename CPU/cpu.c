@@ -32,6 +32,8 @@ int ejecutarPrograma(void);
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
+int pag_size;
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -173,7 +175,7 @@ int pedirInstruccion(int instr_size){
 
 	int stat, pack_size;
 
-	char *bytereq_serial = serializeByteRequest(pcb, instr_size, &pack_size);
+	char *bytereq_serial = serializeInstrRequest(pcb, instr_size, &pack_size);
 
 	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de paquete de pedido de bytes. error");

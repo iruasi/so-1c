@@ -8,8 +8,11 @@
 
 #include "funcionesAnsisop.h"
 
+char *serializeByteRequest(tPackByteReq *pbr, int *pack_size);
+
 extern bool termino;
 extern AnSISOP_funciones functions;
+extern int pag_size; // todo: obtener en handshake
 
 void setupCPUFunciones(void){
 	functions.AnSISOP_definirVariable		= definirVariable;
@@ -38,24 +41,77 @@ void setupCPUFuncionesKernel(void){
 	kernel_functions.AnSISOP_reservar				= reservar;
 }
 
+void obtenerUltimoStack(t_list *stack, int *pag, int *off, int *size){
+
+	*pag = *off = *size = 0;
+	indiceStack* ultimoStack = list_get(stack, pcb->contextoActual);
+
+	posicionMemoria* ultimoArg = list_get (ultimoStack->args, list_size(ultimoStack->args)-1);
+	posicionMemoriaId* ultimaVar = list_get (ultimoStack->vars, list_size(ultimoStack->vars)-1);
+
+	if(ultimoArg->pag > ultimaVar->pos.pag){
+		*off=ultimoArg->offset;
+		*pag = ultimoArg->pag;
+		*size = ultimoArg->size;
+		return;
+	} else if(ultimoArg->pag < ultimaVar->pos.pag){
+		*off = ultimaVar->pos.offset;
+		*pag = ultimaVar->pos.pag;
+		*size = ultimaVar->pos.size;
+		return;
+	} else if(ultimoArg->offset > ultimaVar ->pos.offset){
+		*off=ultimoArg->offset;
+		*pag = ultimoArg->pag;
+		*size = ultimoArg->size;
+		return;
+	}
+
+	*off = ultimaVar->pos.offset;
+	*pag = ultimaVar->pos.pag;
+	*size = ultimaVar->pos.size;
+}
+void obtenerVariable(t_nombre_variable variable, posicionMemoria* pm, indiceStack* stack){
+	int i;
+	posicionMemoriaId* var;
+	for(i=0; i<list_size(stack->vars); i++){
+		var = list_get(stack->vars, i);
+		if(var->id == variable){
+			pm->offset=var->pos.offset;
+			pm->pag=var->pos.pag;
+			pm->size=var->pos.size;
+			return;
+		}
+	}
+	pm=NULL;
+}
+
 //FUNCIONES DE ANSISOP
 t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
+	int pag,
+		off,
+		size;
+	obtenerUltimoStack(pcb->indiceDeStack, &pag, &off, &size);
+	posicionMemoriaId* var = malloc(sizeof(posicionMemoriaId));
+	var->id = variable;
+	var->pos.offset= off;
+	var->pos.pag = pag;
+	var->pos.size = size;
 	//list_add(pcb->indiceDeStack, variable);
-	list_add_in_index(pcb->indiceDeStack, list_size(pcb->indiceDeStack)-1, &variable);
-	return 20;
+	indiceStack* p = list_get(pcb->indiceDeStack, pcb->contextoActual);
+	list_add(p->vars, var);
+	return pag * pag_size + off;
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
 	printf("Obtener posicion de %c\n", variable);
-	/*
-	 * tPackHeader h;
-		h.tipo_de_proceso = CPU;
-		h.tipo_de_mensaje = GETPOSVAR;
-		send(sock_mem, &h, sizeof(h), 0);
-	 *
-	 */
-	return 20;
+
+	indiceStack* stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
+	posicionMemoria* pm = malloc(sizeof(posicionMemoria));
+	obtenerVariable(variable, pm, stack);
+	t_puntero pos = pm->pag*pag_size + pm->offset;
+	free(pm);
+	return pos;
 }
 
 void finalizar(void){
@@ -72,7 +128,7 @@ void finalizar(void){
 	}
 
 	for(i=0 ; list_size(stackActual->vars) ; i++){
-		posicionMemoria* var = list_get(stackActual->vars, i);
+		posicionMemoriaId* var = list_get(stackActual->vars, i);
 		free(var);//se liberan las variables
 	}
 	free(stackActual);
@@ -82,19 +138,93 @@ void finalizar(void){
 	pcb->pc=nuevoContexto->retPos;
 }
 
-t_valor_variable dereferenciar(t_puntero puntero) {
+t_valor_variable dereferenciar(t_puntero puntero) { //todo: volver (?
 	printf("Dereferenciar %d y su valor es: %d\n", puntero, 20);
-	/*
-	 * tPackHeader h;
-		h.tipo_de_proceso = CPU;
-		h.tipo_de_mensaje = DEREFERENCIAR;
-		send(sock_mem, &h, sizeof(h), 0);
-	 */
-	return 20;
+
+	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
+
+	tPackByteReq pbr;
+	int pack_size, stat;
+
+	memcpy(&pbr.head, &h, HEAD_SIZE);
+	pbr.pid = pcb->id;
+	pbr.page = puntero / pag_size;
+	pbr.offset = puntero % pag_size;
+	pbr.size = 4;
+
+	char *byterq_serial = serializeByteRequest(&pbr, &pack_size);
+
+	if((stat = send(sock_mem, byterq_serial, pack_size, 0)) == -1){
+		perror("Fallo send de byte request. error");
+		// bool algo_fallo = true;
+		return FALLO_SEND;
+	}
+
+	recv(sock_mem, &h, HEAD_SIZE, 0);
+
+	char* bytes_serial = recvGeneric(sock_mem);
+
+	tPackBytes* bytes = deserializeBytes(bytes_serial);
+
+
+
+	return (t_valor_variable) bytes->bytes;
+}
+
+char *serializeByteRequest(tPackByteReq *pbr, int *pack_size){
+
+	*pack_size = 0;
+	char *byterq_serial = malloc(sizeof(int) + sizeof(tPackByteReq));
+
+	memcpy(byterq_serial + *pack_size, &pbr->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(byterq_serial + *pack_size, &pbr->pid, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(byterq_serial + *pack_size, &pbr->page, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(byterq_serial + *pack_size, &pbr->offset, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(byterq_serial + *pack_size, &pbr->size, sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(byterq_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return byterq_serial;
 }
 
 void asignar(t_puntero puntero, t_valor_variable variable) {
 	printf("Asignando en %d el valor %d\n", puntero, variable);
+
+	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
+
+	tPackByteAlmac pbal;
+	int pack_size, stat;
+
+	memcpy(&pbal.head, &h, HEAD_SIZE);
+	pbal.pid = pcb->id;
+	pbal.page = puntero / pag_size;
+	pbal.offset = puntero % pag_size;
+	pbal.size = 4;
+	memcpy(pbal.bytes, &variable, sizeof variable);
+
+	char *byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size);
+
+	if((stat = send(sock_mem, byteal_serial, pack_size, 0)) == -1){
+		perror("Fallo send de byte request. error");
+		// bool algo_fallo = true;
+		return;
+	}
+
+	recv(sock_mem, &h, HEAD_SIZE, 0);
+
+	char* bytes_serial = recvGeneric(sock_mem);
+
+	tPackBytes* bytes = deserializeBytes(bytes_serial);
+
+	//t_puntero dirVariable = obtenerPosicionVariable();
 }
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
@@ -153,7 +283,7 @@ void retornar (t_valor_variable retorno){
 	pcb->contextoActual--;
 }
 t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
-	printf("Se obtiene el valor de variable compartida.");
+	printf("Se obtiene el valor de la variable compartida %s.\n", variable);
 	return 20;
 }
 

@@ -13,9 +13,9 @@ typedef struct{
 }posicionMemoria;
 
 typedef struct{
-	int pid;
+	int id;
 	posicionMemoria pos;
-}posicionMemoriaPid;
+}posicionMemoriaId;
 
 
 

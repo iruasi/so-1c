@@ -239,7 +239,7 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 
 	indiceStack *stack;
 	posicionMemoria *arg;
-	posicionMemoriaPid *var;
+	posicionMemoriaId *var;
 	int args_size, vars_size, stack_size;
 	int i, j, off;
 
@@ -268,8 +268,8 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 		off += sizeof (int);
 		for(j = 0; j < vars_size; j++){
 			var = list_get(stack->vars, j);
-			memcpy(stack_serial + off, &var, sizeof (posicionMemoriaPid));
-			off += sizeof (posicionMemoriaPid);
+			memcpy(stack_serial + off, &var, sizeof (posicionMemoriaId));
+			off += sizeof (posicionMemoriaId);
 		}
 
 		memcpy(stack_serial + off, &stack->retPos, sizeof(int));
@@ -351,7 +351,7 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 
 	int arg_depth, var_depth;
 	posicionMemoria *arg, retVar;
-	posicionMemoriaPid *var;
+	posicionMemoriaId *var;
 	int retPos;
 
 	int i, j;
@@ -370,8 +370,8 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 		*offset = sizeof(int);
 		var = realloc(var, var_depth);
 		for (j = 0; j < var_depth; j++){
-			memcpy((var + j), pcb_serial + *offset, sizeof(posicionMemoriaPid));
-			*offset += sizeof(posicionMemoriaPid);
+			memcpy((var + j), pcb_serial + *offset, sizeof(posicionMemoriaId));
+			*offset += sizeof(posicionMemoriaId);
 		}
 		list_add(stack.vars, var);
 
@@ -389,7 +389,7 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	}
 }
 
-char *serializeByteRequest(tPCB *pcb, int size_instr, int *pack_size){
+char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size){
 
 	int code_page = 0;
 	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTR};
@@ -803,7 +803,7 @@ int sumarPesosStack(t_list *stack){
 
 	for (i = sum = 0; i < list_size(stack); ++i){
 		temp = list_get(stack, i);
-		sum += list_size(temp->args) * sizeof (posicionMemoria) + list_size(temp->vars) * sizeof (posicionMemoriaPid)
+		sum += list_size(temp->args) * sizeof (posicionMemoria) + list_size(temp->vars) * sizeof (posicionMemoriaId)
 				+ sizeof temp->retPos + sizeof temp->retVar;
 	}
 
