@@ -36,6 +36,7 @@ typedef enum {
 , FALLO_ESCRITURA=     -53
 , MAX_CACHE_ENTRIES=   -54
 
+, ABORTO_CPU=          -97
 , ABORTO_FILESYSTEM=   -98
 , ABORTO_MEMORIA=      -99
 } tErrores;

@@ -27,7 +27,8 @@
 
 int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
 
-	int stat;
+	int stat, pack_size;
+	char *hs_serial;
 
 	tHShakeMemAKer *h_shake = malloc(sizeof *h_shake);
 	h_shake->head.tipo_de_proceso = MEM;
@@ -35,27 +36,118 @@ int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
 	h_shake->marco_size = marco_size;
 	h_shake->marcos = marcos;
 
+	if ((hs_serial = serializeMemAKer(h_shake, &pack_size)) == NULL){
+		puts("Fallo la serializacion de handshake Memoria a Kernel");
+		return FALLO_SERIALIZAC;
+	}
+
 	if((stat = send(sock_ker, h_shake, sizeof *h_shake, 0)) == -1)
 		perror("Error de envio informacion Memoria a Kernel. error");
 
 	return stat;
 }
 
-int recibirInfoMem(int sock_mem, int *frames, int *frame_size){
+int contestarMemoriaCPU(int marco_size, int sock_cpu){
 
-	int stat;
+	int stat, pack_size;
+	char *hs_serial;
 
-	if ((stat = recv(sock_mem, frames, sizeof frames, 0)) == -1){
-		perror("Error de recepcion de frames desde la Memoria. error");
-		return FALLO_GRAL;
+	tHShakeMemACPU *h_shake = malloc(sizeof *h_shake);
+	h_shake->head.tipo_de_proceso = MEM;
+	h_shake->head.tipo_de_mensaje = MEMINFO;
+	h_shake->val = marco_size;
+
+	pack_size = 0;
+	if ((hs_serial = serializeMemACPU(h_shake, &pack_size)) == NULL){
+		puts("No se pudo serializar el handshake de Memoria a CPU");
+		return FALLO_SERIALIZAC;
 	}
 
-	if ((stat = recv(sock_mem, frame_size, sizeof frame_size, 0)) == -1){
-		perror("Error de recepcion de frames desde la Memoria. error");
-		return FALLO_GRAL;
-	}
+	if((stat = send(sock_cpu, h_shake, sizeof *h_shake, 0)) == -1)
+		perror("Error de envio informacion Memoria a CPU. error");
 
 	return stat;
+}
+
+
+int recibirInfoKerMem(int sock_mem, int *frames, int *frame_size){
+
+	char *info_serial;
+
+	if ((info_serial = recvGeneric(sock_mem)) == NULL){
+		puts("Fallo la creacion de info serializada desde Memoria");
+		return FALLO_GRAL;
+	}
+
+	memcpy(frames, info_serial, sizeof(int));
+	memcpy(frame_size, info_serial + sizeof(int), sizeof(int));
+
+	free(info_serial);
+	return 0;
+}
+
+int recibirInfoCPUMem(int sock_mem, int *frame_size){
+
+	char *info_serial;
+
+	if ((info_serial = recvGeneric(sock_mem)) == NULL){
+		puts("Fallo la creacion de info serializada desde Memoria");
+		return FALLO_GRAL;
+	}
+
+	memcpy(frame_size, info_serial, sizeof(int));
+	free(info_serial);
+	return 0;
+}
+
+
+/****** Definiciones de [De]Serializaciones Handshakes especiales ******/
+
+char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size){
+
+	char *hs_serial;
+
+	if ((hs_serial = malloc(sizeof *h_shake)) == NULL){
+		printf("No se pudieron mallocar %d bytes para el handshake de Memoria a Kernel\n", sizeof *h_shake);
+		return NULL;
+	}
+
+	*pack_size = 0;
+	memcpy(hs_serial + *pack_size, &h_shake->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(hs_serial + *pack_size, &h_shake->marcos, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(hs_serial + *pack_size, &h_shake->marco_size, sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(hs_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return hs_serial;
+}
+
+char *serializeMemACPU(tHShakeMemACPU *h_shake, int *pack_size){
+
+	char *hs_serial;
+	if ((hs_serial = malloc(sizeof *h_shake)) == NULL){
+		printf("No se pudieron mallocar %d bytes para handshake de Memoria a CPU\n", sizeof *h_shake);
+		return NULL;
+	}
+
+	*pack_size = 0;
+	memcpy(hs_serial + *pack_size, &h_shake->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(hs_serial + *pack_size, &h_shake->val, sizeof(int));
+	*pack_size += sizeof (int);
+
+	memcpy(hs_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return hs_serial;
 }
 
 char *recvGeneric(int sock_in){
@@ -84,7 +176,7 @@ char *recvGeneric(int sock_in){
 	return p_serial;
 }
 
-/****** Definiciones de [De]Serializaciones ******/
+/****** Definiciones de [De]Serializaciones Regulares ******/
 
 char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
 
@@ -415,33 +507,47 @@ char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size){
 	return bytereq_serial;
 }
 
-tPackByteReq *deserializeByteRequest(int sock_in){
+char *serializeByteRequest(tPackByteReq *pbr, int *pack_size){
 
-	int stat;
+	*pack_size = 0;
+	char *byterq_serial = malloc(sizeof(int) + sizeof(tPackByteReq));
+
+	memcpy(byterq_serial + *pack_size, &pbr->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(byterq_serial + *pack_size, &pbr->pid, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(byterq_serial + *pack_size, &pbr->page, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(byterq_serial + *pack_size, &pbr->offset, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(byterq_serial + *pack_size, &pbr->size, sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(byterq_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return byterq_serial;
+}
+
+tPackByteReq *deserializeByteRequest(char *byterq_serial){
+
+	int off;
 	tPackByteReq *pbrq;
 	if ((pbrq = malloc(sizeof *pbrq)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para el paquete de bytes deserializado\n");
 	}
 
-	if ((stat = recv(sock_in, &pbrq->pid, sizeof pbrq->pid, 0)) == -1){
-		perror("Fallo la recepcion del PID del pedido de bytes. error");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, &pbrq->page, sizeof pbrq->page, 0)) == -1){
-		perror("Fallo la recepcion de la pagina del pedido de bytes. error");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, &pbrq->offset, sizeof pbrq->offset, 0)) == -1){
-		perror("Fallo la recepcion del offset del pedido de bytes. error");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, &pbrq->size, sizeof pbrq->size, 0)) == -1){
-		perror("Fallo la recepcion del size del pedido de bytes. error");
-		return NULL;
-	}
+	off = 0;
+	memcpy(&pbrq->pid, byterq_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&pbrq->page, byterq_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&pbrq->offset, byterq_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&pbrq->size, byterq_serial + off, sizeof(int));
+	off += sizeof(int);
 
 	return pbrq;
 }
@@ -646,8 +752,8 @@ char *serializePID(tPackPID *ppid){
 	off += sizeof ppid->head.tipo_de_proceso;
 	memcpy(pid_serial + off, &ppid->head.tipo_de_mensaje, sizeof ppid->head.tipo_de_mensaje);
 	off += sizeof ppid->head.tipo_de_mensaje;
-	memcpy(pid_serial + off, &ppid->pid, sizeof ppid->pid);
-	off += sizeof ppid->pid;
+	memcpy(pid_serial + off, &ppid->val, sizeof ppid->val);
+	off += sizeof ppid->val;
 
 
 
@@ -789,6 +895,33 @@ char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informaci
 	return leer_serial;
 }
 
+char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size){
+
+	char *valor_serial;
+	int m_size = HEAD_SIZE + sizeof(int) + sizeof valor + sizeof variable;
+	if ((valor_serial = malloc(m_size)) == NULL){
+		printf("No se pudieron mallocar %d bytes para valor y variable serializados\n", m_size);
+		return NULL;
+	}
+
+	*pack_size = 0;
+	memcpy(valor_serial + *pack_size, &head, HEAD_SIZE);
+	pack_size += HEAD_SIZE;
+
+	pack_size += sizeof(int);
+
+	memcpy(valor_serial + *pack_size, &valor, sizeof valor);
+	*pack_size += sizeof valor;
+	memcpy(valor_serial + *pack_size, &variable, sizeof variable);
+	*pack_size += sizeof variable;
+
+	memcpy(valor_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return valor_serial;
+}
+
+
+
 
 /*
  * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?
@@ -809,3 +942,4 @@ int sumarPesosStack(t_list *stack){
 
 	return sum;
 }
+

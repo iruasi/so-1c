@@ -103,7 +103,7 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 	pack_pid->head.tipo_de_proceso = KER;
 	pack_pid->head.tipo_de_mensaje = PID;
 
-	pack_pid->pid = nuevoPCB->id;
+	pack_pid->val = nuevoPCB->id;
 
 	char *pid_serial = serializePID(pack_pid);
 	if (pid_serial == NULL){

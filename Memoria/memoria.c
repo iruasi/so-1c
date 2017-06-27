@@ -74,6 +74,7 @@ int main(int argc, char* argv[]){
 	}
 
 	//acepta y escucha comunicaciones
+	int *cpu_sock_thr = malloc(sizeof(int));
 	tPackHeader head;
 	puts("esperando comunicaciones entrantes...");
 	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)) != -1){
@@ -91,8 +92,8 @@ int main(int argc, char* argv[]){
 
 			if (!kernExists){
 				int *sock_ker = malloc(sizeof(int));
-				*sock_ker  = client_sock;
-				kernExists = true;
+				*sock_ker     = client_sock;
+				kernExists    = true;
 
 				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, *sock_ker)) == -1){
 					puts("No se pudo enviar la informacion relevante a Kernel!");
@@ -111,6 +112,14 @@ int main(int argc, char* argv[]){
 			break;
 
 		case CPU:
+
+			*cpu_sock_thr = client_sock; // todo: ojo que esto va a cambiar a medida que entran CPUs.. deberia manejarse parecido a Consola
+
+			if ((stat = contestarMemoriaCPU(memoria->marco_size, *cpu_sock_thr)) == -1){
+				puts("No se pudo enviar la informacion relevante a Kernel!");
+				return FALLO_GRAL;
+			}
+
 			if( pthread_create(&sniffer_thread, NULL, (void*) cpu_handler, (void*) &client_sock) < 0){
 				perror("no pudo crear hilo. error");
 				return FALLO_GRAL;
@@ -238,7 +247,7 @@ void* cpu_handler(void *socket_cpu){
 		printf("proc: %d  \t msj: %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
 
 		switch(head->tipo_de_mensaje){
-		case SOLIC_BYTES:
+		case BYTES:
 			puts("Se recibio solicitud de bytes");
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)

@@ -16,7 +16,8 @@ typedef enum {
 	PCB_SAVE    = PCB_PREEMPT, // serian para Memoria
 	PCB_RESTORE = PCB_EXEC, // serian para Memoria
 	INSTR       = 23,
-	BYTES       = INSTR,
+	BYTES       = 24,
+	VAR_GLOBAL  = 25,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -72,8 +73,8 @@ typedef struct {
 typedef struct {
 
 	tPackHeader head;
-	int pid;
-} tPackPID;
+	int val;
+} tPackPID, tHShakeMemACPU;
 
 typedef struct {
 	tPackHeader head;

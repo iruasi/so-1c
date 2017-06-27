@@ -63,6 +63,11 @@ int main(int argc, char* argv[]){
 	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 	puts("Me conecte a memoria!");
 
+	if ((stat = recibirInfoCPUMem(sock_mem, &pag_size)) != 0){
+		puts("No se pudo recibir el tamanio de pagina de Memoria!");
+		return ABORTO_CPU;
+	}
+	printf("Se trabaja con un tamanio de pagina de %d bytes!\n", pag_size);
 
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);

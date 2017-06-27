@@ -75,7 +75,7 @@ int Finalizar_Programa(int pid, int sock_ker, pthread_attr_t attr){
 	send_head.tipo_de_proceso = CON;
 	tPackPID *ppid = malloc(sizeof *ppid);
 	ppid->head = send_head;
-	ppid->pid  = pid;
+	ppid->val  = pid;
 
 	int stat;
 	if((stat = send(sock_ker, ppid, sizeof ppid, 0)) == -1){
@@ -166,9 +166,9 @@ while(fin !=1){
 
 		if (head_tmp.tipo_de_mensaje == PID){
 			puts("recibimos PID");
-			stat = recv(args->sock, &(ppid.pid), sizeof ppid.pid, 0);
+			stat = recv(args->sock, &(ppid.val), sizeof ppid.val, 0);
 			puts("Asigno pid a la estructura");
-			args->pidProg = ppid.pid;
+			args->pidProg = ppid.val;
 			args->hiloProg = pthread_self();
 
 			sem_wait(semLista);

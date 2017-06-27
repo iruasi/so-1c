@@ -201,7 +201,7 @@ int main(int argc, char* argv[]){
 					break;
 
 
-				if((stat = recibirInfoMem(fd, &frames, &frame_size)) == -1){
+				if((stat = recibirInfoKerMem(fd, &frames, &frame_size)) == -1){
 					puts("No se recibio correctamente informacion de Memoria!");
 					return FALLO_GRAL;
 				}

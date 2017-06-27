@@ -8,8 +8,6 @@
 
 #include "funcionesAnsisop.h"
 
-char *serializeByteRequest(tPackByteReq *pbr, int *pack_size);
-
 extern bool termino;
 extern AnSISOP_funciones functions;
 extern int pag_size; // todo: obtener en handshake
@@ -171,37 +169,12 @@ t_valor_variable dereferenciar(t_puntero puntero) { //todo: volver (?
 	return (t_valor_variable) bytes->bytes;
 }
 
-char *serializeByteRequest(tPackByteReq *pbr, int *pack_size){
-
-	*pack_size = 0;
-	char *byterq_serial = malloc(sizeof(int) + sizeof(tPackByteReq));
-
-	memcpy(byterq_serial + *pack_size, &pbr->head, HEAD_SIZE);
-	*pack_size += HEAD_SIZE;
-
-	*pack_size += sizeof(int);
-
-	memcpy(byterq_serial + *pack_size, &pbr->pid, sizeof(int));
-	*pack_size += sizeof(int);
-	memcpy(byterq_serial + *pack_size, &pbr->page, sizeof(int));
-	*pack_size += sizeof(int);
-	memcpy(byterq_serial + *pack_size, &pbr->offset, sizeof(int));
-	*pack_size += sizeof(int);
-	memcpy(byterq_serial + *pack_size, &pbr->size, sizeof(int));
-	*pack_size += sizeof(int);
-
-	memcpy(byterq_serial + HEAD_SIZE, pack_size, sizeof(int));
-
-	return byterq_serial;
-}
-
 void asignar(t_puntero puntero, t_valor_variable variable) {
 	printf("Asignando en %d el valor %d\n", puntero, variable);
 
-	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
-
 	tPackByteAlmac pbal;
 	int pack_size, stat;
+	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
 
 	memcpy(&pbal.head, &h, HEAD_SIZE);
 	pbal.pid = pcb->id;
@@ -211,24 +184,34 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 	memcpy(pbal.bytes, &variable, sizeof variable);
 
 	char *byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size);
-
 	if((stat = send(sock_mem, byteal_serial, pack_size, 0)) == -1){
 		perror("Fallo send de byte request. error");
 		// bool algo_fallo = true;
+		freeAndNULL((void **) &byteal_serial);
 		return;
 	}
 
-	recv(sock_mem, &h, HEAD_SIZE, 0);
-
-	char* bytes_serial = recvGeneric(sock_mem);
-
-	tPackBytes* bytes = deserializeBytes(bytes_serial);
-
-	//t_puntero dirVariable = obtenerPosicionVariable();
+	freeAndNULL((void **) &byteal_serial);
 }
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
 	printf("Asignado en %s el valor %d\n", variable, valor);
+
+	char *valor_serial;
+	int pack_size, stat;
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = VAR_GLOBAL};
+	pack_size = 0;
+	if ((valor_serial = serializeValorYVariable(head, valor, variable, &pack_size)) == NULL){
+		puts("No se pudo serializar el valor y variable");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
+	if ((stat = send(sock_kern, valor_serial, pack_size, 0)) == -1){
+		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
 	return valor;
 }
 
@@ -236,6 +219,7 @@ void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
 	printf("Se va al label %s\n", t_nombre_etiqueta);
 	pcb->pc = metadata_buscar_etiqueta(t_nombre_etiqueta, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
 }
+
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 	printf("Se llama a la funcion %s\n", etiqueta);
 	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);

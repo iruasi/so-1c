@@ -4,18 +4,24 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
-/* Solo la usa Memoria, para dar a Kernel informacion relevante de si misma
- * Retorna la cantidad de bytes enviados, deberian ser 16
+/* Solo las usa Memoria, para dar a Kernel y CPU informacion relevante de si misma
+ * Retorna la cantidad de bytes enviados, o el error (valor negativo)
  */
 int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
+int contestarMemoriaCPU(int marco_size, int sock_cpu);
+
 
 /* Solo la usa Kernel para recibir de Memoria los frames y el size de estos,
  * los almacenara en *frames y *frame_size.
  * Se corresponde reciprocamente con la funcion contestarMemoriaKernel()
  * !! Asumimos que ya se recibio el Header !!
  */
-int recibirInfoMem(int sock_memoria, int *frames, int *frame_size);
+int recibirInfoKerMem(int sock_memoria, int *frames, int *frame_size);
+int recibirInfoCPUMem(int sock_mem, int *frame_size);
 
+char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size);
+
+char *serializeMemACPU(tHShakeMemACPU *h_shake, int *pack_size);
 
 /* Funcion generica de recepcion. Toda serializacion deberia dar un paquete
  * que responda al formato |HEAD(8)|PAYLOAD_SIZE(int)|PAYLOAD(char*)|
@@ -65,9 +71,13 @@ char *recvPCB(int sock_in);
  */
 char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size);
 
-/* Deserializa un buffer (recibiendo desde sock_in) en un paquete de Solicitud de Bytes a Memoria.
+/* Serializa un Pedido de Bytes para la Memoria
  */
-tPackByteReq *deserializeByteRequest(int sock_in);
+char *serializeByteRequest(tPackByteReq *pbr, int *pack_size);
+
+/* Util para deserializar tanto el ByteRequest como el InstrRequest
+ */
+tPackByteReq *deserializeByteRequest(char *byterq_serial);
 
 /* serializa un paquete de peticion de almacenamiento.
  */
@@ -118,7 +128,7 @@ char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informaci
 
 char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size);
 
-
+char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size);
 
 
 
