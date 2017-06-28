@@ -102,3 +102,36 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 
 	return nuevoPCB;
 }
+
+void cpu_manejador(int sock_cpu){
+	tMensaje msj;
+	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
+	switch(msj){
+	case S_WAIT:
+		puts("Funcion wait!");
+		break;
+	case S_SIGNAL:
+		puts("Funcion signal!");
+		break;
+	case LIBERAR:
+		puts("Funcion liberar!");
+		break;
+	case ABRIR:
+		break;
+	case BORRAR:
+		break;
+	case CERRAR:
+		break;
+	case MOVERCURSOR:
+		break;
+	case ESCRIBIR:
+		break;
+	case LEER:
+		break;
+	case RESERVAR:
+		break;
+	default:
+		puts("Funcion no reconocida!");
+		break;
+	}
+}

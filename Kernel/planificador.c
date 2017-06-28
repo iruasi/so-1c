@@ -8,6 +8,8 @@
 
 #include "planificador.h"
 #include "kernelConfigurators.h"
+#include "auxiliaresKernel.h"
+
 
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposPaquetes.h>
@@ -37,7 +39,10 @@ void pausarPlanif(){
  */
 
 extern t_list * listaDeCpu;
+extern t_list * listaProgramas;
+extern t_list * listaPcb;
 
+extern t_consola * consola;
 
 t_queue *New, *Exit, *Block,*Ready;
 t_list	*cpu_exec,*Exec;
@@ -61,7 +66,7 @@ void setupPlanificador(void){
 
 }
 
-void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
+void mandarPCBaCPU(tPCB *nuevoPCB,t_cpu * cpu){
 
 	int pack_size, stat;
 	pack_size = 0;
@@ -80,13 +85,13 @@ void mandarPCBaCPU(tPCB *nuevoPCB,int sock_cpu){
 	printf("pack_size: %d\n", pack_size);
 
 	puts("Enviamos el PCB a CPU");
-	if ((stat = send(sock_cpu, pcb_serial, pack_size, 0)) == -1)
+	if ((stat = send(cpu->fd_cpu, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a CPU. error");
 
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
-	list_add(cpu_exec,(int *) sock_cpu);
-	printf("Se agrego sock_cpu #%d a lista \n",sock_cpu);
+	list_add(cpu_exec,cpu);
+	printf("Se agrego sock_cpu #%d a lista \n",cpu->fd_cpu);
 
 	//freeAndNULL((void **) &pcb_serial);
 }
@@ -96,7 +101,7 @@ void planificar(){
 	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
 	t_cpu * cpu;
-
+	t_consola * consolaAsociada = malloc(sizeof consolaAsociada);
 	while(1){
 
 	switch(kernel->algo){
@@ -123,17 +128,21 @@ void planificar(){
 				pcbAux = (tPCB *) list_get(Exec,i);
 				cpu->pid = pcbAux-> id;
 				cpu->disponibilidad = OCUPADO;
-				mandarPCBaCPU(pcbAux,cpu->fd_cpu);
+				mandarPCBaCPU(pcbAux,cpu);
 			}
 		}
 		//Para saber que hacer con BLOCK y EXIT, recibo mensajes de las cpus activas
 		int i;
 		char *paquete_pcb_serial;
 		tPackHeader * header;
-		for(i = 0; i < list_size(cpu_exec); i ++){
-			int * cpu2 = (int *) list_get(cpu_exec,i);
+		tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 
-			if((paquete_pcb_serial = recvHeader(cpu->fd_cpu,header)) == NULL){
+		for(i = 0; i < list_size(cpu_exec); i ++){
+			t_cpu * cpu_executing = (t_cpu*) list_get(cpu_exec,i);
+
+			printf("valor de cpu_executing->fd_cpu:%d \n",cpu_executing->fd_cpu);
+
+			if((paquete_pcb_serial = recvHeader(cpu_executing->fd_cpu,header)) == NULL){
 					printf("Fallo recvPCB");
 					break;
 						}
@@ -141,17 +150,35 @@ void planificar(){
 
 			switch(header->tipo_de_mensaje){
 
-				case(RECURSO_NO_DISPONIBLE):
-					queue_push(Block,pcbAux);
-					printf("Se agrega pcb a lista de bloqueados por falta de recursos");
-					break;
-				case(FIN_PROCESO):case(ABORTO_PROCESO): //COLA EXIT
-					queue_push(Exit,pcbAux);
-					printf("Se finaliza un proceso, se agrega a la cola exit");
+				//Solo va a block por syscalls a los semaforos
+				case(SYSCALL):
+					cpu_manejador(cpu_executing);
+
+				case(FIN_PROCESO):case(ABORTO_PROCESO):case(RECURSO_NO_DISPONIBLE): //COLA EXIT
+					//queue_push(Exit,pcbAux);
+
+					printf("Se finaliza un proceso, libero memoria y luego consola\n");
+					headerMemoria->tipo_de_mensaje = FIN_PROG;
+					headerMemoria->tipo_de_proceso = KER;
 					//ConsolaAsociada()
-					//LiberarCpuAsociada()
-					//LiberarMemoriaDelPrograma()
-					//Esta cola solo sirve para almacenar pcb (enunciado)
+
+					//Aviso a memoria
+					finalizarPrograma(cpu_executing->pid,headerMemoria,consolaAsociada->fd_con);
+
+					// Le informo a la Consola asociada:
+					consolaAsociada = (t_consola*) list_get(listaProgramas,i);
+					bool consolaAsociadaACpu(t_consola * consolaAsociada){return consolaAsociada->pid == cpu_executing->pid;}
+					consolaAsociada = list_remove_by_condition(listaProgramas,(void *)consolaAsociadaACpu(consolaAsociada));//todo: me quede aca
+					if(consolaAsociada != NULL){
+						headerMemoria->tipo_de_mensaje = FIN_PROG;
+						headerMemoria->tipo_de_proceso = KER;
+						send(consolaAsociada->fd_con,headerMemoria,sizeof (tPackHeader),0);
+
+						// Libero la Consola asociada y la saco del sistema:
+						free(consolaAsociada);consolaAsociada = NULL;
+					}
+					queue_push(Exit,pcbAux);
+
 					break;
 				default:
 					break;
@@ -193,14 +220,6 @@ void setearQuamtumS(){
 	}
 }
 
-int hayCpuDisponible(){
-	return list_size(listaDeCpu) > 0;
-}
-
-
-void bloquearProceso(){
-
-}
 
 void largoPlazo(int multiprog){
 
@@ -220,7 +239,7 @@ void cortoPlazo(){}
 void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
 	int stat;
-//	queue_push(New, (void *) nuevoPCB);
+
 
 	tPackPID *pack_pid = malloc(sizeof *pack_pid);
 	pack_pid->head.tipo_de_proceso = KER;
@@ -238,6 +257,12 @@ void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 		perror("Fallo envio de PID a Consola. error");
 	printf("Se enviaron %d bytes a Consola\n", stat);
 
+	//consola->fd_con = sock_con;
+	consola->pid = pack_pid->pid;
+
+	printf("El socket de consola #%d y pid #%d \n",consola->fd_con,consola->pid);
+
+	list_add_in_index(listaProgramas,consola->pid,consola); //Agrego en la lista segun su numero de pid
 
 	freeAndNULL((void **) &pack_pid);
 
@@ -266,34 +291,45 @@ void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 	freeAndNULL((void **) &pcb_serial);*/
 }
 
-void updateQueue(t_queue *Q){
-
-
-
-}
-
-void freePCBs(t_queue *queue){
-
-	tPCB* pcb;
-	puts("Liberando todos los PCBs de la cola...");
-	while(queue_size(queue) > 0){
-
-		pcb = (tPCB *) queue_pop(queue);
-		freeAndNULL((void **) &pcb->indiceDeCodigo);
-		//freeAndNULL(pcb->indiceDeEtiquetas);
-		//freeAndNULL(pcb->indiceDeStack);
-		freeAndNULL((void **) &pcb);
+int indexPcb(int pid){
+	int i;
+	tPCB * unPcb = NULL;
+	for (i = 0; i < list_size(listaPcb); i++){
+		unPcb = (tPCB*) list_get(listaPcb, i);
+		if(unPcb->id == pid){
+			return i; // el pcb del proceso está en la posición 'i'
+		}
 	}
+	return -1; // no se encontró el proceso
 }
 
-void limpiarPlanificadores(){
+void finalizarPrograma(int pid,int index,tPackHeader * header,int socket){
+
+
+			printf("Aviso a memoria que libere la memoria asiganda al proceso\n");
+
+			int* exit_pid = malloc(sizeof exit_pid);
+			*exit_pid = pid;
+			send(socket,header,sizeof(tPackHeader),0);
+
+			free(exit_pid);exit_pid = NULL;
+
+
+	}
+
+
+
+
+
+
+/*void limpiarPlanificadores(){
 	freePCBs(New);   queue_destroy(New);
 	freePCBs(Ready); queue_destroy(Ready);
     freePCBs(Exec);  list_destroy(Exec);
 	freePCBs(Block); queue_destroy(Block);
 	freePCBs(Exit);  queue_destroy(Exit);
 
-}
+}*/
 
 char *recvHeader(int sock_in, tPackHeader *header){
 	puts("Se recibe el paquete serializado..");

@@ -41,22 +41,22 @@
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code);
 
 void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj);
-void cpu_manejador(int sock_cpu, tMensaje msj);
+
 tPackSrcCode *recibir_paqueteSrc(int fd);
 
 
 tHeapProc *hProcs;
 int hProcs_cant;
-t_list * listaDeCpu;
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 
-
+t_list *listaDeCpu;
+t_list *listaPcb;
 t_list *listaProgramas;
 
 t_cpu * cpu;
-
+t_consola * consola;
 
 int main(int argc, char* argv[]){
 	if(argc!=2){
@@ -64,7 +64,6 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	listaProgramas = list_create();
 
 	int stat, ready_fds;
 	int sock_cpu;
@@ -73,8 +72,12 @@ int main(int argc, char* argv[]){
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
 	cpu = malloc(sizeof cpu);
+	consola = malloc(sizeof consola);
 
 	listaDeCpu = list_create();
+	listaPcb = list_create();
+	listaProgramas = list_create();
+
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
 	FD_ZERO(&read_fd);
@@ -176,7 +179,7 @@ int main(int argc, char* argv[]){
 
 				cpu -> fd_cpu = sock_cpu;
 				cpu -> pid = -1;
-				cpu ->disponibilidad = DISPONIBLE;
+				cpu -> disponibilidad = DISPONIBLE;
 
 				list_add(listaDeCpu,cpu);
 				fd_max = MAX(cpu->fd_cpu, fd_max);
@@ -189,8 +192,9 @@ int main(int argc, char* argv[]){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
+				consola->fd_con = new_fd;
 
-				fd_max = MAX(new_fd, fd_max);
+				fd_max = MAX(consola->fd_con, fd_max);
 				break;
 			}
 
@@ -240,7 +244,7 @@ int main(int argc, char* argv[]){
 
 			if (header_tmp->tipo_de_proceso == CPU){
 				printf("Llego algo desde CPU!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
-				cpu_manejador(fd, header_tmp->tipo_de_mensaje);
+				cpu_manejador(fd);
 				break;
 			}
 
@@ -255,6 +259,7 @@ limpieza:
 
 	free(header_tmp);
 	free(cpu);cpu = NULL;
+	free(consola);consola = NULL;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 	close(sock_mem);
@@ -282,6 +287,8 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 		tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size, sock_hilo);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 		//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
+		//list_add(listaPcb, new_pcb);
+
 		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
 
 		encolarEnNewPrograma(new_pcb, sock_hilo);
@@ -295,39 +302,7 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 
 }
 
-void cpu_manejador(int sock_cpu, tMensaje msj){
-	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
 
-
-	switch(msj){
-	case S_WAIT:
-		puts("Funcion wait!");
-		break;
-	case S_SIGNAL:
-		puts("Funcion signal!");
-		break;
-	case LIBERAR:
-		puts("Funcion liberar!");
-		break;
-	case ABRIR:
-		break;
-	case BORRAR:
-		break;
-	case CERRAR:
-		break;
-	case MOVERCURSOR:
-		break;
-	case ESCRIBIR:
-		break;
-	case LEER:
-		break;
-	case RESERVAR:
-		break;
-	default:
-		puts("Funcion no reconocida!");
-		break;
-	}
-}
 
 tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
 
