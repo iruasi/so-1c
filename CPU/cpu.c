@@ -166,11 +166,11 @@ int ejecutarPrograma(void){
 		pcb->indiceDeCodigo++;
 
 	} while(!termino);
-	freeAndNULL((void **) linea);
 
 	puts("Termino de ejecutar...");
 	termino = false;
 
+	freeAndNULL((void **) linea);
 	freeAndNULL((void **) &linea);
 	return EXIT_SUCCESS;
 }

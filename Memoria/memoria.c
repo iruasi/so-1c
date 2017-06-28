@@ -245,19 +245,21 @@ void* cpu_handler(void *socket_cpu){
 
 		switch(head->tipo_de_mensaje){
 		case BYTES:
-			puts("Se recibio solicitud de bytes");
+			puts("Se recibio Solicitud de Bytes");
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
 
+			puts("Se completo Solicitud de Bytes");
 			break;
 
 		case ALMAC_BYTES:
-			puts("Se recibio peticion de almacenamiento");
+			puts("Se recibio Peticion de Almacenamiento");
 
 			if ((stat = manejarAlmacenamientoBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Byes. status: %d\n", stat);
 
+			puts("Se completo Peticion de Almacenamiento");
 			break;
 
 		case INSTR:

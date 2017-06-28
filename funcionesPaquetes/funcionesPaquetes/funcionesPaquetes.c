@@ -593,7 +593,7 @@ char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size){
 	int payload_size;
 
 	char *pbyte_al;
-	if ((pbyte_al = malloc(sizeof (tPackByteAlmac))) == NULL){
+	if ((pbyte_al = malloc(sizeof (tPackByteAlmac) + sizeof(int))) == NULL){
 		printf("No se pudo mallocar %d bytes para el paquete de bytes almacenamiento\n", sizeof *pbyte_al);
 		return NULL;
 	}

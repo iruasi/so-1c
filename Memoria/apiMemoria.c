@@ -117,6 +117,15 @@ int asignarPaginas(int pid, int page_count){
 	return new_page;
 }
 
+void finalizarPrograma(int pid){
+	printf("Se procede a finalizar el pid %d\n", pid);
+
+	int fr, off;
+	//todo:
+
+}
+
+
 /* Llamado por Kernel, libera una pagina de HEAP.
  * Retorna MEM_EXCEPTION si no puede liberar la pagina porque no existe o
  * porque simplemente no puede hacerse

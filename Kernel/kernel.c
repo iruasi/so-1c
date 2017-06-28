@@ -264,9 +264,9 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 		entradaPrograma = recibir_paqueteSrc(sock_hilo);//Aca voy a recibir el tPackSrcCode
 		src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
 		printf("El size del paquete %d\n", src_size);
-		puts("Era ese el size");
+
 		int cant_pag = (int) ceil((float)src_size / frame_size);
-		tPCB *new_pcb = nuevoPCB(entradaPrograma,cant_pag + kernel->stack_size, sock_hilo);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
+		tPCB *new_pcb = nuevoPCB(entradaPrograma, cant_pag, sock_hilo);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 		//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
 		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
@@ -286,11 +286,14 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
 
 
+
 	switch(msj){
 	case S_WAIT:
 		puts("Funcion wait!");
+		//planificadorPasarABlock();
 		break;
 	case S_SIGNAL:
+		//planificadorPasarABlock();
 		puts("Funcion signal!");
 		break;
 	case LIBERAR:

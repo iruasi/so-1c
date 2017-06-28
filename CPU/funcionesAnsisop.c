@@ -10,7 +10,7 @@
 
 extern bool termino;
 extern AnSISOP_funciones functions;
-extern int pag_size; // todo: obtener en handshake
+extern int pag_size;
 
 void setupCPUFunciones(void){
 	functions.AnSISOP_definirVariable		= definirVariable;
@@ -49,11 +49,6 @@ void obtenerUltimoEnStack(t_list *stack, int *pag, int *off, int *size){
 
 	posicionMemoria*   ultimoArg = list_get (ultimoStack->args, list_size(ultimoStack->args)-1);
 	posicionMemoriaId* ultimaVar = list_get (ultimoStack->vars, list_size(ultimoStack->vars)-1);
-
-
-
-
-
 
 
 	if (ultimoArg == NULL){
@@ -108,7 +103,9 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	var->id = variable;
 	var->pos.offset= off + size; // todo: arreglar para que off y pag no se vayan del tamanio maximo de pagina (ej: off > pag_size)
 	var->pos.pag = pag;
-	var->pos.size = size;
+	var->pos.size = 4; // todo: el size de una variable siempre va a ser 4? Se podra usar sizeof variable?
+
+	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
 
 	if (list_size(pcb->indiceDeStack) == 0){
 		ult_stack = crearStackVacio();
@@ -120,16 +117,17 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		list_add(ult_stack->vars, var);
 	}
 
-	return pag * pag_size + off;
+	return (pag + pcb->paginasDeCodigo) * pag_size + off;
 }
 
-t_puntero obtenerPosicionVariable(t_nombre_variable variable) {
+t_puntero obtenerPosicionVariable(t_nombre_variable variable) { // todo: esta funcion es posiblemente un pasamano a obtenerVariable
 	printf("Obtener posicion de %c\n", variable);
 
 	indiceStack* stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
 	posicionMemoria* pm = malloc(sizeof(posicionMemoria));
 	obtenerVariable(variable, pm, stack);
 	t_puntero pos = pm->pag*pag_size + pm->offset;
+
 	free(pm);
 	return pos;
 }
@@ -158,21 +156,25 @@ void finalizar(void){
 	pcb->pc=nuevoContexto->retPos;
 }
 
-t_valor_variable dereferenciar(t_puntero puntero) { //todo: volver (?
-	printf("Dereferenciar %d y su valor es: %d\n", puntero, 20);
+t_valor_variable dereferenciar(t_puntero puntero) {
 
+	t_valor_variable var;
+	tPackByteReq pbr;
+	tPackBytes* bytes;
+	int pack_size, stat;
+	char *byterq_serial, *bytes_serial;
 	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
 
-	tPackByteReq pbr;
-	int pack_size, stat;
-
 	memcpy(&pbr.head, &h, HEAD_SIZE);
-	pbr.pid = pcb->id;
-	pbr.page = puntero / pag_size;
+	pbr.pid    = pcb->id;
+	pbr.page   = puntero / pag_size + pcb->paginasDeCodigo;
 	pbr.offset = puntero % pag_size;
-	pbr.size = 4;
+	pbr.size   = 4;
 
-	char *byterq_serial = serializeByteRequest(&pbr, &pack_size);
+	if ((byterq_serial = serializeByteRequest(&pbr, &pack_size)) == NULL){
+		puts("Fallo serializacion Pedido de Bytes");
+		return FALLO_SERIALIZAC;
+	}
 
 	if((stat = send(sock_mem, byterq_serial, pack_size, 0)) == -1){
 		perror("Fallo send de byte request. error");
@@ -180,15 +182,24 @@ t_valor_variable dereferenciar(t_puntero puntero) { //todo: volver (?
 		return FALLO_SEND;
 	}
 
-	recv(sock_mem, &h, HEAD_SIZE, 0);
+	if ((stat = recv(sock_mem, &h, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recepcion de header desde Memoria. error");
+		return FALLO_RECV;
+	}
 
-	char* bytes_serial = recvGeneric(sock_mem);
+	if ((bytes_serial = recvGeneric(sock_mem)) == NULL){
+		puts("Fallo recepcion generica desde Memoria");
+		return FALLO_GRAL;
+	}
 
-	tPackBytes* bytes = deserializeBytes(bytes_serial);
+	if ((bytes = deserializeBytes(bytes_serial)) == NULL){
+		puts("Fallo deserializacion de Bytes");
+		return FALLO_DESERIALIZAC;
+	}
 
-
-
-	return (t_valor_variable) bytes->bytes;
+	memcpy(&var, bytes->bytes, sizeof(var));
+	printf("Dereferenciar %d y su valor es: %d\n", puntero, var);
+	return var;
 }
 
 void asignar(t_puntero puntero, t_valor_variable variable) {
@@ -196,14 +207,14 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 
 	tPackByteAlmac pbal;
 	int pack_size, stat;
-	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
+	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ALMAC_BYTES};
 
 	memcpy(&pbal.head, &h, HEAD_SIZE);
 	pbal.pid    = pcb->id;
-	pbal.page   = puntero / pag_size;
+	pbal.page   = puntero / pag_size + pcb->paginasDeCodigo;
 	pbal.offset = puntero % pag_size;
 	pbal.size   = 4;
-	pbal.bytes  = malloc(pbal.size); // todo: verificar que otros mallocs como este esten bien hechos...
+	pbal.bytes  = malloc(pbal.size);
 	memcpy(pbal.bytes, &variable, sizeof variable);
 
 	char *byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size);
@@ -240,14 +251,33 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 
 void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
 	printf("Se va al label %s\n", t_nombre_etiqueta);
-	pcb->pc = metadata_buscar_etiqueta(t_nombre_etiqueta, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
+	int s = strlen(t_nombre_etiqueta);
+
+	//char* sinSalto = malloc(s);
+	char* sinSalto="pepe";
+	//sinSalto = strtok(t_nombre_etiqueta, '\n');
+	//memmove(sinSalto, t_nombre_etiqueta, s);
+	//sinSalto[strlen(sinSalto)-1]='\0';
+
+	t_puntero_instruccion instruccion  = metadata_buscar_etiqueta(sinSalto, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
+
+	t_puntero_instruccion ant = pcb->indiceDeCodigo->start;
+
+	int delta = (ant - instruccion) / sizeof(t_intructions);
+
+	//int comienzo =  pcb->indiceDeCodigo - ant;
+
+	pcb->indiceDeCodigo->start = instruccion;
+	pcb->pc = delta - pcb->pc;
+
+	free(sinSalto);
 }
 
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 	printf("Se llama a la funcion %s\n", etiqueta);
-	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
+	//uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
 	indiceStack *nuevoStack = crearStackVacio();
-	pcb->etiquetaSize = tamlineaStack;
+	//pcb->etiquetaSize = tamlineaStack;
 	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
 

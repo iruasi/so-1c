@@ -53,9 +53,9 @@ int pageQuantity(int pid){
 int reservarPaginas(int pid, int pageCount){
 
 	int fr, off;
-	int pag_assign;
+	int pag_assign, nr_pag;
 	int max_page;
-	if ((max_page = pageQuantity(pid)) != 0){
+	if ((nr_pag = max_page = pageQuantity(pid)) != 0){
 		printf("Fallo conteo de paginas para el pid %d\n", pid);
 		return max_page;
 	}
@@ -68,8 +68,9 @@ int reservarPaginas(int pid, int pageCount){
 
 		if (frameLibre(fr, off)){
 			memcpy(MEM_FIS + fr * memoria->marco_size +  off               , &pid     , sizeof (int));
-			memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &max_page, sizeof (int));
+			memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag, sizeof (int));
 			pag_assign++;
+			nr_pag++;
 		}
 		nextFrameValue(&fr, &off, sizeof (tEntradaInv));
 	}
