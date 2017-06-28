@@ -9,6 +9,13 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposPaquetes.h>
 
+
+// macro para asignar offset, pagina y size a una variable de tipo posicionMemoria* (args)
+#define SET_ARG_OPS(PMP, O, P, S) (O = (PMP)->offset, P = (PMP)->pag, S = (PMP)->size)
+
+// macro para asignar offset, pagina y size a una variable de tipo posicionMemoria  (vars->pos)
+#define SET_VAR_OPS( MP, O, P, S) (O = (MP).offset,   P = (MP).pag,   S = (MP).size)
+
 /*
  *
  * VARIABLES GLOBALES QUE UTILIZAN LAS FUNCIONES ANSISOP

@@ -65,6 +65,10 @@ void clearAndClose(int *fd, fd_set *setFD);
  */
 int cantidadTotalDeBytesRecibidos(int fdServidor, char * buffer, int tamanioBytes);
 
-indiceStack crearStackVacio(void);
+/* Crea un espacio de memoria para un indiceStack.
+ * Ademas llama list_create() para args y vars.
+ * El resto de las variables las inicializa con -1.
+ */
+indiceStack *crearStackVacio(void);
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

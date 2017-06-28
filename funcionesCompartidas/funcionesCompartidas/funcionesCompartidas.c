@@ -66,6 +66,7 @@ int handshakeCon(int sock_dest, int id_sender){
 		return FALLO_SEND;
 	}
 
+	free(package);
 	return stat;
 }
 
@@ -198,15 +199,15 @@ int cantidadTotalDeBytesRecibidos(int fdServidor, char *buffer, int tamanioBytes
 }
 
 
-indiceStack crearStackVacio(void){
-	indiceStack stack;
+indiceStack *crearStackVacio(void){
+	indiceStack *stack = malloc(sizeof *stack);
 
-	stack.args = list_create();
-	stack.vars = list_create();
-	stack.retPos = -1;
-	stack.retVar.pag = -1;
-	stack.retVar.offset = -1;
-	stack.retVar.size = -1;
+	stack->args = list_create();
+	stack->vars = list_create();
+	stack->retPos = -1;
+	stack->retVar.pag    = -1;
+	stack->retVar.offset = -1;
+	stack->retVar.size   = -1;
 
 	return stack;
 }

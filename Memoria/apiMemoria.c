@@ -71,7 +71,7 @@ int inicializarPrograma(int pid, int pageCount){
 
 	int reservadas = reservarPaginas(pid, pageCount);
 	if (reservadas >= 0)
-		puts("Se reservo bien la cantidad de paginas solicitadas");
+		printf("Se reservaron bien las %d paginas solicitadas\n", pageCount);
 
 	return 0;
 }

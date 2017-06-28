@@ -74,7 +74,6 @@ int main(int argc, char* argv[]){
 	}
 
 	//acepta y escucha comunicaciones
-	int *cpu_sock_thr = malloc(sizeof(int));
 	tPackHeader head;
 	puts("esperando comunicaciones entrantes...");
 	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)) != -1){
@@ -112,13 +111,6 @@ int main(int argc, char* argv[]){
 			break;
 
 		case CPU:
-
-			*cpu_sock_thr = client_sock; // todo: ojo que esto va a cambiar a medida que entran CPUs.. deberia manejarse parecido a Consola
-
-			if ((stat = contestarMemoriaCPU(memoria->marco_size, *cpu_sock_thr)) == -1){
-				puts("No se pudo enviar la informacion relevante a Kernel!");
-				return FALLO_GRAL;
-			}
 
 			if( pthread_create(&sniffer_thread, NULL, (void*) cpu_handler, (void*) &client_sock) < 0){
 				perror("no pudo crear hilo. error");
@@ -241,6 +233,11 @@ void* cpu_handler(void *socket_cpu){
 	int stat;
 	int *sock_cpu = (int*) socket_cpu;
 
+	if ((stat = contestarMemoriaCPU(memoria->marco_size, *sock_cpu)) == -1){
+		puts("No se pudo enviar la informacion relevante a Kernel!");
+		return (void *) FALLO_GRAL;
+	}
+
 	printf("Esperamos que lleguen cosas del socket CPU: %d\n", *sock_cpu);
 
 	do {
@@ -267,7 +264,7 @@ void* cpu_handler(void *socket_cpu){
 			puts("Se recibio pedido de instrucciones");
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 
 			break;
 		default:

@@ -39,65 +39,87 @@ void setupCPUFuncionesKernel(void){
 	kernel_functions.AnSISOP_reservar				= reservar;
 }
 
-void obtenerUltimoStack(t_list *stack, int *pag, int *off, int *size){
+void obtenerUltimoEnStack(t_list *stack, int *pag, int *off, int *size){
 
 	*pag = *off = *size = 0;
 	indiceStack* ultimoStack = list_get(stack, pcb->contextoActual);
 
-	posicionMemoria* ultimoArg = list_get (ultimoStack->args, list_size(ultimoStack->args)-1);
+	if (!list_size(stack)) // es decir que es el StackVacio()
+		return;
+
+	posicionMemoria*   ultimoArg = list_get (ultimoStack->args, list_size(ultimoStack->args)-1);
 	posicionMemoriaId* ultimaVar = list_get (ultimoStack->vars, list_size(ultimoStack->vars)-1);
 
-	if(ultimoArg->pag > ultimaVar->pos.pag){
-		*off=ultimoArg->offset;
-		*pag = ultimoArg->pag;
-		*size = ultimoArg->size;
+
+
+
+
+
+
+	if (ultimoArg == NULL){
+		SET_VAR_OPS(ultimaVar->pos, *off, *pag, *size);
 		return;
+
+	} else if (ultimaVar == NULL){
+		SET_ARG_OPS(ultimoArg, *off, *pag, *size);
+		return;
+
+	} else if(ultimoArg->pag > ultimaVar->pos.pag){
+		SET_ARG_OPS(ultimoArg, *off, *pag, *size);
+		return;
+
 	} else if(ultimoArg->pag < ultimaVar->pos.pag){
-		*off = ultimaVar->pos.offset;
-		*pag = ultimaVar->pos.pag;
-		*size = ultimaVar->pos.size;
+		SET_VAR_OPS(ultimaVar->pos, *off, *pag, *size);
 		return;
+
 	} else if(ultimoArg->offset > ultimaVar ->pos.offset){
-		*off=ultimoArg->offset;
-		*pag = ultimoArg->pag;
-		*size = ultimoArg->size;
+		SET_ARG_OPS(ultimoArg, *off, *pag, *size);
 		return;
 	}
 
-	*off = ultimaVar->pos.offset;
-	*pag = ultimaVar->pos.pag;
-	*size = ultimaVar->pos.size;
+	SET_VAR_OPS(ultimaVar->pos, *off, *pag, *size);
 }
+
 void obtenerVariable(t_nombre_variable variable, posicionMemoria* pm, indiceStack* stack){
 	int i;
 	posicionMemoriaId* var;
-	for(i=0; i<list_size(stack->vars); i++){
+	for(i=0; i < list_size(stack->vars); i++){
 		var = list_get(stack->vars, i);
 		if(var->id == variable){
-			pm->offset=var->pos.offset;
-			pm->pag=var->pos.pag;
-			pm->size=var->pos.size;
+			pm->offset = var->pos.offset;
+			pm->pag    = var->pos.pag;
+			pm->size   = var->pos.size;
 			return;
 		}
 	}
-	pm=NULL;
+	pm = NULL;
 }
 
 //FUNCIONES DE ANSISOP
 t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
+
+	indiceStack* ult_stack;
 	int pag,
 		off,
 		size;
-	obtenerUltimoStack(pcb->indiceDeStack, &pag, &off, &size);
+	obtenerUltimoEnStack(pcb->indiceDeStack, &pag, &off, &size);
 	posicionMemoriaId* var = malloc(sizeof(posicionMemoriaId));
 	var->id = variable;
-	var->pos.offset= off;
+	var->pos.offset= off + size; // todo: arreglar para que off y pag no se vayan del tamanio maximo de pagina (ej: off > pag_size)
 	var->pos.pag = pag;
 	var->pos.size = size;
-	//list_add(pcb->indiceDeStack, variable);
-	indiceStack* p = list_get(pcb->indiceDeStack, pcb->contextoActual);
-	list_add(p->vars, var);
+
+	if (list_size(pcb->indiceDeStack) == 0){
+		ult_stack = crearStackVacio();
+		list_add(ult_stack->vars, var);
+		list_add(pcb->indiceDeStack, ult_stack);
+
+	} else {
+		ult_stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
+		list_add(ult_stack->vars, var);
+	}
+
 	return pag * pag_size + off;
 }
 
@@ -177,10 +199,11 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = BYTES};
 
 	memcpy(&pbal.head, &h, HEAD_SIZE);
-	pbal.pid = pcb->id;
-	pbal.page = puntero / pag_size;
+	pbal.pid    = pcb->id;
+	pbal.page   = puntero / pag_size;
 	pbal.offset = puntero % pag_size;
-	pbal.size = 4;
+	pbal.size   = 4;
+	pbal.bytes  = malloc(pbal.size); // todo: verificar que otros mallocs como este esten bien hechos...
 	memcpy(pbal.bytes, &variable, sizeof variable);
 
 	char *byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size);
@@ -223,9 +246,9 @@ void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 	printf("Se llama a la funcion %s\n", etiqueta);
 	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
-	indiceStack nuevoStack = crearStackVacio();
+	indiceStack *nuevoStack = crearStackVacio();
 	pcb->etiquetaSize = tamlineaStack;
-	list_add(pcb->indiceDeStack, &nuevoStack);
+	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
 
 	irAlLabel(etiqueta);
@@ -237,10 +260,10 @@ void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	//posicionMemoria* varRetorno = malloc(sizeof(posicionMemoria));
 	//varRetorno->pag=donde_retornar/tamPagina
 	//varRetorno->offset = donde_retornar%tamPagina
-	indiceStack nuevoStack = crearStackVacio();
+	indiceStack *nuevoStack = crearStackVacio();
 	//nuevoStack->retVar = varRetorno;
 	pcb->etiquetaSize = tamlineaStack;
-	list_add(pcb->indiceDeStack, &nuevoStack);
+	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
 	irAlLabel(etiqueta);
 }

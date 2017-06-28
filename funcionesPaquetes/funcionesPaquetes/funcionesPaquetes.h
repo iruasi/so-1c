@@ -17,6 +17,10 @@ int contestarMemoriaCPU(int marco_size, int sock_cpu);
  * !! Asumimos que ya se recibio el Header !!
  */
 int recibirInfoKerMem(int sock_memoria, int *frames, int *frame_size);
+
+/* Parecida a la que utiliza Kernel. La diferencia a considerar es que recibe
+ * un paquete completo con HEADER, lo cual es un comportamiento muy particular.
+ */
 int recibirInfoCPUMem(int sock_mem, int *frame_size);
 
 char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size);

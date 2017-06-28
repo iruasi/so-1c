@@ -180,6 +180,7 @@ int pedirInstruccion(int instr_size){
 
 	int stat, pack_size;
 
+	pack_size = 0;
 	char *bytereq_serial = serializeInstrRequest(pcb, instr_size, &pack_size);
 
 	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
@@ -229,6 +230,7 @@ int recibirInstruccion(char **linea, int instr_size){
 	return 0;
 }
 
+// todo: esto se puede sacar?
 char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLaInstruccion, t_size tamanio) {
 	char *aRetornar = calloc(1, 100);
 	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
