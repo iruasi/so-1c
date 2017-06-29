@@ -249,17 +249,20 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 	return valor;
 }
 
-void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
-	printf("Se va al label %s\n", t_nombre_etiqueta);
-	int s = strlen(t_nombre_etiqueta);
+void irAlLabel (t_nombre_etiqueta etiqueta){
+	printf("Se va al label %s\n", etiqueta);
+	int s = strlen(etiqueta);
 
-	//char* sinSalto = malloc(s);
-	char* sinSalto="pepe";
-	//sinSalto = strtok(t_nombre_etiqueta, '\n');
-	//memmove(sinSalto, t_nombre_etiqueta, s);
-	//sinSalto[strlen(sinSalto)-1]='\0';
+	char *label;
+	if ((label = malloc(s)) == NULL){
+		printf("No se pudieron mallocar %d bytes para el label\n", s);
+		// algo_fallo = true;
+		return;
+	}
+	strncpy(label, (char *) etiqueta, s);
+	label[s-1] = '\0';
 
-	t_puntero_instruccion instruccion  = metadata_buscar_etiqueta(sinSalto, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
+	t_puntero_instruccion instruccion = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->cantidad_etiquetas);
 
 	t_puntero_instruccion ant = pcb->indiceDeCodigo->start;
 
@@ -270,7 +273,7 @@ void irAlLabel (t_nombre_etiqueta t_nombre_etiqueta){
 	pcb->indiceDeCodigo->start = instruccion;
 	pcb->pc = delta - pcb->pc;
 
-	free(sinSalto);
+	free(label);
 }
 
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
@@ -292,7 +295,7 @@ void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	//varRetorno->offset = donde_retornar%tamPagina
 	indiceStack *nuevoStack = crearStackVacio();
 	//nuevoStack->retVar = varRetorno;
-	pcb->etiquetaSize = tamlineaStack;
+	pcb->cantidad_etiquetas = tamlineaStack; // todo: revisar correctitud de esto
 	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
 	irAlLabel(etiqueta);
