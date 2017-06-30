@@ -52,6 +52,10 @@ char *solicitarBytes(int pid, int page, int offset, int size);
  */
 int asignarPaginas(int pid, int pageCount);
 
-void liberarPagina(int pid, int page);
+/* Utilizada por Kernel, libera una pagina pedida de un pid especifico.
+ * Retorna 0 si fue exitosa la operacion.
+ * Retorna negativo en caso de fallos.
+ */
+int liberarPagina(int pid, int page);
 
 #endif // APIMEMORIA_H_

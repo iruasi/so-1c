@@ -32,8 +32,8 @@ int setupMemoria(void);
  */
 void populateInvertidas(void);
 
-/* Realiza una busqueda secuencial en la Tabla de Paginas Invertida. TODO: Deberia usar una funcion de hashing
- * mediante la funcion de hash encuentra el frame que corresponde a la pagina de un proceso
+/* Realiza una busqueda en la Tabla de Paginas Invertida.
+ * Mediante la funcion de hash encuentra el frame que corresponde a la pagina de un proceso
  * Retorna el frame necesitado (valor 0 o positivo)
  * Retorna valor negativo en caso de fallos.
  */

@@ -24,6 +24,17 @@ bool pid_match(int pid, int frame, int off);
  */
 bool frameLibre(int frame, int off);
 
+
+/* Sobreescribe cualquier entrada en CACHE que pertenezca al pid,
+ * se reemplaza con pid_free y free_page.
+ */
+void limpiarDeCache(int pid);
+
+/* Sobreescribe cualquier entrada en la Tabla de Invertidas que pertenezca al pid,
+ * se reemplaza con pid_free y free_page.
+ */
+void limpiarDeInvertidas(int pid);
+
 /* Se usa para trasladarse de frame a frame sobre la tabla de paginas invertida
  */
 void nextFrameValue(int *fr, int *off, int step_size);

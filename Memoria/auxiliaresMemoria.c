@@ -6,6 +6,7 @@
 #include <tiposRecursos/tiposErrores.h>
 
 #include "apiMemoria.h"
+#include "manejadoresMem.h"
 #include "auxiliaresMemoria.h"
 #include "memoriaConfigurators.h"
 
@@ -17,10 +18,13 @@
 #define PID_INV  -2 // pid tabla invertida
 #endif
 
+extern tCacheEntrada *CACHE_lines;
 extern char *MEM_FIS;
 extern tMemoria *memoria;
 extern int marcos_inv;
 extern int pid_free;
+extern int free_page;
+
 
 bool pid_match(int pid, int frame, int off){
 	char *dirval = (MEM_FIS + frame * memoria->marco_size + off);
@@ -81,6 +85,32 @@ int reservarPaginas(int pid, int pageCount){
 	}
 
 	return max_page; // no sumamos 1 porque contamos desde el 0
+}
+
+void limpiarDeCache(int pid){
+
+	int i;
+	for (i = 0; i < memoria->entradas_cache; ++i){
+		if (CACHE_lines->pid == pid){
+			CACHE_lines[i].pid  = pid_free;
+			CACHE_lines[i].page = free_page;
+		}
+	}
+}
+
+void limpiarDeInvertidas(int pid){
+
+	int pag, frpid;
+	tEntradaInv entry = {.pid = pid_free, .pag = free_page};
+
+	int lim = pageQuantity(pid);
+	for (pag = 0; pag < lim; ++pag){
+
+		if ((frpid = buscarEnMemoria(pid, pag)) >= 0)
+			memcpy(MEM_FIS + frpid * sizeof(tEntradaInv), &entry, sizeof entry);
+		else
+			printf("No se encontro frame para la pagina %d del pid %d. Posible fragmentacion\n", pag, pid);
+	}
 }
 
 void nextFrameValue(int *fr, int *off, int step_size){

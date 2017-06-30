@@ -120,9 +120,8 @@ int asignarPaginas(int pid, int page_count){
 void finalizarPrograma(int pid){
 	printf("Se procede a finalizar el pid %d\n", pid);
 
-	int fr, off;
-	//todo:
-
+	limpiarDeCache(pid);
+	limpiarDeInvertidas(pid);
 }
 
 
@@ -130,7 +129,18 @@ void finalizarPrograma(int pid){
  * Retorna MEM_EXCEPTION si no puede liberar la pagina porque no existe o
  * porque simplemente no puede hacerse
  */
-void liberarPagina(int pid, int page){
+int liberarPagina(int pid, int page){
 	printf("Se libera la pagina %d del PID %d\n", page, pid);
+
+	int frame;
+	tEntradaInv entry = {.pid = pid, .pag = page};
+
+	if ((frame = buscarEnMemoria(pid, page)) >= 0){
+		memcpy(MEM_FIS + frame * memoria->marco_size, &entry, sizeof entry);
+		return 0;
+	}
+
+	printf("No se encontro el frame para la pagna %d del pid %d. Fallo liberacion\n", page, pid);
+	return frame;
 }
 
