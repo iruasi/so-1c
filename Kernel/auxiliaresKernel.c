@@ -70,7 +70,7 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 
 	nuevoPCB->id = globalPID;
 	globalPID++;
-	nuevoPCB->pc = 0;
+	nuevoPCB->pc = meta->instruccion_inicio;
 	nuevoPCB->paginasDeCodigo = cant_pags;
 	nuevoPCB->etiquetas_size         = meta->etiquetas_size;
 	nuevoPCB->cantidad_etiquetas     = meta->cantidad_de_etiquetas;

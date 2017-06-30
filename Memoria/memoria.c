@@ -164,7 +164,7 @@ void* kernel_handler(void *sock_kernel){
 
 			if ((stat = inicializarPrograma(pid, pageCount)) != 0){
 				puts("No se pudo inicializar el programa. Se aborta el programa.");
-				abortar(pid);
+				finalizarPrograma(pid);
 			}
 
 			puts("Listo.");

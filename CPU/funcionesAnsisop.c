@@ -120,16 +120,25 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	return (pag + pcb->paginasDeCodigo) * pag_size + off;
 }
 
-t_puntero obtenerPosicionVariable(t_nombre_variable variable) { // todo: esta funcion es posiblemente un pasamano a obtenerVariable
+t_puntero obtenerPosicionVariable(t_nombre_variable variable){
 	printf("Obtener posicion de %c\n", variable);
 
+	int i;
 	indiceStack* stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
-	posicionMemoria* pm = malloc(sizeof(posicionMemoria));
-	obtenerVariable(variable, pm, stack);
-	t_puntero pos = pm->pag*pag_size + pm->offset;
+	posicionMemoria pm;
 
-	free(pm);
-	return pos;
+	posicionMemoriaId* var;
+	for(i = 0; i < list_size(stack->vars); i++){
+		var = list_get(stack->vars, i);
+		if(var->id == variable){
+			pm.offset = var->pos.offset;
+			pm.pag    = var->pos.pag;
+			pm.size   = var->pos.size;
+			break;
+		}
+	}
+
+	return (var->id != variable)? VAR_NOT_FOUND : pm.pag * pag_size + pm.offset;
 }
 
 void finalizar(void){
@@ -213,10 +222,10 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 	pbal.pid    = pcb->id;
 	pbal.page   = puntero / pag_size + pcb->paginasDeCodigo;
 	pbal.offset = puntero % pag_size;
-	pbal.size   = 4;
-	pbal.bytes  = malloc(pbal.size);
-	memcpy(pbal.bytes, &variable, sizeof variable);
+	pbal.size   = 4; // todo: siempre va a ser 4???
+	pbal.bytes  = (char *) &variable;
 
+	pack_size = 0;
 	char *byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size);
 	if((stat = send(sock_mem, byteal_serial, pack_size, 0)) == -1){
 		perror("Fallo send de byte request. error");
@@ -225,7 +234,7 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 		return;
 	}
 
-	freeAndNULL((void **) &byteal_serial);
+	//freeAndNULL((void **) &byteal_serial); //todo: rompe
 }
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
@@ -234,7 +243,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 	char *valor_serial;
 	int pack_size, stat;
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = VAR_GLOBAL};
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = SET_GLOBAL};
 	pack_size = 0;
 	if ((valor_serial = serializeValorYVariable(head, valor, variable, &pack_size)) == NULL){
 		puts("No se pudo serializar el valor y variable");
@@ -263,7 +272,7 @@ void irAlLabel (t_nombre_etiqueta etiqueta){
 	label[s-1] = '\0';
 
 	pcb->pc = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
-
+	pcb->pc--; // es porque ejecutarInstruccion() incrementa el pc. Si, esto es efectivamente un asco
 	free(label);
 }
 
@@ -313,7 +322,7 @@ void retornar (t_valor_variable retorno){
 	list_remove(pcb->indiceDeStack,pcb->contextoActual);
 	pcb->contextoActual--;
 }
-t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
+t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){ // todo: escribir comportamiento
 	printf("Se obtiene el valor de la variable compartida %s.\n", variable);
 	return 20;
 }
@@ -455,8 +464,6 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_val
 
 	enviar(leer_serial, pack_size);
 }
-
-
 
 t_puntero reservar (t_valor_variable espacio){
 	printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);

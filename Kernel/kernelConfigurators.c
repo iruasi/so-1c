@@ -6,6 +6,7 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 
+#include <parser/parser.h>
 #include <commons/config.h>
 #include <commons/string.h>
 
@@ -14,6 +15,7 @@
 #define MAXMSJ 100
 #define MAXALGO 4 		// cantidad maxima de carecteres para kernel->algoritmo (RR o FIFO)
 
+t_valor_variable *shared_vals;
 
 tKernel *getConfigKernel(char* ruta){
 
@@ -44,16 +46,18 @@ tKernel *getConfigKernel(char* ruta){
 	kernel->quantum_sleep   = config_get_int_value(kernelConfig, "QUANTUM_SLEEP");
 	kernel->stack_size      = config_get_int_value(kernelConfig, "STACK_SIZE");
 	kernel->sem_ids         = config_get_array_value(kernelConfig, "SEM_IDS");
+	kernel->sem_quant       = config_get_int_value(kernelConfig, "SEM_CANT");
 	kernel->sem_init        = config_get_array_value(kernelConfig, "SEM_INIT");
 	kernel->shared_vars     = config_get_array_value(kernelConfig, "SHARED_VARS");
+	kernel->shared_quant    = config_get_int_value(kernelConfig, "SHARED_CANT");
+	shared_vals = calloc(kernel->shared_quant, sizeof(t_valor_variable));
 	kernel->tipo_de_proceso = KER;
+
 
 	config_destroy(kernelConfig);
 	return kernel;
 }
 
-
-// todo: hacer bien el recorrido de vectores
 void mostrarConfiguracion(tKernel *kernel){
 
 	printf("Algoritmo: %s\n", kernel->algoritmo);
@@ -67,10 +71,23 @@ void mostrarConfiguracion(tKernel *kernel){
 	printf("Quantum: %d\n", kernel->quantum);
 	printf("Quantum Sleep: %d\n", kernel->quantum_sleep);
 	printf("Stack size: %d\n", kernel->stack_size);
-	printf("Identificadores de semaforos: %s, %s, %s\n", kernel->sem_ids[0], kernel->sem_ids[1], kernel->sem_ids[2]);
-	printf("Valores de semaforos: %s, %s, %s\n", kernel->sem_init[0], kernel->sem_init[1], kernel->sem_init[2]);
-	printf("Variables globales: %s, %s, %s\n", kernel->shared_vars[0], kernel->shared_vars[1], kernel->shared_vars[2]);
+	mostrarSemaforos(kernel);
+	mostrarGlobales(kernel);
 	printf("Tipo de proceso: %d\n", kernel->tipo_de_proceso);
+}
+
+void mostrarSemaforos(tKernel *kernel){
+	puts("\nSemaforos:");
+	int i;
+	for (i = 0; i < kernel->sem_quant; ++i)
+		printf("Semaforo %s\t Valor: %s\n", kernel->sem_ids[i] ,kernel->sem_init[i]);
+}
+
+void mostrarGlobales(tKernel *kernel){
+	puts("\nVariables Globales:");
+	int i;
+	for (i = 0; i < kernel->sem_quant; ++i)
+		printf("Variable %s\t Valor: %d\n", kernel->shared_vars[i], 0);
 }
 
 void liberarConfiguracionKernel(tKernel *kernel){

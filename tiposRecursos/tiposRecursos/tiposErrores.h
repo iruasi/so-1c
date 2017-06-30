@@ -30,6 +30,10 @@ typedef enum {
 , FALLO_DESERIALIZAC=  -30
 , FALLO_SERIALIZAC=    -31
 
+, FALLO_INSTR=         -40
+, VAR_NOT_FOUND=       -41
+, GLOBAL_NOT_FOUND=    -42
+
 , MEMORIA_LLENA=       -50
 , FRAME_NOT_FOUND=     -51
 , PID_INVALIDO=        -52

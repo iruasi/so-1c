@@ -136,7 +136,7 @@ char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informaci
 
 char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size);
 
-
+tPackValComp *deserializeValorYVariable(char *valor_serial);
 
 /* Retorna el peso en bytes de todas las listas y variables sumadas del stack
  */

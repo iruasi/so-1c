@@ -18,7 +18,6 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
-
 #include "capaMemoria.h"
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
@@ -38,8 +37,9 @@
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
-void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code);
+void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags);
 
+int setGlobal(tPackValComp *val_comp); // todo: poner en otro lado
 void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj);
 void cpu_manejador(int sock_cpu, tMensaje msj);
 tPackSrcCode *recibir_paqueteSrc(int fd);
@@ -52,10 +52,12 @@ int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas q
 int sock_cpu;
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
+extern t_valor_variable *shared_vals;
 
 t_list *listaProgramas;
 
 int main(int argc, char* argv[]){
+
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
@@ -269,12 +271,13 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 		tPCB *new_pcb = nuevoPCB(entradaPrograma, cant_pag, sock_hilo);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
 		//En nuevoPcb, casteo entradaPrograma para que me de los valores.
 
-		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size);
+		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size, cant_pag);
 
 		encolarEnNEWPrograma(new_pcb, sock_hilo);
 
 		puts("Listo!");
 		break;
+
 	default:
 		break;
 	}
@@ -285,19 +288,45 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 void cpu_manejador(int sock_cpu, tMensaje msj){
 	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
 
-
+	char *buffer;
+	int stat;
 
 	switch(msj){
 	case S_WAIT:
-		puts("Funcion wait!");
+		puts("Signal wait a semaforo");
 		//planificadorPasarABlock();
 		break;
 	case S_SIGNAL:
 		//planificadorPasarABlock();
-		puts("Funcion signal!");
+		puts("Signal continuar a semaforo");
 		break;
+
+	case SET_GLOBAL:
+		puts("Se reasigna una variable global");
+
+		if ((buffer = recvGeneric(sock_cpu)) == NULL){
+			puts("Fallo recepcion generica");
+			break;
+		}
+
+		tPackValComp *val_comp;
+		if ((val_comp = deserializeValorYVariable(buffer)) == NULL){
+			puts("No se pudo deserializar Valor y Variable");
+			// todo: abortar programa?
+			break;
+		}
+
+		if ((stat = setGlobal(val_comp)) != 0){
+			puts("No se pudo asignar la variable global");
+			// todo: abortar programa?
+			break;
+		}
+
+		freeAndNULL((void **) &val_comp);
+		break;
+
 	case LIBERAR:
-		puts("Funcion liberar!");
+		puts("Funcion liberar");
 		break;
 	case ABRIR:
 		break;
@@ -317,6 +346,18 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 		puts("Funcion no reconocida!");
 		break;
 	}
+}
+
+int setGlobal(tPackValComp *val_comp){
+
+	int i;
+	for (i = 0; i < kernel->shared_quant; ++i){
+		if (strcmp(kernel->shared_vars[i], val_comp->nom) == 0){
+			shared_vals[i] = val_comp->val;
+			return 0;
+		}
+	}
+	return GLOBAL_NOT_FOUND;
 }
 
 tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
@@ -346,7 +387,7 @@ tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para re
 }
 
 // todo: remover test cuando ya no sea necesario
-void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code){
+void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags){
 	puts("\n\n\t\tEmpieza el test....");
 
 	int stat;
@@ -357,7 +398,7 @@ void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_cod
 	tPackPidPag p;
 	p.head = ini;
 	p.pid = 0;
-	p.pageCount = 3;
+	p.pageCount = pags + kernel->stack_size;
 
 	char * pidpag_serial = serializePIDPaginas(&p);
 	if (pidpag_serial == NULL){

@@ -596,9 +596,10 @@ tPackByteReq *deserializeByteRequest(char *byterq_serial){
 char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size){
 
 	int payload_size;
+	int size_pbal = sizeof(tPackByteAlmac) - sizeof (char*) + pbal->size;
 
 	char *pbyte_al;
-	if ((pbyte_al = malloc(sizeof (tPackByteAlmac) + sizeof(int))) == NULL){
+	if ((pbyte_al = malloc(size_pbal)) == NULL){
 		printf("No se pudo mallocar %d bytes para el paquete de bytes almacenamiento\n", sizeof *pbyte_al);
 		return NULL;
 	}
@@ -961,6 +962,24 @@ char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre
 	return valor_serial;
 }
 
+tPackValComp *deserializeValorYVariable(char *valor_serial){
+
+	int off;
+	tPackValComp *val_comp;
+
+	if ((val_comp = malloc(sizeof *val_comp)) == NULL){
+		printf("No se pudieron mallocar %d bytes para valor y variable\n", sizeof *val_comp);
+		return NULL;
+	}
+
+	off = 0;
+	memcpy(&val_comp->val, valor_serial + off, sizeof(t_valor_variable));
+	off += sizeof(val_comp->val);
+	memcpy(&val_comp->nom, valor_serial + off, sizeof(t_nombre_compartida));
+	off += sizeof(t_nombre_compartida);
+
+	return val_comp;
+}
 
 
 

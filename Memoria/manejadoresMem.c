@@ -32,14 +32,6 @@ tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
 
-/* Esta deberia ser la rutina para destruir cualquier programa en forma abortiva
- */
-void abortar(int pid){ // TODO: escribir el comportamiento de esta funcion
-	puts("Se inicio procedimiento de aborto");
-	printf("Matamos todo lo que le pertenece al PID: %d\n", pid);
-}
-
-
 void liberarEstructurasMemoria(void){
 
 	liberarConfiguracionMemoria();
@@ -52,7 +44,7 @@ void liberarEstructurasMemoria(void){
 int setupMemoria(void){
 	int stat;
 
-	retardo(1500);
+	retardo(memoria->retardo_memoria);
 
 	pid_free   = -2;
 	pid_inv   = -3;

@@ -97,7 +97,7 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 	char *buffer;
 	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
 		puts("No se pudieron leer los bytes de la pagina");
-		abortar(pid);
+		finalizarPrograma(pid);
 		return NULL;
 	}
 
@@ -110,7 +110,7 @@ int asignarPaginas(int pid, int page_count){
 
 	if((new_page = reservarPaginas(pid, page_count)) != 0){
 		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d\n", new_page);
-		abortar(pid);
+		finalizarPrograma(pid);
 	}
 
 	printf("Se reservaron correctamente %d paginas\n", page_count);

@@ -2,6 +2,8 @@
 #define TIPOSPAQUETES_H_
 #include <stdint.h>
 
+#include <parser/parser.h>
+
 #define HEAD_SIZE 8 // size de la cabecera de cualquier packete (tipo de proceso y de mensaje)
 
 typedef enum {KER= 1, CPU= 2, FS= 3, CON= 4, MEM= 5} tProceso;
@@ -17,7 +19,8 @@ typedef enum {
 	PCB_RESTORE = PCB_EXEC, // serian para Memoria
 	INSTR       = 23,
 	BYTES       = 24,
-	VAR_GLOBAL  = 25,
+	SET_GLOBAL  = 25,
+	GET_GLOBAL  = 26,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -101,13 +104,11 @@ typedef struct {
 } tPackBytes; // este paquete se utiliza para responder una Solicitud de Bytes
 
 typedef struct {
+
 	tPackHeader head;
-	int pid,
-		pc,
-		pages,
-		exit;
-} tPackPCBSimul; /* este paquete simula ser un PCB, todavia no aplica todos los campos;
-                  * TODO: luego sera el tPackPCB para el proyecto completo */
+	t_valor_variable val;
+	t_nombre_compartida nom;
+} tPackValComp; // para envio de variables globales entre CPU y Kernel
 
 typedef struct {
 
