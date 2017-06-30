@@ -47,7 +47,7 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 	memcpy(pack_src_serial              , &proc, sizeof proc);
 	memcpy(pack_src_serial + sizeof proc, &msj, sizeof msj);
 
-	if ((stat = send(fd_mem, pack_src_serial, packageSize, 0)) < 0){
+	if ((stat = send(fd_mem, pack_src_serial, packageSize, 0)) == -1){
 		perror("Error en el envio de codigo fuente. error");
 		return FALLO_SEND;
 	}
@@ -59,42 +59,36 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 
 // todo: persisitir
 tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
-	dataHiloProg hp;
-	hp.pid = globalPID;
-	hp.sock = sock_hilo;
-	list_add(listaProgramas, &hp);
-
 
 	t_metadata_program *meta = metadata_desde_literal(src_code->sourceCode);
 	t_size indiceCod_size = meta->instrucciones_size * 2 * sizeof(int);
 
-	bool hayEtiquetas = (meta->etiquetas_size > 0)? true : false;
-
-	tPCB *nuevoPCB = malloc(sizeof *nuevoPCB);
-	nuevoPCB->indiceDeCodigo = malloc(indiceCod_size);
-
-	nuevoPCB->indiceDeStack = list_create();
-
-	nuevoPCB->etiquetaSize = 0;
-	if (hayEtiquetas){
-		nuevoPCB->etiquetaSize = meta->etiquetas_size;
-		nuevoPCB->indiceDeEtiquetas = malloc(nuevoPCB->etiquetaSize);
-		memcpy(nuevoPCB->indiceDeEtiquetas, meta->etiquetas, nuevoPCB->etiquetaSize);
-	}
+	tPCB *nuevoPCB              = malloc(sizeof *nuevoPCB);
+	nuevoPCB->indiceDeCodigo    = malloc(indiceCod_size);
+	nuevoPCB->indiceDeStack     = list_create();
+	nuevoPCB->indiceDeEtiquetas = malloc(meta->etiquetas_size);
 
 	nuevoPCB->id = globalPID;
 	globalPID++;
 	nuevoPCB->pc = 0;
 	nuevoPCB->paginasDeCodigo = cant_pags;
-	nuevoPCB->estado_proc = 0;
-	nuevoPCB->contextoActual = 0;
+	nuevoPCB->etiquetas_size         = meta->etiquetas_size;
+	nuevoPCB->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
 	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
+	nuevoPCB->estado_proc    = 0;
+	nuevoPCB->contextoActual = 0;
+	nuevoPCB->exitCode       = 0;
+
 	memcpy(nuevoPCB->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
 
-	nuevoPCB->indiceDeEtiquetas = meta->etiquetas;
+	if (nuevoPCB->cantidad_etiquetas)
+		memcpy(nuevoPCB->indiceDeEtiquetas, meta->etiquetas, nuevoPCB->etiquetas_size);
 
-	nuevoPCB->exitCode = 0;
 
+	dataHiloProg hp;
+	hp.pid = globalPID;
+	hp.sock = sock_hilo;
+	list_add(listaProgramas, &hp);
 	//almacenar(nuevoPCB->id, meta);
 
 	return nuevoPCB;

@@ -54,6 +54,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size);
 
 /* Funcion auxiliar para crear un buffer con el stack serializado;
  * luego podremos memcpy'arlo al pcb_serializado
+
+ * La forma de este buffer es: |TAMANIO_STACK|STACK_SERIALIZADO|
  */
 char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size);
 

@@ -283,14 +283,13 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 
 	int off = 0;
 	char *pcb_serial;
-	bool hayEtiquetas = (pcb->etiquetaSize > 0)? true : false;
 
 	size_t ctesInt_size         = CTES_INT_PCB * sizeof (int);
 	size_t indiceCod_size       = pcb->cantidad_instrucciones * 2 * sizeof(int);
 	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack);
-	size_t indiceEtiquetas_size = (size_t) pcb->etiquetaSize;
+	size_t indiceEtiquetas_size = pcb->etiquetas_size;
 
-	if ((pcb_serial = malloc(HEAD_SIZE + sizeof(int) + ctesInt_size + indiceCod_size + indiceStack_size + indiceEtiquetas_size)) == NULL){
+	if ((pcb_serial = malloc(HEAD_SIZE + sizeof(int) + ctesInt_size + indiceCod_size + sizeof(int) + indiceStack_size + indiceEtiquetas_size)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para pcb serializado\n");
 		return NULL;
 	}
@@ -307,7 +306,9 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->paginasDeCodigo, sizeof (int));
 	off += sizeof (int);
-	memcpy(pcb_serial + off, &pcb->etiquetaSize, sizeof (int));
+	memcpy(pcb_serial + off, &pcb->etiquetas_size, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->cantidad_etiquetas, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
 	off += sizeof (int);
@@ -323,14 +324,15 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += indiceCod_size;
 
 	// serializamos indice de stack
+	*pack_size = 0;
 	char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
 	memcpy(pcb_serial + off, stack_serial, *pack_size);
 	off += *pack_size;
 
 	// serializamos indice de etiquetas
-	if (hayEtiquetas){
-		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetaSize);
-		off += sizeof pcb->etiquetaSize;
+	if (pcb->cantidad_etiquetas){
+		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
+		off += pcb->etiquetas_size;
 	}
 
 	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
@@ -357,6 +359,7 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 	int args_size, vars_size, stack_size;
 	int i, j, off;
 
+	*pack_size = 0;
 	stack_size = list_size(pcb->indiceDeStack);
 	memcpy(stack_serial, &stack_size, sizeof(int));
 	off = sizeof (int);
@@ -416,7 +419,9 @@ tPCB *deserializarPCB(char *pcb_serial){
 	offset += sizeof(int);
 	memcpy(&pcb->paginasDeCodigo, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
-	memcpy(&pcb->etiquetaSize, pcb_serial + offset, sizeof(int));
+	memcpy(&pcb->etiquetas_size, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->cantidad_etiquetas, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
@@ -439,10 +444,10 @@ tPCB *deserializarPCB(char *pcb_serial){
 	deserializarStack(pcb, pcb_serial, &offset);
 
 	// si etiquetaSize es 0, malloc() retorna un puntero equivalente a NULL
-	pcb->indiceDeEtiquetas = malloc(pcb->etiquetaSize);
-	if (pcb->etiquetaSize){ // si hay etiquetas, las memcpy'amos
-		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetaSize);
-		offset += pcb->etiquetaSize;
+	pcb->indiceDeEtiquetas = malloc(pcb->etiquetas_size);
+	if (pcb->cantidad_etiquetas){ // si hay etiquetas, las memcpy'amos
+		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetas_size);
+		offset += pcb->cantidad_etiquetas;
 	}
 
 	return pcb;
@@ -525,7 +530,7 @@ char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size){
 	*pack_size += sizeof (int);
 	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
 	*pack_size += sizeof (int);
-	memcpy(bytereq_serial + *pack_size, &pcb->indiceDeCodigo->start, sizeof pcb->indiceDeCodigo->start); // OFFSET_BEGIN
+	memcpy(bytereq_serial + *pack_size, &(pcb->indiceDeCodigo + pcb->pc)->start, sizeof (t_puntero_instruccion)); // OFFSET_BEGIN
 	*pack_size += sizeof (t_puntero_instruccion);
 	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); // SIZE
 	*pack_size += sizeof (int);

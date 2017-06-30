@@ -138,7 +138,8 @@ int main(int argc, char* argv[]){
 
 int ejecutarPrograma(void){
 
-	int stat, instr_size;
+	int stat;
+	t_size instr_size;
 	char **linea = malloc(0);
 	*linea = NULL;
 
@@ -146,7 +147,7 @@ int ejecutarPrograma(void){
 
 	puts("Empieza a ejecutar...");
 	do{
-		instr_size = pcb->indiceDeCodigo->offset;
+		instr_size = (pcb->indiceDeCodigo + pcb->pc)->offset;
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
 		if ((stat = pedirInstruccion(instr_size)) != 0){
@@ -163,7 +164,6 @@ int ejecutarPrograma(void){
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(*linea, &functions, &kernel_functions);
 		pcb->pc++;
-		pcb->indiceDeCodigo++;
 
 	} while(!termino);
 

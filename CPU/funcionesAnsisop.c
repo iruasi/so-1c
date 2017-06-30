@@ -262,16 +262,7 @@ void irAlLabel (t_nombre_etiqueta etiqueta){
 	strncpy(label, (char *) etiqueta, s);
 	label[s-1] = '\0';
 
-	t_puntero_instruccion instruccion = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->cantidad_etiquetas);
-
-	t_puntero_instruccion ant = pcb->indiceDeCodigo->start;
-
-	int delta = (ant - instruccion) / sizeof(t_intructions);
-
-	//int comienzo =  pcb->indiceDeCodigo - ant;
-
-	pcb->indiceDeCodigo->start = instruccion;
-	pcb->pc = delta - pcb->pc;
+	pcb->pc = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
 
 	free(label);
 }
