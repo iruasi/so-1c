@@ -74,6 +74,8 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 	nuevoPCB->paginasDeCodigo = cant_pags;
 	nuevoPCB->etiquetas_size         = meta->etiquetas_size;
 	nuevoPCB->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
+	nuevoPCB->estado_proc = 0;
+	nuevoPCB->proxima_rafaga = 0;
 	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
 	nuevoPCB->estado_proc    = 0;
 	nuevoPCB->contextoActual = 0;
@@ -84,12 +86,123 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 	if (nuevoPCB->cantidad_etiquetas)
 		memcpy(nuevoPCB->indiceDeEtiquetas, meta->etiquetas, nuevoPCB->etiquetas_size);
 
-
-	dataHiloProg hp;
+/*	dataHiloProg hp;
 	hp.pid = globalPID;
 	hp.sock = sock_hilo;
 	list_add(listaProgramas, &hp);
 	//almacenar(nuevoPCB->id, meta);
-
+*/
 	return nuevoPCB;
+}
+
+
+void cpu_manejador(int sock_cpu){
+	tMensaje msj; // todo: recv(msj);
+	tPackHeader head = {.tipo_de_proceso = KER};
+	tMensaje rta;
+	bool found;
+	char *buffer;
+	char *var = NULL;
+	int stat, pack_size;
+	tPackBytes *var_name;
+	t_valor_variable val;
+
+	switch(msj){
+	case S_WAIT:
+		puts("Signal wait a semaforo");
+		//planificadorPasarABlock();
+		break;
+	case S_SIGNAL:
+		//planificadorPasarABlock();
+		puts("Signal continuar a semaforo");
+		break;
+
+	case SET_GLOBAL:
+		puts("Se reasigna una variable global");
+
+		if ((buffer = recvGeneric(sock_cpu)) == NULL){
+			puts("Fallo recepcion generica");
+			break;
+		}
+
+		tPackValComp *val_comp;
+		if ((val_comp = deserializeValorYVariable(buffer)) == NULL){
+			puts("No se pudo deserializar Valor y Variable");
+			// todo: abortar programa?
+			break;
+		}
+
+		if ((stat = setGlobal(val_comp)) != 0){
+			puts("No se pudo asignar la variable global");
+			// todo: abortar programa?
+			break;
+		}
+
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &val_comp);
+		break;
+
+	case GET_GLOBAL:
+		puts("Se pide el valor de una variable global");
+
+		if ((buffer = recvGeneric(sock_cpu)) == NULL){
+			puts("Fallo recepcion generica");
+			break;
+		}
+
+		var_name = deserializeBytes(buffer);
+		freeAndNULL((void **) &buffer);
+
+		var = realloc(var, var_name->bytelen);
+		memcpy(var, var_name->bytes, var_name->bytelen);
+
+		val = getGlobal(var, &found);
+		rta = (found)? GET_GLOBAL : GLOBAL_NOT_FOUND;
+		head.tipo_de_mensaje = rta;
+
+		if ((buffer = serializeValorYVariable(head, val, var, &pack_size)) == NULL){
+			puts("No se pudo serializar Valor Y Variable");
+			return;
+		}
+
+		if ((stat = send(sock_cpu, buffer, pack_size, 0)) == -1){
+			perror("Fallo send de Valor y Variable. error");
+			return;
+		}
+
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void**) &var_name->bytes); freeAndNULL((void **) &var_name);
+		break;
+
+	case LIBERAR:
+		puts("Funcion liberar");
+		break;
+	case ABRIR:
+		break;
+	case BORRAR:
+		break;
+	case CERRAR:
+		break;
+	case MOVERCURSOR:
+		break;
+	case ESCRIBIR:
+
+		buffer = recvGeneric(sock_cpu);
+		tPackEscribir *escr = deserializeEscribir(buffer);
+
+		printf("Se escriben en fd %d, la info %s\n", escr->fd, (char*) escr->info);
+		free(escr->info); free(escr);
+		break;
+
+	case LEER:
+		break;
+	case RESERVAR:
+		break;
+	case HSHAKE:
+		puts("Es solo un handshake");
+		break;
+	default:
+		puts("Funcion no reconocida!");
+		break;
+	}
 }

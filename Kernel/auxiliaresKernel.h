@@ -13,6 +13,13 @@ typedef struct {
 }dataHiloProg; // todo: ver si es raro
 
 
+typedef struct{
+	int fd_cpu,pid;
+}t_cpu;
+
+typedef struct{
+	int fd_con,pid;
+}t_consola;
 
 
 /* Recibe, serializa y reenvia a Memoria el codigo fuente
@@ -23,5 +30,14 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 /* Crea un puntero a un PCB nuevo, con un PID unico.
  */
 tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo);
+
+/* Gestiona los mensaje recibidos del cpu que no sean para el planificador
+ * */
+void cpu_manejador(int sock);
+
+
+int setGlobal(tPackValComp *val_comp);
+t_valor_variable getGlobal(t_nombre_variable *var, bool *found);
+
 
 #endif // AUXILIARESKERNEL_H_

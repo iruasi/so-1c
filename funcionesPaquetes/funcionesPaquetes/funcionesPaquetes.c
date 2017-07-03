@@ -284,6 +284,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_etiquetas, sizeof (int));
 	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->proxima_rafaga, sizeof (int));
+	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
@@ -396,6 +398,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 	memcpy(&pcb->etiquetas_size, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_etiquetas, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->proxima_rafaga, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);

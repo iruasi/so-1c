@@ -31,7 +31,6 @@ typedef struct{
 	tProceso tipo_de_proceso;
 }tKernel;
 
-
 /* Dada una ruta de acceso, crea una estructura configurada para Kernel;
  * retorna un puntero a la esctructura creada.
  */

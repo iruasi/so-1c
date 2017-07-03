@@ -34,6 +34,7 @@ extern t_list *listaAtributos;
 sem_t *semLista;
 extern tConsola *cons_data;
 
+
 void inicializarSemaforos(void){
 	int stat;
 	semLista = malloc(sizeof (sem_t));
@@ -94,8 +95,7 @@ int Iniciar_Programa(tAtributosProg *atributos){
 
 	int stat, *retval;
 
-	handshakeCon(atributos->sock, CON);
-	puts("handshake realizado");
+
 
 	pthread_attr_t attr;
 	pthread_t hilo_prog;
@@ -119,7 +119,7 @@ int Finalizar_Programa(int pid, int sock_ker){
 	send_head.tipo_de_proceso = CON;
 	tPackPID *ppid = malloc(sizeof *ppid);
 	ppid->head = send_head;
-	ppid->pid=pid;
+	ppid->val=pid;
 
 	int stat;
 	if((stat = send(sock_ker, ppid, sizeof ppid, 0)) == -1){
@@ -171,21 +171,21 @@ int Finalizar_Programa(int pid, int sock_ker){
 			timeinfo = localtime ( &rawtime );
 
 			struct tm *timeInicio;
-			timeInicio=localtime(&aux->hi);
+		//	timeInicio=localtime(&aux->hi);
 			printf("Fecha y hora inicio: %s",asctime(timeInicio));
 			printf ( "Fecha y hora fin: %s", asctime (timeinfo) );
 
 
-			time(&aux->hf);
+			//time(&aux->hf);
 
 
-			double diferencia = difftime(aux->hf, aux->hi);
-			printf("Segs de ejecucion: %.f segundos \n",diferencia);
+			//double diferencia = difftime(aux->hf, aux->hi);
+			//printf("Segs de ejecucion: %.f segundos \n",diferencia);
 			//Lo sacamos de la lista de programas en ejecucion
 			list_remove(listaAtributos,i);
 
 			//Lo agregamos a la lista de programas finalizados.
-			list_add(listaFinalizados,aux);
+			//list_add(listaFinalizados,aux);
 		}
 	}
 
@@ -253,18 +253,23 @@ void *programa_handler(void *atributos){
 
 
 while(fin !=1){
-	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
+	while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == PID){
 			puts("recibimos PID");
-			stat = recv(args->sock, &(ppid.val), sizeof ppid.val, 0);
+
+			if((stat = recv(sock_kern, &(ppid.val), sizeof ppid.val, 0)) < 0 ){
+				perror("error al recibir el pid");
+				return 0;
+			}
+
 			puts("Asigno pid a la estructura");
 			args->pidProg = ppid.val;
 			args->hiloProg = pthread_self();
 
-			sem_wait(semLista);
+			//sem_wait(semLista);
 			list_add(listaAtributos,args);
-			sem_post(semLista);
+			//sem_post(semLista);
 
 			printf(" pid %d\n",args->pidProg);
 
@@ -292,7 +297,7 @@ while(fin !=1){
 
 
 			puts("Se finaliza el hilo");
-			pthread_exit(NULL);
+			//pthread_exit(NULL);
 		}
 	}
 }

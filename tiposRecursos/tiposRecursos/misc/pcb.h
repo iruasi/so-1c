@@ -32,6 +32,7 @@ typedef struct {
 			 paginasDeCodigo, // paginas de codigo
 			 etiquetas_size,  // peso en bytes del mapa serializado de etiquetas
 			 cantidad_etiquetas, // cantidad numerica de etiquetas
+			 proxima_rafaga,
 			 cantidad_instrucciones,
 			 estado_proc, // refleja en que cola de Planificador esta el PCB
 			 contextoActual, // para pasaje de una funcion a otra

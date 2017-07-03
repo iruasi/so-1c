@@ -50,7 +50,7 @@ int main(int argc, char* argv[]){
 
 
 	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
-	puts("Nos conectamos a kernel");
+
 	printf("\n \n \nIngrese accion a realizar:\n");
 	int finalizar = 0;
 	while(finalizar !=1){

@@ -49,9 +49,19 @@ typedef enum {
 	KILL_PID    = 44,
 	KER_KILLED  = KILL_PID,
 
+	//Agrego mensaje para tratar planificador
+	RECURSO_NO_DISPONIBLE = 60, //kernel - cpu y viceversa
+	FIN_PROCESO = 61,			//kernel - cpu y viceversa
+	ABORTO_PROCESO = 62,		//kernel - cpu y viceversa
+	//RR
+	FIN_QUAMTUM = 63,			//kernel - cpu y viceversa
+
+	//CPU_MANEJADOR en kernel.c
+
+	SYSCALL = 70, //cpu-kernel
+
 	FIN         = 11
 } tMensaje;
-
 
 typedef struct {
 

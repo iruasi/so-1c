@@ -39,39 +39,48 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags);
 
-int setGlobal(tPackValComp *val_comp); // todo: poner en otro lado
-t_valor_variable getGlobal(t_nombre_variable *var, bool *found); // todo: poner en otro lado
-
 void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj);
-void cpu_manejador(int sock_cpu, tMensaje msj);
+
 tPackSrcCode *recibir_paqueteSrc(int fd);
 
 
 tHeapProc *hProcs;
 int hProcs_cant;
-
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
-int sock_cpu;
 int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 extern t_valor_variable *shared_vals;
 
+t_list *listaDeCpu;
+t_list *listaPcb;
 t_list *listaProgramas;
+
+t_consola * consola;
 
 int main(int argc, char* argv[]){
 
+	t_cpu *  cpu;
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
-	listaProgramas = list_create();
 
 	int stat, ready_fds;
+	int sock_cpu;
 	int fd, new_fd;
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
+	int pos_cpu =0;
+
+	consola = malloc(sizeof consola);
+	cpu = malloc(sizeof *cpu);
+	t_cpu * auxCpu = malloc(sizeof *auxCpu);
+
+	listaDeCpu = list_create();
+	listaPcb = list_create();
+	listaProgramas = list_create();
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
@@ -165,13 +174,23 @@ int main(int argc, char* argv[]){
 
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
+
 				sock_cpu = handleNewListened(fd, &master_fd);
+
 				if (sock_cpu < 0){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
 
-				fd_max = MAX(sock_cpu, fd_max);
+				auxCpu->fd_cpu = sock_cpu;
+				auxCpu->pid = -1;
+
+				cpu->fd_cpu = sock_cpu;
+				cpu->pid = -1;
+
+				list_add(listaDeCpu,auxCpu);
+				fd_max = MAX(cpu->fd_cpu, fd_max);
+
 				break;
 
 			} else if (fd == sock_lis_con){
@@ -181,8 +200,10 @@ int main(int argc, char* argv[]){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
+				consola->fd_con = new_fd;
 
-				fd_max = MAX(new_fd, fd_max);
+				fd_max = MAX(consola->fd_con, fd_max);
+
 				break;
 			}
 
@@ -197,6 +218,7 @@ int main(int argc, char* argv[]){
 				clearAndClose(&fd, &master_fd);
 				break;
 			}
+
 
 			if (fd == sock_mem){
 				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
@@ -231,7 +253,7 @@ int main(int argc, char* argv[]){
 
 			if (header_tmp->tipo_de_proceso == CPU){
 				printf("Llego algo desde CPU!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
-				cpu_manejador(fd, header_tmp->tipo_de_mensaje);
+				cpu_manejador(fd);
 				break;
 			}
 
@@ -246,13 +268,14 @@ limpieza:
 
 	free(header_tmp);
 
+	free(consola);consola = NULL;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 	close(sock_mem);
 	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
-
+	list_destroy(listaDeCpu);
 	liberarConfiguracionKernel(kernel);
 	return stat;
 }
@@ -275,7 +298,7 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 
 		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size, cant_pag);
 
-		encolarEnNEWPrograma(new_pcb, sock_hilo);
+		encolarEnNewPrograma(new_pcb, sock_hilo);
 
 		puts("Listo!");
 		break;
@@ -285,119 +308,6 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 	}
 
 
-}
-
-void cpu_manejador(int sock_cpu, tMensaje msj){
-	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
-
-	tPackHeader head = {.tipo_de_proceso = KER};
-	tMensaje rta;
-	bool found;
-	char *buffer;
-	char *var = NULL;
-	int stat, pack_size;
-	tPackBytes *var_name;
-	tPackEscribir *escr;
-	t_valor_variable val;
-
-	switch(msj){
-	case S_WAIT:
-		puts("Signal wait a semaforo");
-		//planificadorPasarABlock();
-		break;
-	case S_SIGNAL:
-		//planificadorPasarABlock();
-		puts("Signal continuar a semaforo");
-		break;
-
-	case SET_GLOBAL:
-		puts("Se reasigna una variable global");
-
-		if ((buffer = recvGeneric(sock_cpu)) == NULL){
-			puts("Fallo recepcion generica");
-			break;
-		}
-
-		tPackValComp *val_comp;
-		if ((val_comp = deserializeValorYVariable(buffer)) == NULL){
-			puts("No se pudo deserializar Valor y Variable");
-			// todo: abortar programa?
-			break;
-		}
-
-		if ((stat = setGlobal(val_comp)) != 0){
-			puts("No se pudo asignar la variable global");
-			// todo: abortar programa?
-			break;
-		}
-
-		freeAndNULL((void **) &buffer);
-		freeAndNULL((void **) &val_comp);
-		break;
-
-	case GET_GLOBAL:
-		puts("Se pide el valor de una variable global");
-
-		if ((buffer = recvGeneric(sock_cpu)) == NULL){
-			puts("Fallo recepcion generica");
-			break;
-		}
-
-		var_name = deserializeBytes(buffer);
-		freeAndNULL((void **) &buffer);
-
-		var = realloc(var, var_name->bytelen);
-		memcpy(var, var_name->bytes, var_name->bytelen);
-
-		val = getGlobal(var, &found);
-		rta = (found)? GET_GLOBAL : GLOBAL_NOT_FOUND;
-		head.tipo_de_mensaje = rta;
-
-		if ((buffer = serializeValorYVariable(head, val, var, &pack_size)) == NULL){
-			puts("No se pudo serializar Valor Y Variable");
-			return;
-		}
-
-		if ((stat = send(sock_cpu, buffer, pack_size, 0)) == -1){
-			perror("Fallo send de Valor y Variable. error");
-			return;
-		}
-
-		freeAndNULL((void **) &buffer);
-		freeAndNULL((void**) &var_name->bytes); freeAndNULL((void **) &var_name);
-		break;
-
-	case LIBERAR:
-		puts("Funcion liberar");
-		break;
-	case ABRIR:
-		break;
-	case BORRAR:
-		break;
-	case CERRAR:
-		break;
-	case MOVERCURSOR:
-		break;
-	case ESCRIBIR:
-
-		buffer = recvGeneric(sock_cpu);
-		tPackEscribir *escr = deserializeEscribir(buffer);
-
-		printf("Se escriben en fd %d, la info %s\n", escr->fd, (char*) escr->info);
-		free(escr->info); free(escr);
-		break;
-
-	case LEER:
-		break;
-	case RESERVAR:
-		break;
-	case HSHAKE:
-		puts("Es solo un handshake");
-		break;
-	default:
-		puts("Funcion no reconocida!");
-		break;
-	}
 }
 
 int setGlobal(tPackValComp *val_comp){
