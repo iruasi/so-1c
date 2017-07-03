@@ -46,6 +46,50 @@ void eliminarSemaforos(void){
 	sem_destroy(semLista);
 }
 
+void guardarHoraActual(tHora *horaActual){
+
+	time_t rawtime;
+	struct tm * timeinfo;
+
+	time ( &rawtime );
+	timeinfo = localtime ( &rawtime );
+
+	printf ( "Current local time and date: %s", asctime (timeinfo) );
+
+	horaActual->anio=timeinfo->tm_year;
+	horaActual->mes=timeinfo->tm_mon;
+	horaActual->dia=timeinfo->tm_mday;
+	horaActual->hora=timeinfo->tm_hour;
+	horaActual->minutos=timeinfo->tm_min;
+	horaActual->segundos=timeinfo->tm_sec;
+
+
+
+}
+void differenceBetweenTimePeriod(tHora start, tHora stop, tHora *diff)
+{
+    if(start.segundos > stop.segundos){
+        --start.minutos;
+        start.segundos += 60;
+    }
+
+    diff->segundos = stop.segundos - start.segundos;
+    if(start.minutos > stop.minutos){
+        --start.hora;
+        start.minutos += 60;
+    }
+
+    diff->minutos = stop.minutos - start.minutos;
+    diff->hora = stop.hora - start.hora;
+
+    diff->dia=stop.dia-start.dia;
+    diff->mes=stop.mes-start.mes;
+    diff->anio=stop.anio-start.anio;
+
+}
+
+
+
 int Iniciar_Programa(tAtributosProg *atributos){
 
 	int stat, *retval;
@@ -68,14 +112,14 @@ int Iniciar_Programa(tAtributosProg *atributos){
 	return 0;
 }
 
-int Finalizar_Programa(int pid, int sock_ker, pthread_attr_t attr){
+int Finalizar_Programa(int pid, int sock_ker){
 
 	tPackHeader send_head, recv_head;
 	send_head.tipo_de_mensaje = KILL_PID;
 	send_head.tipo_de_proceso = CON;
 	tPackPID *ppid = malloc(sizeof *ppid);
 	ppid->head = send_head;
-	ppid->val  = pid;
+	ppid->pid=pid;
 
 	int stat;
 	if((stat = send(sock_ker, ppid, sizeof ppid, 0)) == -1){
@@ -98,7 +142,53 @@ int Finalizar_Programa(int pid, int sock_ker, pthread_attr_t attr){
 		return FALLO_MATAR;
 	}
 
-	pthread_attr_destroy(&attr);
+	int i;
+
+	for(i = 0; i < list_size(listaAtributos); i++){
+		tAtributosProg *aux = list_get(listaAtributos, i);
+		if(aux->pidProg==pid){
+			pthread_cancel(aux->hiloProg);
+			//pthread_kill(aux->hiloProg, SIGDISCONNECT);
+
+
+			printf("\nHilo: %u finalizado crrectamente\n",aux->hiloProg);
+			printf("Inicio: ");
+			printf("Fecha inicio: %d/%d/%d\n",aux->horaInicio.anio,aux->horaInicio.mes,aux->horaInicio.dia);
+			printf("Hora: %d:%d:%d\n",aux->horaInicio.hora,aux->horaInicio.minutos,aux->horaInicio.segundos);
+
+
+			/*tHora diff;
+			differenceBetweenTimePeriod(aux->horaInicio,aux->horaFin,&diff);
+			printf("Tiempo de ejecucion: %d Anio(s) \n %d Mes(es) \n %d dia(s) \n",diff.anio,diff.mes,diff.dia);
+			printf("%d Hora(s) \n %d Minuto(s) \n %d Segundo(s) \n",diff.hora,diff.minutos,diff.segundos);
+			*/
+
+
+			time_t rawtime;
+			struct tm * timeinfo;
+
+			time ( &rawtime );
+			timeinfo = localtime ( &rawtime );
+
+			struct tm *timeInicio;
+			timeInicio=localtime(&aux->hi);
+			printf("Fecha y hora inicio: %s",asctime(timeInicio));
+			printf ( "Fecha y hora fin: %s", asctime (timeinfo) );
+
+
+			time(&aux->hf);
+
+
+			double diferencia = difftime(aux->hf, aux->hi);
+			printf("Segs de ejecucion: %.f segundos \n",diferencia);
+			//Lo sacamos de la lista de programas en ejecucion
+			list_remove(listaAtributos,i);
+
+			//Lo agregamos a la lista de programas finalizados.
+			list_add(listaFinalizados,aux);
+		}
+	}
+
 	return 0;
 }
 
@@ -108,7 +198,8 @@ void Desconectar_Consola(tConsola *cons_data){
 
 	for(i = 0; i < list_size(listaAtributos); i++){
 		tAtributosProg *aux = list_get(listaAtributos, i);
-		pthread_kill(aux->hiloProg, SIGDISCONNECT);
+		pthread_cancel(aux->hiloProg);
+		//pthread_kill(aux->hiloProg, SIGDISCONNECT);
 	}
 }
 
