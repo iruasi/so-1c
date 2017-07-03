@@ -40,6 +40,8 @@
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags);
 
 int setGlobal(tPackValComp *val_comp); // todo: poner en otro lado
+t_valor_variable getGlobal(t_nombre_variable *var, bool *found); // todo: poner en otro lado
+
 void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj);
 void cpu_manejador(int sock_cpu, tMensaje msj);
 tPackSrcCode *recibir_paqueteSrc(int fd);
@@ -234,7 +236,7 @@ int main(int argc, char* argv[]){
 			}
 
 			puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito...");
-			printf("El valor de header_tmp es: proceso %d \t mensaje: %d", header_tmp->tipo_de_proceso, header_tmp->tipo_de_mensaje);
+			printf("El valor de header_tmp es: proceso %d \t mensaje: %d\n", header_tmp->tipo_de_proceso, header_tmp->tipo_de_mensaje);
 
 		}} // aca terminan el for() y el if(FD_ISSET)
 	}
@@ -288,8 +290,14 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 void cpu_manejador(int sock_cpu, tMensaje msj){
 	printf ("El sock cpu manejado es %d y el mensaje %d\n", sock_cpu, msj);
 
+	tPackHeader head = {.tipo_de_proceso = KER};
+	tMensaje rta;
+	bool found;
 	char *buffer;
-	int stat;
+	char *var = NULL;
+	int stat, pack_size;
+	tPackBytes *var_name;
+	t_valor_variable val;
 
 	switch(msj){
 	case S_WAIT:
@@ -322,7 +330,40 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 			break;
 		}
 
+		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &val_comp);
+		break;
+
+	case GET_GLOBAL:
+		puts("Se pide el valor de una variable global");
+
+		if ((buffer = recvGeneric(sock_cpu)) == NULL){
+			puts("Fallo recepcion generica");
+			break;
+		}
+
+		var_name = deserializeBytes(buffer);
+		freeAndNULL((void **) &buffer);
+
+		var = realloc(var, var_name->bytelen);
+		memcpy(var, var_name->bytes, var_name->bytelen);
+
+		val = getGlobal(var, &found);
+		rta = (found)? GET_GLOBAL : GLOBAL_NOT_FOUND;
+		head.tipo_de_mensaje = rta;
+
+		if ((buffer = serializeValorYVariable(head, val, var, &pack_size)) == NULL){
+			puts("No se pudo serializar Valor Y Variable");
+			return;
+		}
+
+		if ((stat = send(sock_cpu, buffer, pack_size, 0)) == -1){
+			perror("Fallo send de Valor y Variable. error");
+			return;
+		}
+
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void**) &var_name->bytes); freeAndNULL((void **) &var_name);
 		break;
 
 	case LIBERAR:
@@ -351,12 +392,37 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 int setGlobal(tPackValComp *val_comp){
 
 	int i;
+	int nlen = strlen(val_comp->nom) + 2; // espacio para el ! y el '\0'
+	char *aux = NULL;
 	for (i = 0; i < kernel->shared_quant; ++i){
-		if (strcmp(kernel->shared_vars[i], val_comp->nom) == 0){
+		aux = realloc(aux, nlen); aux[0] = '!'; memcpy(aux + 1, val_comp->nom, nlen); aux[nlen] = '\0';
+
+		if (strcmp(kernel->shared_vars[i], aux) == 0){
 			shared_vals[i] = val_comp->val;
+			free(aux);
 			return 0;
 		}
 	}
+	free(aux);
+	return GLOBAL_NOT_FOUND;
+}
+
+t_valor_variable getGlobal(t_nombre_variable *var, bool* found){
+
+	int i;
+	int nlen = strlen(var) + 2; // espacio para el ! y el '\0'
+	char *aux = NULL;
+	*found = true;
+	for (i = 0; i < kernel->shared_quant; ++i){
+		aux = realloc(aux, nlen); aux[0] = '!'; memcpy(aux + 1, var, nlen); aux[nlen] = '\0';
+
+		if (strcmp(kernel->shared_vars[i], aux) == 0){
+			free(aux);
+			return shared_vals[i];
+		}
+	}
+	free(aux);
+	*found = false;
 	return GLOBAL_NOT_FOUND;
 }
 

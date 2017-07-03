@@ -228,32 +228,6 @@ char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_
 	return bytes_serial;
 }
 
-char *recvBytes(int sock_in){
-	puts("Se reciben Bytes..");
-
-	int stat, byte_len;
-	char *pbytes_serial;
-
-	if ((stat = recv(sock_in, &byte_len, sizeof(int), 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	printf("Paquete de size: %d\n", byte_len);
-
-	if ((pbytes_serial = malloc(byte_len)) == NULL){
-		puts("Fallo de allocacion para paquete de bytes");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, pbytes_serial, byte_len, 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	return pbytes_serial;
-}
-
 tPackBytes *deserializeBytes(char *bytes_serial){
 
 	int off;
@@ -781,25 +755,37 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 	return src_pack;
 }
 
-char *serializePID(tPackPID *ppid){
+char *serializePID(tPackPID *ppid, int *pack_size){
 
-	int off = 0;
 	char *pid_serial;
-	if ((pid_serial = malloc(sizeof *ppid)) == NULL){
+	if ((pid_serial = malloc(sizeof(int) + sizeof *ppid)) == NULL){
 		perror("No se pudo crear espacio de memoria para PID serial. error");
 		return NULL;
 	}
 
-	memcpy(pid_serial + off, &ppid->head.tipo_de_proceso, sizeof ppid->head.tipo_de_proceso);
-	off += sizeof ppid->head.tipo_de_proceso;
-	memcpy(pid_serial + off, &ppid->head.tipo_de_mensaje, sizeof ppid->head.tipo_de_mensaje);
-	off += sizeof ppid->head.tipo_de_mensaje;
-	memcpy(pid_serial + off, &ppid->val, sizeof ppid->val);
-	off += sizeof ppid->val;
+	*pack_size = 0;
+	memcpy(pid_serial + *pack_size, &ppid->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
 
+	*pack_size += sizeof(int);
 
+	memcpy(pid_serial + *pack_size, &ppid->val, sizeof(int));
+	*pack_size += sizeof (int);
 
 	return pid_serial;
+}
+
+tPackPID *deserializePID(char *pid_serial){
+
+	tPackPID *ppid;
+	if ((ppid = malloc(sizeof *ppid)) == NULL){
+		printf("No se pudieron mallocar %d bytes para paquete PID\n", sizeof *ppid);
+		return NULL;
+	}
+
+	memcpy(&ppid->val, pid_serial, sizeof(int));
+
+	return ppid;
 }
 
 char *serializePIDPaginas(tPackPidPag *ppidpag){
@@ -937,10 +923,14 @@ char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informaci
 	return leer_serial;
 }
 
-char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size){
 
+char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size){
+// variable ya tiene un '\0' al final
+
+	int varlen = strlen(variable) + 1;
+	printf("El strlen da por resultado: %d\n", varlen);
 	char *valor_serial;
-	int m_size = HEAD_SIZE + sizeof(int) + sizeof valor + sizeof variable;
+	int m_size = HEAD_SIZE + sizeof(int) + sizeof valor + sizeof(int) + varlen;
 	if ((valor_serial = malloc(m_size)) == NULL){
 		printf("No se pudieron mallocar %d bytes para valor y variable serializados\n", m_size);
 		return NULL;
@@ -948,14 +938,16 @@ char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre
 
 	*pack_size = 0;
 	memcpy(valor_serial + *pack_size, &head, HEAD_SIZE);
-	pack_size += HEAD_SIZE;
+	*pack_size += HEAD_SIZE;
 
-	pack_size += sizeof(int);
+	*pack_size += sizeof(int);
 
 	memcpy(valor_serial + *pack_size, &valor, sizeof valor);
 	*pack_size += sizeof valor;
-	memcpy(valor_serial + *pack_size, &variable, sizeof variable);
-	*pack_size += sizeof variable;
+	memcpy(valor_serial + *pack_size, &varlen, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(valor_serial + *pack_size, variable, varlen);
+	*pack_size += varlen;
 
 	memcpy(valor_serial + HEAD_SIZE, pack_size, sizeof(int));
 
@@ -964,7 +956,7 @@ char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre
 
 tPackValComp *deserializeValorYVariable(char *valor_serial){
 
-	int off;
+	int off, nomlen;
 	tPackValComp *val_comp;
 
 	if ((val_comp = malloc(sizeof *val_comp)) == NULL){
@@ -975,8 +967,11 @@ tPackValComp *deserializeValorYVariable(char *valor_serial){
 	off = 0;
 	memcpy(&val_comp->val, valor_serial + off, sizeof(t_valor_variable));
 	off += sizeof(val_comp->val);
-	memcpy(&val_comp->nom, valor_serial + off, sizeof(t_nombre_compartida));
-	off += sizeof(t_nombre_compartida);
+	memcpy(&nomlen, valor_serial + off, sizeof(int));
+	off += sizeof(int);
+	val_comp->nom = malloc(nomlen);
+	memcpy(val_comp->nom, valor_serial + off, nomlen);
+	off += nomlen;
 
 	return val_comp;
 }

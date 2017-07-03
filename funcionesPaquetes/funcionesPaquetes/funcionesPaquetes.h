@@ -114,7 +114,7 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *serialized_pa
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
-char *serializePID(tPackPID *ppid);
+char *serializePID(tPackPID *ppid, int *pack_size);
 
 /* Serializa un tPackPIDPag dado.
  * Retorna el buffer serializado;

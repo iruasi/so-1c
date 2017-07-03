@@ -101,7 +101,7 @@ typedef struct {
 	tPackHeader head;
 	int bytelen;
 	char *bytes;
-} tPackBytes; // este paquete se utiliza para responder una Solicitud de Bytes
+} tPackBytes, tPackNombreVar; // este paquete se utiliza para responder una Solicitud de Bytes
 
 typedef struct {
 

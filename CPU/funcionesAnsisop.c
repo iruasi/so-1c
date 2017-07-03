@@ -238,7 +238,8 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 }
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
-	printf("Asignado en %s el valor %d\n", variable, valor);
+// `variable' llega con un '\0' al final
+	printf("Asignando en %s el valor %d\n", variable, valor);
 
 	char *valor_serial;
 	int pack_size, stat;
@@ -255,6 +256,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
 	}
 
+	free(valor_serial);
 	return valor;
 }
 
@@ -322,9 +324,57 @@ void retornar (t_valor_variable retorno){
 	list_remove(pcb->indiceDeStack,pcb->contextoActual);
 	pcb->contextoActual--;
 }
-t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){ // todo: escribir comportamiento
+
+t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
+// `variable' siempre va a tener un '\n' al final
 	printf("Se obtiene el valor de la variable compartida %s.\n", variable);
-	return 20;
+
+	tPackValComp *val_var;
+	int pack_size, stat;
+	char *var_serial, *var;
+	int var_len = strlen(variable);
+	var = malloc(var_len); memcpy(var, variable, var_len); var[var_len - 1] = '\0';
+	t_valor_variable valor;
+
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = GET_GLOBAL};
+	pack_size = 0;
+	if ((var_serial = serializeBytes(head, var, var_len, &pack_size)) == NULL){
+		puts("No se pudo serializar el valor y variable");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
+	if ((stat = send(sock_kern, var_serial, pack_size, 0)) == -1){
+		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+	freeAndNULL((void **) &var_serial);
+
+	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
+		perror("No se recibir header con Valor Global de Kernel. error");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
+	if (head.tipo_de_proceso != KER || head.tipo_de_mensaje != GET_GLOBAL){
+		printf("Error de comunicacion. Se recibio Header con: proc %d, msj %d\n",
+				head.tipo_de_proceso, head.tipo_de_mensaje);
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
+	if ((var_serial = recvGeneric(sock_kern)) == NULL){
+		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
+	if ((val_var = deserializeValorYVariable(var_serial)) == NULL){
+		puts("No se pudo deserializar el valor de la variable.");
+		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+	}
+
+	memcpy(&valor, &val_var->val, sizeof(t_valor_variable));
+	free(var_serial);
+	free(val_var);
+	free(var);
+	return valor;
 }
 
 
@@ -489,4 +539,3 @@ void enviar(char *op_kern_serial, int pack_size){
 	}
 	printf("Se enviaron %d bytes a Kernel\n", stat);
 }
-

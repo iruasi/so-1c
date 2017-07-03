@@ -105,14 +105,15 @@ void encolarEnNEWPrograma(tPCB *nuevoPCB, int sock_con){
 
 	pack_pid->val = nuevoPCB->id;
 
-	char *pid_serial = serializePID(pack_pid);
+	pack_size = 0;
+	char *pid_serial = serializePID(pack_pid, &pack_size);
 	if (pid_serial == NULL){
 		puts("No se serializo bien");
 
 	}
 
 	printf("Aviso al sock consola %d su numero de PID\n", sock_con);
-	if ((stat = send(sock_con, pid_serial, sizeof (tPackPID), 0)) == -1)
+	if ((stat = send(sock_con, pid_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PID a Consola. error");
 	printf("Se enviaron %d bytes a Consola\n", stat);
 
