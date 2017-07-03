@@ -297,6 +297,7 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 	char *var = NULL;
 	int stat, pack_size;
 	tPackBytes *var_name;
+	tPackEscribir *escr;
 	t_valor_variable val;
 
 	switch(msj){
@@ -378,10 +379,20 @@ void cpu_manejador(int sock_cpu, tMensaje msj){
 	case MOVERCURSOR:
 		break;
 	case ESCRIBIR:
+
+		buffer = recvGeneric(sock_cpu);
+		tPackEscribir *escr = deserializeEscribir(buffer);
+
+		printf("Se escriben en fd %d, la info %s\n", escr->fd, (char*) escr->info);
+		free(escr->info); free(escr);
 		break;
+
 	case LEER:
 		break;
 	case RESERVAR:
+		break;
+	case HSHAKE:
+		puts("Es solo un handshake");
 		break;
 	default:
 		puts("Funcion no reconocida!");

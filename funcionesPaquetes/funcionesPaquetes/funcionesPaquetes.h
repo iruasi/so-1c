@@ -132,6 +132,8 @@ char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_vari
 
 char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size);
 
+tPackEscribir *deserializeEscribir(char *escr_serial);
+
 char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size);
 
 char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size);

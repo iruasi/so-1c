@@ -117,4 +117,13 @@ typedef struct {
 	int marco_size;
 } tHShakeMemAKer;
 
+//t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio,
+
+typedef struct {
+
+	t_descriptor_archivo fd;
+	void *info;
+	t_valor_variable tamanio;
+} tPackEscribir;
+
 #endif /* TIPOSPAQUETES_H_ */

@@ -898,6 +898,24 @@ char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informaci
 	return escr_serial;
 }
 
+tPackEscribir *deserializeEscribir(char *escr_serial){
+
+	tPackEscribir *escr;
+	escr = malloc(sizeof *escr);
+	int off = 0;
+
+	memcpy(&escr->fd, escr_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&escr->tamanio, escr_serial + off, sizeof(int));
+	off += sizeof(int);
+	escr->info = malloc(escr->tamanio);
+	memcpy(escr->info, escr_serial + off, escr->tamanio);
+	off += escr->tamanio;
+
+	return escr;
+}
+
+
 char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = LEER};

@@ -1,6 +1,8 @@
 #include <stdbool.h>
 #include <netdb.h>
 
+#include <commons/string.h>
+
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -11,6 +13,7 @@
 extern bool termino;
 extern AnSISOP_funciones functions;
 extern int pag_size;
+char *eliminarWhitespace(char *string);
 
 void setupCPUFunciones(void){
 	functions.AnSISOP_definirVariable		= definirVariable;
@@ -261,17 +264,8 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 }
 
 void irAlLabel (t_nombre_etiqueta etiqueta){
-	printf("Se va al label %s\n", etiqueta);
-	int s = strlen(etiqueta);
-
-	char *label;
-	if ((label = malloc(s)) == NULL){
-		printf("No se pudieron mallocar %d bytes para el label\n", s);
-		// algo_fallo = true;
-		return;
-	}
-	strncpy(label, (char *) etiqueta, s);
-	label[s-1] = '\0';
+	char* label = eliminarWhitespace(etiqueta);
+	printf("Se va al label %s\n", label);
 
 	pcb->pc = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
 	pcb->pc--; // es porque ejecutarInstruccion() incrementa el pc. Si, esto es efectivamente un asco
@@ -326,19 +320,18 @@ void retornar (t_valor_variable retorno){
 }
 
 t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
-// `variable' siempre va a tener un '\n' al final
 	printf("Se obtiene el valor de la variable compartida %s.\n", variable);
 
-	tPackValComp *val_var;
-	int pack_size, stat;
-	char *var_serial, *var;
-	int var_len = strlen(variable);
-	var = malloc(var_len); memcpy(var, variable, var_len); var[var_len - 1] = '\0';
 	t_valor_variable valor;
+	tPackValComp *val_var;
+	int pack_size, stat, var_len;
+	char *var_serial, *var;
+	var = eliminarWhitespace(variable); // variable ahora va a terminar en '\0'
+	var_len = strlen(var);
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = GET_GLOBAL};
 	pack_size = 0;
-	if ((var_serial = serializeBytes(head, var, var_len, &pack_size)) == NULL){
+	if ((var_serial = serializeBytes(head, var, var_len +1, &pack_size)) == NULL){
 		puts("No se pudo serializar el valor y variable");
 		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
 	}
@@ -473,7 +466,7 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 }
 
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
-	printf("Se pide al kernel movel el archivo %d a la posicion %d\n", descriptor_archivo, posicion);
+	printf("Se pide al kernel mover el archivo %d a la posicion %d\n", descriptor_archivo, posicion);
 
 	int pack_size = 0;
 
@@ -539,3 +532,24 @@ void enviar(char *op_kern_serial, int pack_size){
 	}
 	printf("Se enviaron %d bytes a Kernel\n", stat);
 }
+
+char *eliminarWhitespace(char *string){
+
+	int var_len;
+	char *var = NULL;
+
+	var_len = strlen(string);
+	if (string_ends_with(string, "\n") || string_ends_with(string, "\t")){
+		var = malloc(var_len);
+		memcpy(var, string, var_len);
+		var[var_len - 1] = '\0';
+		return var;
+	}
+	var = malloc(var_len + 1);
+	memcpy(var, string, var_len + 1);
+	var[var_len] = '\0';
+	return var;
+}
+
+
+
