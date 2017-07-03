@@ -3,11 +3,24 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 
+
+
+typedef struct{
+	int dia;
+	int mes;
+	int anio;
+	int hora;
+	int minutos;
+	int segundos;
+}tHora;
+
 typedef struct {
 	int sock;
 	char *path;
 	pthread_t hiloProg;
 	int pidProg;
+	tHora horaInicio;
+	tHora horaFin;
 } tAtributosProg;
 
 
@@ -16,7 +29,7 @@ typedef struct {
 int Iniciar_Programa(tAtributosProg *pack);
 
 
-int Finalizar_Programa(int process_id, int sock_kernel, pthread_attr_t attr);
+int Finalizar_Programa(int process_id, int sock_kernel);
 
 
 void Desconectar_Consola();
