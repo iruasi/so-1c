@@ -60,7 +60,7 @@ int main(int argc, char* argv[]){
 	}
 	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 	puts("Me conecte a memoria!");
-
+	printf("Me conecte a MEMORIA en socket #%d\n",sock_mem);
 
 	printf("Conectando con kernel...\n");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);

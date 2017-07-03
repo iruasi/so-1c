@@ -34,6 +34,7 @@ extern t_list *listaAtributos;
 sem_t *semLista;
 extern tConsola *cons_data;
 
+
 void inicializarSemaforos(void){
 	int stat;
 	semLista = malloc(sizeof (sem_t));
@@ -50,8 +51,7 @@ int Iniciar_Programa(tAtributosProg *atributos){
 
 	int stat, *retval;
 
-	handshakeCon(atributos->sock, CON);
-	puts("handshake realizado");
+
 
 	pthread_attr_t attr;
 	pthread_t hilo_prog;
@@ -90,7 +90,7 @@ int Finalizar_Programa(int pid, int sock_ker, pthread_attr_t attr){
 
 	} else if (stat == 0){
 		puts("Kernel cerro la conexion, antes de dar una respuesta...");
-		return FALLO_GRAL;programa_handler
+		return FALLO_GRAL;
 	}
 
 	if (recv_head.tipo_de_mensaje != KER_KILLED){
@@ -162,18 +162,21 @@ void *programa_handler(void *atributos){
 
 
 while(fin !=1){
-	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
+	while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == PID){
 			puts("recibimos PID");
-			stat = recv(args->sock, &(ppid.pid), sizeof ppid.pid, 0);
+			if((stat = recv(sock_kern, &(ppid.pid), sizeof ppid.pid, 0)) < 0 ){
+				perror("error al recibir el pid");
+				return 0;
+			}
 			puts("Asigno pid a la estructura");
 			args->pidProg = ppid.pid;
 			args->hiloProg = pthread_self();
 
-			sem_wait(semLista);
+			//sem_wait(semLista);
 			list_add(listaAtributos,args);
-			sem_post(semLista);
+			//sem_post(semLista);
 
 			printf(" pid %d\n",args->pidProg);
 
@@ -201,7 +204,7 @@ while(fin !=1){
 
 
 			puts("Se finaliza el hilo");
-			pthread_exit(NULL);
+			//pthread_exit(NULL);
 		}
 	}
 }

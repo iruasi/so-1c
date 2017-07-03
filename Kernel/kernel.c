@@ -55,10 +55,10 @@ t_list *listaDeCpu;
 t_list *listaPcb;
 t_list *listaProgramas;
 
-t_cpu * cpu;
 t_consola * consola;
 
 int main(int argc, char* argv[]){
+t_cpu *  cpu;
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
@@ -71,8 +71,11 @@ int main(int argc, char* argv[]){
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	cpu = malloc(sizeof cpu);
+	int pos_cpu =0;
+
 	consola = malloc(sizeof consola);
+	cpu = malloc(sizeof *cpu);
+	t_cpu * auxCpu = malloc(sizeof *auxCpu);
 
 	listaDeCpu = list_create();
 	listaPcb = list_create();
@@ -170,6 +173,7 @@ int main(int argc, char* argv[]){
 
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
+
 				sock_cpu = handleNewListened(fd, &master_fd);
 
 				if (sock_cpu < 0){
@@ -177,12 +181,15 @@ int main(int argc, char* argv[]){
 					return FALLO_CONEXION;
 				}
 
-				cpu -> fd_cpu = sock_cpu;
-				cpu -> pid = -1;
-				cpu -> disponibilidad = DISPONIBLE;
+				auxCpu->fd_cpu = sock_cpu;
+				auxCpu->pid = -1;
 
-				list_add(listaDeCpu,cpu);
+				cpu->fd_cpu = sock_cpu;
+				cpu->pid = -1;
+
+				list_add(listaDeCpu,auxCpu);
 				fd_max = MAX(cpu->fd_cpu, fd_max);
+
 				break;
 
 			} else if (fd == sock_lis_con){
@@ -195,6 +202,7 @@ int main(int argc, char* argv[]){
 				consola->fd_con = new_fd;
 
 				fd_max = MAX(consola->fd_con, fd_max);
+
 				break;
 			}
 
@@ -258,7 +266,7 @@ limpieza:
 	// Un poco mas de limpieza antes de cerrar
 
 	free(header_tmp);
-	free(cpu);cpu = NULL;
+
 	free(consola);consola = NULL;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);

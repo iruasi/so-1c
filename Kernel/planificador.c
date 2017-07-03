@@ -70,7 +70,6 @@ void mandarPCBaCPU(tPCB *nuevoPCB,t_cpu * cpu){
 
 	int pack_size, stat;
 	pack_size = 0;
-	puts("Creamos memoria para la variable\n");
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
 	puts("Comenzamos a serializar el PCB");
 
@@ -101,6 +100,7 @@ void planificar(){
 	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
 	t_cpu * cpu;
+
 	t_consola * consolaAsociada = malloc(sizeof consolaAsociada);
 	while(1){
 
@@ -110,8 +110,7 @@ void planificar(){
 		printf("Estoy en fifo\n");
 		if(!queue_is_empty(New)){
 			pcbAux = (tPCB*) queue_pop(New);
-			if(grado_mult > 0){
-				grado_mult --;
+			if(list_size(Exec) < grado_mult){
 				queue_push(Ready,pcbAux);
 			}
 		}
@@ -123,17 +122,20 @@ void planificar(){
 
 		if(!list_is_empty(Exec)){
 			int i;
+
 			for(i = 0; i < list_size(listaDeCpu);i++){
 				cpu = (t_cpu *) list_get(listaDeCpu,i);
 				pcbAux = (tPCB *) list_get(Exec,i);
 				cpu->pid = pcbAux-> id;
-				cpu->disponibilidad = OCUPADO;
+
 				mandarPCBaCPU(pcbAux,cpu);
 			}
 		}
 		//Para saber que hacer con BLOCK y EXIT, recibo mensajes de las cpus activas
 		int i;
+		int j;
 		char *paquete_pcb_serial;
+		int stat;
 		tPackHeader * header;
 		tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 
@@ -164,30 +166,37 @@ void planificar(){
 
 					//Aviso a memoria
 					finalizarPrograma(cpu_executing->pid,headerMemoria,consolaAsociada->fd_con);
-
 					// Le informo a la Consola asociada:
-					consolaAsociada = (t_consola*) list_get(listaProgramas,i);
-					bool consolaAsociadaACpu(t_consola * consolaAsociada){return consolaAsociada->pid == cpu_executing->pid;}
-					consolaAsociada = list_remove_by_condition(listaProgramas,(void *)consolaAsociadaACpu(consolaAsociada));//todo: me quede aca
-					if(consolaAsociada != NULL){
+
+					for(j = 0;j<list_size(listaProgramas);j++){
+						consolaAsociada = (t_consola *) list_get(listaProgramas,j);
+						if(consolaAsociada->pid == cpu_executing->pid){
 						headerMemoria->tipo_de_mensaje = FIN_PROG;
 						headerMemoria->tipo_de_proceso = KER;
-						send(consolaAsociada->fd_con,headerMemoria,sizeof (tPackHeader),0);
+						if((stat = send(consolaAsociada->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
+							perror("error al enviar a la consola");
+							break;
+						}
 
 						// Libero la Consola asociada y la saco del sistema:
+						list_remove(listaProgramas,j);
+
 						free(consolaAsociada);consolaAsociada = NULL;
+						}
 					}
+					list_remove(cpu_exec,i);
+					list_add(listaDeCpu,cpu);
 					queue_push(Exit,pcbAux);
 
 					break;
 				default:
 					break;
 					}
-			if(!queue_is_empty(Block)){
+			/*if(!queue_is_empty(Block)){
 				pcbAux = (tPCB *) queue_pop(Block);
-				queue_push(Ready,pcbAux);
+				queue_push(Ready,pcbAux);*/
 				//Todo: tengo que pensar como saber si están o no disponibles los recursos
-			}
+			//}
 
 
 				}
@@ -262,10 +271,9 @@ void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 
 	printf("El socket de consola #%d y pid #%d \n",consola->fd_con,consola->pid);
 
-	list_add_in_index(listaProgramas,consola->pid,consola); //Agrego en la lista segun su numero de pid
+	list_add(listaProgramas,consola); //Agrego en la lista segun su numero de pid
 
 	freeAndNULL((void **) &pack_pid);
-
 
 	queue_push(New,nuevoPCB);
 	planificar();

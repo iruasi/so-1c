@@ -14,12 +14,13 @@ typedef struct {
 
 
 typedef struct{
-	int fd_cpu,pid,disponibilidad;
+	int fd_cpu,pid;
 }t_cpu;
 
 typedef struct{
 	int fd_con,pid;
 }t_consola;
+
 
 /* Recibe, serializa y reenvia a Memoria el codigo fuente
  * El parametro src_size es un auxiliar para obtener ese dato hasta fuera del proceso
