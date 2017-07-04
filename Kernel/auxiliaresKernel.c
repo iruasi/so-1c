@@ -6,6 +6,7 @@
 #include <math.h>
 
 #include <parser/metadata_program.h>
+#include <commons/collections/list.h>
 
 #include "auxiliaresKernel.h"
 #include "planificador.h"
@@ -21,9 +22,6 @@
 #endif
 
 uint32_t globalPID;
-
-extern t_list *listaProgramas;
-
 
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size){
 
@@ -57,7 +55,6 @@ int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_s
 }
 
 
-// todo: persisitir
 tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 
 	t_metadata_program *meta = metadata_desde_literal(src_code->sourceCode);
@@ -96,9 +93,10 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo){
 }
 
 
-void cpu_manejador(int sock_cpu){
-	tMensaje msj; // todo: recv(msj);
-	tPackHeader head = {.tipo_de_proceso = KER};
+void cpu_manejador(void *sockYmsj){
+
+	t_cpuInfo *sm = (t_cpuInfo *) sockYmsj;
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = sm->msj};
 	tMensaje rta;
 	bool found;
 	char *buffer;
@@ -107,20 +105,24 @@ void cpu_manejador(int sock_cpu){
 	tPackBytes *var_name;
 	t_valor_variable val;
 
-	switch(msj){
+
+	do {
+	printf("proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+
+	switch(head.tipo_de_mensaje){
 	case S_WAIT:
 		puts("Signal wait a semaforo");
-		//planificadorPasarABlock();
+		//pasarABlock();
 		break;
 	case S_SIGNAL:
-		//planificadorPasarABlock();
+		//planificadorPasarDeBlock();
 		puts("Signal continuar a semaforo");
 		break;
 
 	case SET_GLOBAL:
 		puts("Se reasigna una variable global");
 
-		if ((buffer = recvGeneric(sock_cpu)) == NULL){
+		if ((buffer = recvGeneric(sm->cpu.fd_cpu)) == NULL){
 			puts("Fallo recepcion generica");
 			break;
 		}
@@ -145,7 +147,7 @@ void cpu_manejador(int sock_cpu){
 	case GET_GLOBAL:
 		puts("Se pide el valor de una variable global");
 
-		if ((buffer = recvGeneric(sock_cpu)) == NULL){
+		if ((buffer = recvGeneric(sm->cpu.fd_cpu)) == NULL){
 			puts("Fallo recepcion generica");
 			break;
 		}
@@ -165,7 +167,7 @@ void cpu_manejador(int sock_cpu){
 			return;
 		}
 
-		if ((stat = send(sock_cpu, buffer, pack_size, 0)) == -1){
+		if ((stat = send(sm->cpu.fd_cpu, buffer, pack_size, 0)) == -1){
 			perror("Fallo send de Valor y Variable. error");
 			return;
 		}
@@ -187,7 +189,7 @@ void cpu_manejador(int sock_cpu){
 		break;
 	case ESCRIBIR:
 
-		buffer = recvGeneric(sock_cpu);
+		buffer = recvGeneric(sm->cpu.fd_cpu);
 		tPackEscribir *escr = deserializeEscribir(buffer);
 
 		printf("Se escriben en fd %d, la info %s\n", escr->fd, (char*) escr->info);
@@ -201,8 +203,15 @@ void cpu_manejador(int sock_cpu){
 	case HSHAKE:
 		puts("Es solo un handshake");
 		break;
+
+	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): //COLA EXIT
+		cpu_handler_planificador(sm);
+	break;
+
 	default:
 		puts("Funcion no reconocida!");
 		break;
-	}
+
+	}} while((stat = recv(sm->cpu.fd_cpu, &head, sizeof head, 0)) > 0);
+
 }

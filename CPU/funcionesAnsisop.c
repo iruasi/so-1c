@@ -53,6 +53,8 @@ void obtenerUltimoEnStack(t_list *stack, int *pag, int *off, int *size){
 	posicionMemoria*   ultimoArg = list_get (ultimoStack->args, list_size(ultimoStack->args)-1);
 	posicionMemoriaId* ultimaVar = list_get (ultimoStack->vars, list_size(ultimoStack->vars)-1);
 
+	if (ultimoArg == NULL && ultimaVar == NULL)
+		return;
 
 	if (ultimoArg == NULL){
 		SET_VAR_OPS(ultimaVar->pos, *off, *pag, *size);
@@ -106,7 +108,7 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	var->id = variable;
 	var->pos.offset= off + size; // todo: arreglar para que off y pag no se vayan del tamanio maximo de pagina (ej: off > pag_size)
 	var->pos.pag = pag;
-	var->pos.size = 4; // todo: el size de una variable siempre va a ser 4? Se podra usar sizeof variable?
+	var->pos.size = sizeof variable;
 
 	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
 

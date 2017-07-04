@@ -42,6 +42,6 @@ typedef struct {
 	char* indiceDeEtiquetas;
 
 }__attribute__((packed)) tPCB; //https://www.google.com.ar/search?q=__attribute__%28%28packed%29%29+tad+C&ie=utf-8&oe=utf-8&client=firefox-b-ab&gfe_rd=cr&ei=q9k5WcLfC4rX8geiq6CQBQ
-#define CTES_INT_PCB 9 // usamos este #define para auxiliar la mantenibilidad del PCB y funciones que le conciernen
+#define CTES_INT_PCB 10 // usamos este #define para auxiliar la mantenibilidad del PCB y funciones que le conciernen
 
 #endif /* PCB_H_ */

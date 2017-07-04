@@ -110,8 +110,8 @@ tCacheEntrada *getCacheVictim(int *min_line){
 	int i;
 	for (i = *min_line = 0; i < memoria->entradas_cache; ++i){
 
-		if (CACHE_lines->pid == pid_free) // entrada libre
-			return CACHE_lines + *min_line;
+		if (CACHE_lines[i].pid == pid_free) // entrada libre
+			return CACHE_lines + i;
 
 		(CACHE_accs[i] < *min_line)? *min_line = i : *min_line;
 	}

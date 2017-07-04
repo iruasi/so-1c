@@ -4,7 +4,6 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
-
 typedef struct {
 	int pid;
 	int sock;
@@ -12,15 +11,20 @@ typedef struct {
 	t_metadata_program meta;
 }dataHiloProg; // todo: ver si es raro
 
-
 typedef struct{
 	int fd_cpu,pid;
 }t_cpu;
+
 
 typedef struct{
 	int fd_con,pid;
 }t_consola;
 
+typedef struct {
+	t_cpu     cpu;
+	t_consola *con;
+	tMensaje  msj;
+} t_cpuInfo;
 
 /* Recibe, serializa y reenvia a Memoria el codigo fuente
  * El parametro src_size es un auxiliar para obtener ese dato hasta fuera del proceso
@@ -33,7 +37,7 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo);
 
 /* Gestiona los mensaje recibidos del cpu que no sean para el planificador
  * */
-void cpu_manejador(int sock);
+void cpu_manejador(void *sockYmsj);
 
 
 int setGlobal(tPackValComp *val_comp);

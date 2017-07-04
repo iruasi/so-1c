@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <semaphore.h>
 
 #include <commons/collections/queue.h>
 
@@ -20,31 +21,19 @@
 
 #define FIFO_INST -1
 
+void planificar(void);
+
 void finalizarPrograma(int pid, tPackHeader * header, int socket);
 void setearQuamtumS(void);
 void pausarPlanif(){
 
 }
+int getPosPid(int pid, t_list *Q);
+int obtenerCPUociosa(void);
 
-
-
-// TODO: crear esta funcion, que recibe al PCB y lo mete en la cola de New...
-// Ademas, podria avisar a Consola del PID de este proceso que ya ha sido creado...
-// Crear as funciones para el control de los semaforos de los planificadores
-
-
-
-/*
- * Se podria manejar la planificacion actuando en base a eventos. Cada vez que un evento sucede,
- * los planificadores apropiados se ejecutan.
- *
- */
-
-extern t_list * listaDeCpu;
-extern t_list * listaProgramas;
+t_list * listaDeCpu;
 extern t_list * listaPcb;
 
-extern t_consola * consola;
 
 t_queue *New, *Exit, *Block,*Ready;
 t_list	*cpu_exec,*Exec;
@@ -52,6 +41,8 @@ char *recvHeader(int sock_in, tPackHeader *header);
 
 int grado_mult;
 extern tKernel *kernel;
+
+extern sem_t *hayProg;
 
 void setupPlanificador(void){
 
@@ -64,11 +55,14 @@ void setupPlanificador(void){
 	Exec = list_create();
 	Block = queue_create();
 
-	cpu_exec = list_create();
+	listaDeCpu = list_create();
+	cpu_exec   = list_create();
 
+	sem_wait(hayProg);
+	planificar();
 }
 
-void mandarPCBaCPU(tPCB *nuevoPCB,t_cpu * cpu){
+void mandarPCBaCPU(tPCB *nuevoPCB, t_cpuInfo * cpu){
 
 	int pack_size, stat;
 	pack_size = 0;
@@ -86,22 +80,22 @@ void mandarPCBaCPU(tPCB *nuevoPCB,t_cpu * cpu){
 	printf("pack_size: %d\n", pack_size);
 
 	puts("Enviamos el PCB a CPU");
-	if ((stat = send(cpu->fd_cpu, pcb_serial, pack_size, 0)) == -1)
+	if ((stat = send(cpu->cpu.fd_cpu, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a CPU. error");
 
 	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
 
-	list_add(cpu_exec,cpu);
-	printf("Se agrego sock_cpu #%d a lista \n",cpu->fd_cpu);
+	//list_add(cpu_exec, cpu);
+	printf("Se agrego sock_cpu #%d a lista \n",cpu->cpu.fd_cpu);
 
 	//freeAndNULL((void **) &pcb_serial);
 }
 
-void planificar(){
+void planificar(void){
 
 	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
-	t_cpu * cpu;
+	t_cpuInfo * cpu;
 
 	t_consola * consolaAsociada = malloc(sizeof consolaAsociada);
 	while(1){
@@ -119,44 +113,34 @@ void planificar(){
 
 		if(!queue_is_empty(Ready)){
 			pcbAux = (tPCB*) queue_pop(Ready);
-			if(list_size(listaDeCpu) > 0) list_add(Exec,pcbAux);
-			}
-
-		if(!list_is_empty(Exec)){
-			int i;
-
-			for(i = 0; i < list_size(listaDeCpu);i++){
-				cpu = (t_cpu *) list_get(listaDeCpu,i);
-				pcbAux = (tPCB *) list_get(Exec,i);
-				cpu->pid = pcbAux-> id;
-
+			if(list_size(listaDeCpu) > 0) {
+				cpu = (t_cpuInfo *) list_get(listaDeCpu, obtenerCPUociosa());
+				cpu->cpu.pid = pcbAux->id;
+				list_add(Exec, pcbAux);
 				mandarPCBaCPU(pcbAux,cpu);
 			}
 		}
+		break;
+
 		//Para saber que hacer con BLOCK y EXIT, recibo mensajes de las cpus activas
-		int i;
+		/*int i;
 		int j;
 		char *paquete_pcb_serial;
 		int stat;
 		tPackHeader * header = malloc(HEAD_SIZE);
-		tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
+		tPackHeader * headerMemoria = malloc(sizeof headerMemoria);
+		t_cpuInfo p;*/
 
-		for(i = 0; i < list_size(cpu_exec); i ++){
-			t_cpu * cpu_executing = (t_cpu*) list_get(cpu_exec,i);
 
-			printf("valor de cpu_executing->fd_cpu:%d \n",cpu_executing->fd_cpu);
-
-			if((paquete_pcb_serial = recvHeader(cpu_executing->fd_cpu, header)) == NULL){
+			/*if((paquete_pcb_serial = recvHeader(cpu_executing->fd_cpu, header)) == NULL){
 					printf("Fallo recvPCB");
 					break;
-						}
-			pcbAux = deserializarPCB(paquete_pcb_serial);
+			}
+			*/
+			//pcbAux = deserializarPCB(paquete_pcb_serial);
 
-			switch(header->tipo_de_mensaje){
+			/*switch(header->tipo_de_mensaje){
 
-				//Solo va a block por syscalls a los semaforos
-				case(SYSCALL):
-					cpu_manejador(cpu_executing->fd_cpu);
 
 				case(FIN_PROCESO):case(ABORTO_PROCESO):case(RECURSO_NO_DISPONIBLE): //COLA EXIT
 					//queue_push(Exit,pcbAux);
@@ -167,12 +151,12 @@ void planificar(){
 					//ConsolaAsociada()
 
 					//Aviso a memoria
-					finalizarPrograma(cpu_executing->pid, headerMemoria, consolaAsociada->fd_con);
+					finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con.fd_con);
 					// Le informo a la Consola asociada:
 
 					for(j = 0;j<list_size(listaProgramas);j++){
 						consolaAsociada = (t_consola *) list_get(listaProgramas,j);
-						if(consolaAsociada->pid == cpu_executing->pid){
+						if(consolaAsociada->pid == cpu->cpu.pid){
 						headerMemoria->tipo_de_mensaje = FIN_PROG;
 						headerMemoria->tipo_de_proceso = KER;
 						if((stat = send(consolaAsociada->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
@@ -193,32 +177,33 @@ void planificar(){
 					break;
 				default:
 					break;
-					}
-			/*if(!queue_is_empty(Block)){
+				}
+		}
+			if(!queue_is_empty(Block)){
 				pcbAux = (tPCB *) queue_pop(Block);
 				queue_push(Ready,pcbAux);*/
 				//Todo: tengo que pensar como saber si están o no disponibles los recursos
 			//}
 
+	case (RR):
+		break;
 
 				}
-	break;
-	case (RR):
 
 		setearQuamtumS();
 		//(pcb *) queue_pop(Ready);
 		//list_add(Exec, pcb);
 
-		break;
 			}
-	free(cpu);cpu = NULL;
-	free(pcbAux); pcbAux = NULL;
-	list_destroy(cpu_exec);
+
+	//free(cpu);cpu = NULL;
+	//free(pcbAux); pcbAux = NULL;
+	//list_destroy(cpu_exec);
 	}
 
 /* Una vez que lo se envia el pcb a la cpu, la cpu debería avisar si se pudo ejecutar todo o no
  *
- * */}
+ * *///}
 
 
 void setearQuamtumS(void){
@@ -230,8 +215,60 @@ void setearQuamtumS(void){
 
 	}
 }
+void cpu_handler_planificador(t_cpuInfo * cpu){
+	tPCB *pcbAux;
+	int j;
+	int stat;
+	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
+
+	switch(cpu->msj){
 
 
+	case(FIN_PROCESO):case(ABORTO_PROCESO):case(RECURSO_NO_DISPONIBLE): //COLA EXIT
+		//queue_push(Exit,pcbAux);
+
+			printf("Se finaliza un proceso, libero memoria y luego consola\n");
+	headerMemoria->tipo_de_mensaje = FIN_PROG;
+	headerMemoria->tipo_de_proceso = KER;
+	//ConsolaAsociada()
+
+	//Aviso a memoria
+	finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
+	// Le informo a la Consola asociada:
+
+	for(j = 0;j<list_size(listaDeCpu);j++){
+		cpu = (t_cpuInfo *) list_get(listaDeCpu,j);
+		headerMemoria->tipo_de_mensaje = FIN_PROG;
+		headerMemoria->tipo_de_proceso = KER;
+
+		if((stat = send(cpu->con->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
+			perror("error al enviar a la consola");
+			break;
+		}
+	}
+
+	pcbAux = list_remove(Exec, getPosPid(cpu->cpu.pid, Exec));
+	queue_push(Exit,pcbAux);
+
+	break;
+	default:
+		break;
+	}
+}
+
+int getPosPid(int pid, t_list *Q){
+
+	int i;
+	tPCB *pcb;
+	for (i = 0; i < list_size(Q); ++i){
+		pcb = list_get(Q, i);
+		if (pcb->id == pid)
+			return i;
+	}
+
+	return -1;
+
+}
 void largoPlazo(int multiprog){
 
 	if(queue_size(Ready) < multiprog){
@@ -269,17 +306,16 @@ void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 		perror("Fallo envio de PID a Consola. error");
 	printf("Se enviaron %d bytes a Consola\n", stat);
 
-	//consola->fd_con = sock_con;
-	consola->pid = pack_pid->val;
 
-	printf("El socket de consola #%d y pid #%d \n",consola->fd_con,consola->pid);
-
-	list_add(listaProgramas,consola); //Agrego en la lista segun su numero de pid
-
-	freeAndNULL((void **) &pack_pid);
+	t_cpuInfo *cpu_inex = malloc(sizeof *cpu_inex);
+	cpu_inex->con = malloc(sizeof *cpu_inex->con);
+	cpu_inex->con->fd_con = sock_con;
+	cpu_inex->cpu.pid = -1;
+	list_add(listaDeCpu, cpu_inex);
 
 	queue_push(New,nuevoPCB);
-	planificar();
+
+	freeAndNULL((void **) &pack_pid);
 }
 
 int indexPcb(int pid){
@@ -352,3 +388,18 @@ char *recvHeader(int sock_in, tPackHeader *header){
 	return p_serial;
 }
 
+void pasarABlock(int sock_cpu){
+
+
+}
+
+int obtenerCPUociosa(void){
+	t_cpuInfo * cpuOciosa;
+	int cantidadCpu;
+	for(cantidadCpu = 1; cantidadCpu< list_size(listaDeCpu); cantidadCpu ++){
+		cpuOciosa = (t_cpuInfo *) list_get(listaDeCpu,cantidadCpu);
+		if(cpuOciosa->cpu.pid < 0)
+			return cantidadCpu;
+	}
+	return -1;
+}

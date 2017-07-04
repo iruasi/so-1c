@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <math.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include <commons/config.h>
 #include <commons/string.h>
@@ -39,7 +41,7 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags);
 
-void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj);
+void cons_manejador(void *conInfo);
 
 tPackSrcCode *recibir_paqueteSrc(int fd);
 
@@ -51,36 +53,42 @@ int frames, frame_size; // para guardar datos a recibir de Memoria
 tKernel *kernel;
 extern t_valor_variable *shared_vals;
 
-t_list *listaDeCpu;
 t_list *listaPcb;
-t_list *listaProgramas;
 
 t_consola * consola;
 
+sem_t *hayProg;
+
 int main(int argc, char* argv[]){
 
-	t_cpu *  cpu;
+
+	t_cpu * cpu;
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
-
 	int stat, ready_fds;
-	int sock_cpu;
-	int fd, new_fd;
+	int sock_cpu, sock_con;
+	int fd;
 	int fd_max = -1;
 	int sock_fs, sock_mem;
 	int sock_lis_cpu, sock_lis_con;
-	int pos_cpu =0;
+
+	hayProg = malloc(sizeof hayProg);
+	if ((stat = sem_init(hayProg, 0, 0)) == -1){
+		perror("No se pudo inicializar semaforo. error");
+		return FALLO_GRAL;
+	}
+
+	pthread_t planif_thread;
+	pthread_t cpu_thread;
+	pthread_t con_thread;
 
 	consola = malloc(sizeof consola);
-	cpu = malloc(sizeof *cpu);
-	t_cpu * auxCpu = malloc(sizeof *auxCpu);
+	cpu     = malloc(sizeof *cpu);
 
-	listaDeCpu = list_create();
 	listaPcb = list_create();
-	listaProgramas = list_create();
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
@@ -90,7 +98,11 @@ int main(int argc, char* argv[]){
 	kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
 
-	setupPlanificador();
+
+	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
+		perror("no pudo crear hilo. error");
+		return FALLO_GRAL;
+	}
 
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
@@ -182,27 +194,32 @@ int main(int argc, char* argv[]){
 					return FALLO_CONEXION;
 				}
 
-				auxCpu->fd_cpu = sock_cpu;
-				auxCpu->pid = -1;
+				t_cpuInfo* cpu_i = malloc(sizeof *cpu_i); cpu_i->con = malloc(sizeof *cpu_i->con);
 
-				cpu->fd_cpu = sock_cpu;
-				cpu->pid = -1;
-
-				list_add(listaDeCpu,auxCpu);
-				fd_max = MAX(cpu->fd_cpu, fd_max);
+				cpu_i->cpu.fd_cpu = sock_cpu; cpu_i->msj = HSHAKE;
+				if( pthread_create(&cpu_thread, NULL, (void*) cpu_manejador, (void*) cpu_i) < 0){
+					perror("no pudo crear hilo. error");
+					return FALLO_GRAL;
+				}
 
 				break;
 
 			} else if (fd == sock_lis_con){
 
-				new_fd = handleNewListened(fd, &master_fd);
-				if (new_fd < 0){
+				sock_con = handleNewListened(fd, &master_fd);
+				if (sock_con < 0){
 					perror("Fallo en manejar un listen. error");
 					return FALLO_CONEXION;
 				}
-				consola->fd_con = new_fd;
 
-				fd_max = MAX(consola->fd_con, fd_max);
+				t_cpuInfo* con_i = malloc(sizeof *con_i); con_i->con = malloc(sizeof *con_i->con);
+				con_i->con->fd_con = sock_con; con_i->msj = header_tmp->tipo_de_mensaje;
+				if( pthread_create(&con_thread, NULL, (void*) cons_manejador, (void*) con_i) < 0){
+					perror("no pudo crear hilo. error");
+					return FALLO_GRAL;
+				}
+
+				fd_max = MAX(sock_con, fd_max);
 
 				break;
 			}
@@ -245,18 +262,6 @@ int main(int argc, char* argv[]){
 				goto limpieza; // nos vamos del ciclo infinito...
 			}
 
-			if (header_tmp->tipo_de_proceso == CON){
-				printf("Llego algo desde Consola!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
-				cons_manejador(sock_mem, fd, header_tmp->tipo_de_mensaje);
-				break;
-			}
-
-			if (header_tmp->tipo_de_proceso == CPU){
-				printf("Llego algo desde CPU!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
-				cpu_manejador(fd);
-				break;
-			}
-
 			puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito...");
 			printf("El valor de header_tmp es: proceso %d \t mensaje: %d\n", header_tmp->tipo_de_proceso, header_tmp->tipo_de_mensaje);
 
@@ -275,30 +280,36 @@ limpieza:
 	close(sock_fs);
 	close(sock_lis_con);
 	close(sock_lis_cpu);
-	list_destroy(listaDeCpu);
 	liberarConfiguracionKernel(kernel);
 	return stat;
 }
 
-void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
+void cons_manejador(void *conInfo){
 
-	switch(msj){
+	t_cpuInfo *ci = (t_cpuInfo*) conInfo;
+
+	int sock_mem = 3; //solo para el test
+	int stat;
+	tPackHeader head;
+
+	do {
+	switch(ci->msj){
 	case SRC_CODE:
 		puts("Consola quiere iniciar un programa");
 
 		int src_size;
 		tPackSrcCode *entradaPrograma = NULL;
-		entradaPrograma = recibir_paqueteSrc(sock_hilo);//Aca voy a recibir el tPackSrcCode
+		entradaPrograma = recibir_paqueteSrc(ci->con->fd_con);//Aca voy a recibir el tPackSrcCode
 		src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
 		printf("El size del paquete %d\n", src_size);
 
 		int cant_pag = (int) ceil((float)src_size / frame_size);
-		tPCB *new_pcb = nuevoPCB(entradaPrograma, cant_pag, sock_hilo);  //Toda la lógica de la paginacion la hago a la hora de crear el pcb, si no hay pagina => no hay pcb
-		//En nuevoPcb, casteo entradaPrograma para que me de los valores.
+		tPCB *new_pcb = nuevoPCB(entradaPrograma, cant_pag, ci->con->fd_con);
 
 		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size, cant_pag);
 
-		encolarEnNewPrograma(new_pcb, sock_hilo);
+		encolarEnNewPrograma(new_pcb, ci->con->fd_con);
+		sem_post(hayProg);
 
 		puts("Listo!");
 		break;
@@ -306,6 +317,7 @@ void cons_manejador(int sock_mem, int sock_hilo, tMensaje msj){
 	default:
 		break;
 	}
+	}while ((stat = recv(ci->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
 
 
 }
