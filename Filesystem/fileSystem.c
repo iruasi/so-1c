@@ -15,6 +15,7 @@
 #include <tiposRecursos/tiposPaquetes.h>
 
 #include "fileSystemConfigurators.h"
+#include "operacionesFS.h"
 
 #ifndef BACKLOG
 #define BACKLOG 20
