@@ -8,6 +8,9 @@
  * Retorna la cantidad de bytes enviados, o el error (valor negativo)
  */
 int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
+
+int contestarKernelCPU(int q_sleep, int sock_cpu);
+
 int contestarMemoriaCPU(int marco_size, int sock_cpu);
 
 
@@ -23,9 +26,11 @@ int recibirInfoKerMem(int sock_memoria, int *frames, int *frame_size);
  */
 int recibirInfoCPUMem(int sock_mem, int *frame_size);
 
+int recibirInfoCPUKernel(int sock_kern, int *q_sleep);
+
 char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size);
 
-char *serializeMemACPU(tHShakeMemACPU *h_shake, int *pack_size);
+char *serializeProcAProc(tHShakeMemACPU *h_shake, int *pack_size);
 
 /* Funcion generica de recepcion. Toda serializacion deberia dar un paquete
  * que responda al formato |HEAD(8)|PAYLOAD_SIZE(int)|PAYLOAD(char*)|

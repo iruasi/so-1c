@@ -61,8 +61,8 @@ int main(int argc, char* argv[]){
 	int stat, ready_fds;
 	int fd;
 	int fd_max = -1;
-	int sock_fs;
-	int sock_lis_cpu, sock_lis_con;
+	int sock_fs, sock_lis_cpu, sock_lis_con, sock_inotify;
+
 
 	if ((stat = sem_init(&hayProg, 0, 0)) == -1){
 		perror("No se pudo inicializar semaforo. error");

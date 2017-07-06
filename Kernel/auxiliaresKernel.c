@@ -146,12 +146,24 @@ void cpu_manejador(void *infoCPU){
 	char *var = NULL;
 	int stat, pack_size;
 
+	if ((stat = contestarKernelCPU(kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) != 0){
+		puts("No se pudo informar el quantum_sleep a CPU");
+		pthread_cancel(pthread_self());
+	}
+
 	do {
 	printf("proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 	switch(head.tipo_de_mensaje){
 	case S_WAIT:
 		puts("Signal wait a semaforo");
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+
+		char *sem_id = deserializeBytes(buffer);
+
+		//
+		kernel->sem_init[obtenerPosSemaforo(sem_id)];
+
 		//pasarABlock();
 		break;
 	case S_SIGNAL:
@@ -218,6 +230,10 @@ void cpu_manejador(void *infoCPU){
 		freeAndNULL((void **) &var_name->bytes); freeAndNULL((void **) &var_name);
 		break;
 
+	case RESERVAR:
+		puts("Funcion reservar");
+		break;
+
 	case LIBERAR:
 		puts("Funcion liberar");
 		break;
@@ -239,8 +255,6 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case LEER:
-		break;
-	case RESERVAR:
 		break;
 	case HSHAKE:
 		puts("Es solo un handshake");
@@ -285,9 +299,6 @@ void cons_manejador(void *conInfo){
 
 		encolarEnNew(new_pcb);
 		sem_post(&hayProg);
-		//tPCB *new_pcb = nuevoPCB(entradaPrograma, cant_pag, con_i);
-
-		//encolarEnNewPrograma(new_pcb, con_i->con->fd_con);
 
 		puts("Fin case SRC_CODE.");
 		break;

@@ -13,6 +13,10 @@ typedef enum {
 	THREAD_INIT = 2, // para cada nuevo thread que se crea y entra a un manejador
 	SRC_CODE    = 3,
 
+	IMPRIMIR    = 4,
+
+	KERINFO     = 11,
+
 	// Mensajes para CPU send/recv...
 	PCB_EXEC    = 21, // serian para Planificador
 	PCB_PREEMPT = 22, // serian para Planificador

@@ -31,20 +31,19 @@
 int siguientePID(void){return 1;}
 int tamanioPrograma;
 extern t_list *listaAtributos;
-sem_t *semLista;
+sem_t semLista;
 extern tConsola *cons_data;
 
 
 void inicializarSemaforos(void){
 	int stat;
-	semLista = malloc(sizeof (sem_t));
-	 if ((stat = sem_init(semLista, 0, MUTEX)) == -1)
+	 if ((stat = sem_init(&semLista, 0, MUTEX)) == -1)
 		perror("No se pudo inicializar semaforo lista. error");
 
 }
 
 void eliminarSemaforos(void){
-	sem_destroy(semLista);
+	sem_destroy(&semLista);
 }
 
 void guardarHoraActual(tHora *horaActual){
@@ -251,13 +250,21 @@ void *programa_handler(void *atributos){
 	puts("Esperando a recibir el PID");
 	int fin = 0;
 
-
+char *buffer;
 while(fin !=1){
 	while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
+
+		if (head_tmp.tipo_de_mensaje == IMPRIMIR){
+			puts("Kernel manda algo a imprimir");
+			//recv..
+		}
 
 		if (head_tmp.tipo_de_mensaje == PID){
 			puts("recibimos PID");
 
+//			buffer = recvGeneric(sock_kern);
+//			deserializarPID()
+//			memcpy(&ppid.val, buffer, sizeof(int));
 			if((stat = recv(sock_kern, &(ppid.val), sizeof ppid.val, 0)) < 0 ){
 				perror("error al recibir el pid");
 				return 0;
@@ -267,9 +274,9 @@ while(fin !=1){
 			args->pidProg = ppid.val;
 			args->hiloProg = pthread_self();
 
-			//sem_wait(semLista);
+			sem_wait(&semLista);
 			list_add(listaAtributos,args);
-			//sem_post(semLista);
+			sem_post(&semLista);
 
 			printf(" pid %d\n",args->pidProg);
 
@@ -297,7 +304,7 @@ while(fin !=1){
 
 
 			puts("Se finaliza el hilo");
-			//pthread_exit(NULL);
+			pthread_cancel(pthread_self());
 		}
 	}
 }

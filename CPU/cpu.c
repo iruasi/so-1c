@@ -29,10 +29,23 @@ int pedirInstruccion(int instr_size);
 int recibirInstruccion(char **linea, int instr_size);
 
 int ejecutarPrograma(void);
+void quantum_sleep(void);
 
 char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
 
 int pag_size;
+int q_sleep;
+float q_sleep_segs;
+
+void quantum_sleep(void){
+	q_sleep_segs = q_sleep / 1000.0;
+	printf("Se cambio la latencia de ejecucion de instruccion a %f segundos\n", q_sleep_segs);
+}
+
+/*
+ * TODO: hacer un hilo que chequee regularmente que no se haya roto la ejecucion del PCB
+ * Si algo se rompe, manda el pid, exitCode y un header a Planificador.
+ */
 
 int main(int argc, char* argv[]){
 
@@ -81,9 +94,13 @@ int main(int argc, char* argv[]){
 		fprintf(stderr, "No se pudo hacer hadshake con Kernel\n");
 		return FALLO_GRAL;
 	}
+	if ((stat = recibirInfoCPUKernel(sock_kern, &q_sleep)) != 0){
+		puts("No se pudo recibir el tamanio de pagina de Memoria!");
+		return ABORTO_CPU;
+	}
+
 	printf("Se enviaron: %d bytes a KERNEL\n", stat);
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
-
 
 	tPackHeader *head = malloc(sizeof *head);
 	char *pcb_serial;
@@ -166,28 +183,28 @@ int ejecutarPrograma(void){
 			return FALLO_GRAL;
 		}
 
-
 		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(*linea, &functions, &kernel_functions);
 
-		cantidadDeRafagas ++;
+		cantidadDeRafagas++;
 		pcb->pc++;
 
 		if(cantidadDeRafagas == pcb->proxima_rafaga){
 			fin_quantum = true;
-			termino = true;
-
+			break;
 		}
-
+		sleep(q_sleep_segs);
 
 	} while(!termino);
-
-	puts("Termino de ejecutar...");
 	termino = false;
 
-	if (pcb->pc == pcb->cantidad_instrucciones) // el PCB ejecuto la ultima instruccion todo: revisar logica de esto
+	puts("Termino de ejecutar...");
+
+	if (pcb->pc == pcb->cantidad_instrucciones){ // el PCB ejecuto la ultima instruccion todo: revisar logica de esto
 		header.tipo_de_mensaje = FIN_PROCESO;
+
+	}
 
 	else if(fin_quantum == true) // se dealoja el PCB, faltandole ejecutar instrucciones
 		header.tipo_de_mensaje = PCB_PREEMPT;
@@ -207,7 +224,7 @@ int ejecutarPrograma(void){
 
 	freeAndNULL((void **) linea);
 	freeAndNULL((void **) &linea);
-	freeAndNULL((void **) &pcb_serial);
+//	freeAndNULL((void **) &pcb_serial); todo: rompe
 	return EXIT_SUCCESS;
 }
 

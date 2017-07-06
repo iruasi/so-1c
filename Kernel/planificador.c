@@ -235,7 +235,7 @@ void planificar(void){
 
 	} // cierra Switch
 
-		setearQuamtumS();
+//		setearQuamtumS();
 		//(pcb *) queue_pop(Ready);
 		//list_add(Exec, pcb);
 
@@ -250,16 +250,6 @@ void planificar(void){
  *
  * *///}
 
-
-void setearQuamtumS(void){
-	int i;
-	for(i = 0; i < Ready->elements->elements_count ; i++){
-		tPCB * pcbReady = (tPCB*) list_get(Ready->elements,i);
-	//	pcbReady->quantum = kernel-> quamtum;
-	//	pcbReady->quamtumSleep = kernel -> quamtumSleep;
-
-	}
-}
 
 void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
 	tPCB *pcbAux, *pcbPlanif;
@@ -286,6 +276,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		pthread_mutex_lock(&mux_exit);
 		queue_push(Exit, pcbPlanif);
 		pthread_mutex_unlock(&mux_exit);
+
+		cpu->cpu.pid = -1;
 
 		break;
 

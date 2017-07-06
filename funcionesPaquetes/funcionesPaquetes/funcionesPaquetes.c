@@ -47,6 +47,30 @@ int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
 	return stat;
 }
 
+int contestarKernelCPU(int q_sleep, int sock_cpu){
+
+	int stat, pack_size;
+	char *hs_serial;
+
+	tHShakeMemACPU *h_shake = malloc(sizeof *h_shake + sizeof(int));
+	h_shake->head.tipo_de_proceso = KER;
+	h_shake->head.tipo_de_mensaje = KERINFO;
+	h_shake->val = q_sleep;
+
+	pack_size = 0;
+	if ((hs_serial = serializeProcAProc(h_shake, &pack_size)) == NULL){
+		puts("No se pudo serializar el handshake de Memoria a CPU");
+		return FALLO_SERIALIZAC;
+	}
+
+	if((stat = send(sock_cpu, hs_serial, pack_size, 0)) == -1)
+		perror("Error de envio informacion Memoria a CPU. error");
+
+	freeAndNULL((void **) &hs_serial);
+	return stat;
+}
+
+
 int contestarMemoriaCPU(int marco_size, int sock_cpu){
 
 	int stat, pack_size;
@@ -58,7 +82,7 @@ int contestarMemoriaCPU(int marco_size, int sock_cpu){
 	h_shake->val = marco_size;
 
 	pack_size = 0;
-	if ((hs_serial = serializeMemACPU(h_shake, &pack_size)) == NULL){
+	if ((hs_serial = serializeProcAProc(h_shake, &pack_size)) == NULL){
 		puts("No se pudo serializar el handshake de Memoria a CPU");
 		return FALLO_SERIALIZAC;
 	}
@@ -113,6 +137,33 @@ int recibirInfoCPUMem(int sock_mem, int *frame_size){
 	return 0;
 }
 
+int recibirInfoCPUKernel(int sock_kern, int *q_sleep){
+
+	int stat;
+	char *info_serial;
+	tPackHeader head;
+
+	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recepcion de info de Memoria. error");
+		return FALLO_RECV;
+	}
+
+	if (head.tipo_de_proceso != KER || head.tipo_de_mensaje != KERINFO){
+		printf("El paquete recibido no era el esperado! Proceso: %d, Mensaje: %d\n",
+				head.tipo_de_proceso, head.tipo_de_mensaje);
+		return FALLO_GRAL;
+	}
+
+	if ((info_serial = recvGeneric(sock_kern)) == NULL){
+		puts("Fallo la creacion de info serializada desde Memoria");
+		return FALLO_GRAL;
+	}
+
+	memcpy(q_sleep, info_serial, sizeof(int));
+	free(info_serial);
+	return 0;
+}
+
 
 /****** Definiciones de [De]Serializaciones Handshakes especiales ******/
 
@@ -141,7 +192,7 @@ char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size){
 	return hs_serial;
 }
 
-char *serializeMemACPU(tHShakeMemACPU *h_shake, int *pack_size){
+char *serializeProcAProc(tHShakeMemACPU *h_shake, int *pack_size){
 
 	char *hs_serial;
 	if ((hs_serial = malloc(sizeof *h_shake + sizeof(int))) == NULL){
