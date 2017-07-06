@@ -141,12 +141,11 @@ int ejecutarPrograma(void){
 
 	int stat;
 	t_size instr_size;
+	tPackHeader header;
 	char **linea = malloc(0);
 	*linea = NULL;
 	bool fin_quantum = false;
 	termino = false;
-	tPCB * pcbAux = malloc(sizeof (pcbAux));
-	tPackHeader header;
 
 
 	int cantidadDeRafagas = 0;
@@ -173,7 +172,6 @@ int ejecutarPrograma(void){
 		analizadorLinea(*linea, &functions, &kernel_functions);
 
 		cantidadDeRafagas ++;
-
 		pcb->pc++;
 
 		if(cantidadDeRafagas == pcb->proxima_rafaga){
@@ -187,26 +185,29 @@ int ejecutarPrograma(void){
 
 	puts("Termino de ejecutar...");
 	termino = false;
-	/*
-	 *
-	 *	if(fin_quantum == true){
-	 *
-	 * }
-	 */
 
-	header.tipo_de_mensaje = FIN_PROCESO;
+	if (pcb->pc == pcb->cantidad_instrucciones) // el PCB ejecuto la ultima instruccion todo: revisar logica de esto
+		header.tipo_de_mensaje = FIN_PROCESO;
+
+	else if(fin_quantum == true) // se dealoja el PCB, faltandole ejecutar instrucciones
+		header.tipo_de_mensaje = PCB_PREEMPT;
+
+	else
+		header.tipo_de_mensaje = ABORTO_PROCESO;
+
 	header.tipo_de_proceso = CPU;
-	pcbAux = pcb;
+
 	int pack_size = 0;
-	char * pcb_serial = serializePCB(pcbAux , header, &pack_size);
-	printf("Se serealizo bien el pcb con tamaño: %d\n",pack_size);
+	char * pcb_serial = serializePCB(pcb, header, &pack_size); // todo: Necesitamos retornar el PCB completo siempre?
+	printf("Se serializo bien el pcb con tamanio: %d\n", pack_size);
 	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a Kernel. error");
-	printf("Tiene stat: %d \n",stat);
-	printf("Mande bien el paquete al kernel\n");
+
+	printf("Se enviaron %d bytes a kernel \n", stat);
 
 	freeAndNULL((void **) linea);
 	freeAndNULL((void **) &linea);
+	freeAndNULL((void **) &pcb_serial);
 	return EXIT_SUCCESS;
 }
 

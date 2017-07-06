@@ -10,6 +10,7 @@ typedef enum {KER= 1, CPU= 2, FS= 3, CON= 4, MEM= 5} tProceso;
 
 typedef enum {
 	HSHAKE      = 1,
+	THREAD_INIT = 2, // para cada nuevo thread que se crea y entra a un manejador
 	SRC_CODE    = 3,
 
 	// Mensajes para CPU send/recv...
@@ -49,7 +50,7 @@ typedef enum {
 	KILL_PID    = 44,
 	KER_KILLED  = KILL_PID,
 
-	//Agrego mensaje para tratar planificador
+	//Agrego mensaje para tratar planificador todo: pensar si algunos son en realidad errores
 	RECURSO_NO_DISPONIBLE = 60, //kernel - cpu y viceversa
 	FIN_PROCESO = 61,			//kernel - cpu y viceversa
 	ABORTO_PROCESO = 62,		//kernel - cpu y viceversa

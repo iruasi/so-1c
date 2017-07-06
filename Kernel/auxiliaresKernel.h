@@ -4,17 +4,9 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
-typedef struct {
-	int pid;
-	int sock;
-	char* src_code;
-	t_metadata_program meta;
-}dataHiloProg; // todo: ver si es raro
-
 typedef struct{
 	int fd_cpu,pid;
 }t_cpu;
-
 
 typedef struct{
 	int fd_con,pid;
@@ -23,22 +15,50 @@ typedef struct{
 typedef struct {
 	t_cpu     cpu;
 	t_consola *con;
-	tMensaje  msj;
-} t_cpuInfo;
+	tMensaje msj;
+} t_RelCC; // Relacion Consola <---> CPU
+
+typedef struct {
+	t_RelCC *prog;
+	tPackSrcCode *src;
+} t_RelPF; // Relacion Programa <---> Codigo Fuente
+
+/* Crea un t_RelPF* y lo guarda en la lista global de Programas,
+ * asi quedan asociados el socket de un Programa y su source code.
+ */
+void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src);
+
+// todo: refactorizar
+tPackSrcCode *recibir_paqueteSrc(int fd);
 
 /* Recibe, serializa y reenvia a Memoria el codigo fuente
  * El parametro src_size es un auxiliar para obtener ese dato hasta fuera del proceso
  */
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size);
 
+void setupVariablesGlobales(void);
+
+/* Crea un PCB que aun no tiene la info importante
+ * que se obtiene a partir del meta y codigo fuente.
+ * La info importante se obtiene y asigna en el pasaje de New->Ready.
+ */
+tPCB *crearPCBInicial(void);
+
 /* Crea un puntero a un PCB nuevo, con un PID unico.
  */
-tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, int sock_hilo);
+tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog);
 
-/* Gestiona los mensaje recibidos del cpu que no sean para el planificador
- * */
+/* Es un recv() constante al socket del hilo CPU.
+ * Gestiona los mensaje recibidos del hilo.
+ * Tiene que redireccionar a Planificador lo que corresponda.
+ * El resto son en su mayoria Syscalls.
+ */
 void cpu_manejador(void *sockYmsj);
 
+/* Es un recv() constante al socket del hilo Programa.
+ * Gestiona los mensaje recibidos del hilo.
+ */
+void cons_manejador(void *conInfo);
 
 int setGlobal(tPackValComp *val_comp);
 t_valor_variable getGlobal(t_nombre_variable *var, bool *found);

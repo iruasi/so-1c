@@ -112,8 +112,8 @@ int reservarPagHeap(int sock_mem, int pid, int size_reserva){
 	pidpag->head.tipo_de_mensaje = ASIGN_PAG;
 	pidpag->pid = pid;
 	pidpag->pageCount = 1;
-
-	if ((pidpag_serial = serializePIDPaginas(pidpag)) == NULL){
+	int pack_size;
+	if ((pidpag_serial = serializePIDPaginas(pidpag, &pack_size)) == NULL){
 		fprintf(stderr, "Fallo el serializado de PID y Paginas\n");
 		return FALLO_SERIALIZAC;
 	}

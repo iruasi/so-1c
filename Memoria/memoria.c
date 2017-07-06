@@ -9,6 +9,7 @@
 #include <arpa/inet.h> //inet_addr
 #include <unistd.h>    //write
 #include <errno.h>
+#include <semaphore.h>
 
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
@@ -33,6 +34,8 @@ char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
+sem_t mem_access;
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -42,19 +45,13 @@ int main(int argc, char* argv[]){
 
 	int stat;
 
+	sem_init(&mem_access, 0, 1);
+
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
-
-/*  Esto bloquea la ejecucion del resto de la Memoria... queda comentado de momento
-	pthread_t consola_mem;
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_create(&consola_mem, &attr, consolaUsuario(), NULL);
-*/
 
 	pthread_t kern_thread;
 	bool kernExists = false;
@@ -79,14 +76,13 @@ int main(int argc, char* argv[]){
 	while((client_sock = accept(sock_entrada, (struct sockaddr*) &client, (socklen_t*) &clientSize)) != -1){
 		puts("Conexion aceptada");
 
-		pthread_t sniffer_thread;
-
 		if ((stat = recv(client_sock, &head, HEAD_SIZE, 0)) < 0){
 			perror("Error en la recepcion de handshake. error");
 			return FALLO_RECV;
 		}
 
 		switch(head.tipo_de_proceso){
+
 		case KER:
 
 			if (!kernExists){
@@ -111,8 +107,12 @@ int main(int argc, char* argv[]){
 			break;
 
 		case CPU:
+			puts("Ingresa CPU");
 
-			if( pthread_create(&sniffer_thread, NULL, (void*) cpu_handler, (void*) &client_sock) < 0){
+			pthread_t cpu_thread;
+			int *sock_cpu = malloc(sizeof(int));
+			*sock_cpu    = client_sock;
+			if( pthread_create(&cpu_thread, NULL, (void*) cpu_handler, (void*) sock_cpu) < 0){
 				perror("no pudo crear hilo. error");
 				return FALLO_GRAL;
 			}
@@ -141,45 +141,54 @@ void* kernel_handler(void *sock_kernel){
 	int *sock_ker = (int *) sock_kernel;
 	int stat, new_page;
 	int pid, pageCount;
+	char *buffer;
 
-	tPackHeader *head = calloc(1, HEAD_SIZE);
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = THREAD_INIT};
 
 	printf("Esperamos que lleguen cosas del socket Kernel: %d\n", *sock_ker);
 
 	do {
 
-		switch(head->tipo_de_mensaje){
+		switch(head.tipo_de_mensaje){
 		case INI_PROG:
 			puts("Kernel quiere inicializar un programa.");
 
-			if ((stat = recv(*sock_ker, &pid, sizeof(int), 0)) == -1){
-				perror("Fallo recepcion pid del Kernel. error");
+			tPackPidPag *pp;
+
+			if ((buffer = recvGeneric(*sock_ker)) == NULL){
+				puts("Fallo recepcion generica");
 				break;
 			}
 
-			if ((stat = recv(*sock_ker, &pageCount, sizeof(int), 0)) == -1){
-				perror("Fallo recepcion pageCount del Kernel. error");
+			if ((pp = deserializePIDPaginas(buffer)) == NULL){
+				puts("Fallo deserializacion PIDPaginas");
 				break;
 			}
 
-			if ((stat = inicializarPrograma(pid, pageCount)) != 0){
+			sem_wait(&mem_access);
+			if ((stat = inicializarPrograma(pp->pid, pp->pageCount)) != 0){
 				puts("No se pudo inicializar el programa. Se aborta el programa.");
-				finalizarPrograma(pid);
+				finalizarPrograma(pp->pid);
 			}
+			sem_post(&mem_access);
 
-			puts("Listo.");
+			puts("Fin case INI_PROG.");
 			break;
 
 		case ALMAC_BYTES:
-			puts("Se recibio peticion de almacenamiento");
+			sem_wait(&mem_access);
+			puts("Kernel quiere almacenar bytes");
 
 			if ((stat = manejarAlmacenamientoBytes(*sock_ker)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Byes. status: %d\n", stat);
+				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Bytes. status: %d\n", stat);
 
+			sem_post(&mem_access);
+			puts("Fin case ALMAC_BYTES.");
 			break;
 
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
+			sem_wait(&mem_access);
 
 			recv(*sock_ker, &pid, sizeof pid, 0);
 			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
@@ -191,6 +200,8 @@ void* kernel_handler(void *sock_kernel){
 
 			//responderAsignacion(*sock_ker, new_page); todo: send(sock_ker, ASIGN_PAG_SUCCESS ...);
 
+			sem_post(&mem_access);
+			puts("Fin case ASIGN_PAG.");
 			break;
 
 		case FIN_PROG:
@@ -208,7 +219,7 @@ void* kernel_handler(void *sock_kernel){
 		default:
 			break;
 		}
-	} while((stat = recv(*sock_ker, head, HEAD_SIZE, 0)) > 0);
+	} while((stat = recv(*sock_ker, &head, HEAD_SIZE, 0)) > 0);
 
 
 
@@ -220,7 +231,6 @@ void* kernel_handler(void *sock_kernel){
 	//se desconecto Kernel de forma normal. Vamos a apagarnos aca...
 	//todo: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
 
-	freeAndNULL((void **) &head);
 	return NULL;
 }
 
@@ -229,7 +239,7 @@ void* kernel_handler(void *sock_kernel){
  */
 void* cpu_handler(void *socket_cpu){
 
-	tPackHeader *head = calloc(1, HEAD_SIZE);
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
 	int stat;
 	int *sock_cpu = (int*) socket_cpu;
 
@@ -241,39 +251,45 @@ void* cpu_handler(void *socket_cpu){
 	printf("Esperamos que lleguen cosas del socket CPU: %d\n", *sock_cpu);
 
 	do {
-		printf("proc: %d  \t msj: %d\n", head->tipo_de_proceso, head->tipo_de_mensaje);
+		printf("proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
-		switch(head->tipo_de_mensaje){
+		switch(head.tipo_de_mensaje){
 		case BYTES:
-			puts("Se recibio Solicitud de Bytes");
+			puts("CPU quiere Solicitar Bytes");
+			sem_wait(&mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
 
+			sem_post(&mem_access);
 			puts("Se completo Solicitud de Bytes");
 			break;
 
 		case ALMAC_BYTES:
-			puts("Se recibio Peticion de Almacenamiento");
+			puts("CPU quiere Almacenar bytes CPU");
+			sem_wait(&mem_access);
 
 			if ((stat = manejarAlmacenamientoBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Byes. status: %d\n", stat);
 
-			puts("Se completo Peticion de Almacenamiento");
+			sem_post(&mem_access);
+			puts("Se completo Peticion de Almacenamiento CPU");
 			break;
 
 		case INSTR:
 			puts("Se recibio pedido de instrucciones");
+			sem_wait(&mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 
+			sem_post(&mem_access);
 			break;
 		default:
 			puts("Se recibio un mensaje no considerado");
 			break;
 		}
-	} while((stat = recv(*sock_cpu, head, sizeof *head, 0)) > 0);
+	} while((stat = recv(*sock_cpu, &head, HEAD_SIZE, 0)) > 0);
 
 	if (stat == -1){
 		perror("Fallo el recv de un mensaje desde CPU. error");

@@ -120,7 +120,7 @@ char *serializePID(tPackPID *ppid, int *pack_size);
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
-char *serializePIDPaginas(tPackPidPag *ppidpag);
+char *serializePIDPaginas(tPackPidPag *ppidpag, int *pack_size);
 
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial);
 

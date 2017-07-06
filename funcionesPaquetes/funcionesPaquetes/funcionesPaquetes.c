@@ -573,12 +573,11 @@ tPackByteReq *deserializeByteRequest(char *byterq_serial){
 
 char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size){
 
-	int payload_size;
-	int size_pbal = sizeof(tPackByteAlmac) - sizeof (char*) + pbal->size;
+	int size_pbal = sizeof(tPackByteAlmac) + pbal->size;
 
 	char *pbyte_al;
 	if ((pbyte_al = malloc(size_pbal)) == NULL){
-		printf("No se pudo mallocar %d bytes para el paquete de bytes almacenamiento\n", sizeof *pbyte_al);
+		printf("No se pudo mallocar %d bytes para el paquete de bytes almacenamiento\n", size_pbal);
 		return NULL;
 	}
 
@@ -600,8 +599,7 @@ char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size){
 	memcpy(pbyte_al + *pack_size, pbal->bytes, pbal->size);
 	*pack_size += pbal->size;
 
-	payload_size = *pack_size - (HEAD_SIZE + sizeof(int));
-	memcpy(pbyte_al + HEAD_SIZE, &payload_size, sizeof(int));
+	memcpy(pbyte_al + HEAD_SIZE, pack_size, sizeof(int));
 
 	return pbyte_al;
 }
@@ -667,6 +665,28 @@ tPackSrcCode *recvSourceCode(int sock_in){
 	}
 
 	return src_pack;
+}
+
+char *serializeSrcCode(tPackSrcCode *src_code, int *pack_size){ // todo: escribir deserializador e implementar en Consola y cons_manejador
+
+	char *src_serial;
+	if ((src_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof src_code->sourceLen + src_code->sourceLen)) == NULL){
+		perror("No se pudo mallocar el src_serial. error");
+		return NULL;
+	}
+
+	*pack_size = 0;
+	memcpy(src_serial + *pack_size, &src_code->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(src_serial + *pack_size, &src_code->sourceLen, sizeof src_code->sourceLen);
+	*pack_size += sizeof src_code->sourceLen;
+	memcpy(src_serial + *pack_size, src_code->sourceCode, src_code->sourceLen);
+	*pack_size += src_code->sourceLen;
+
+	return src_serial;
 }
 
 
@@ -792,9 +812,8 @@ tPackPID *deserializePID(char *pid_serial){
 	return ppid;
 }
 
-char *serializePIDPaginas(tPackPidPag *ppidpag){
+char *serializePIDPaginas(tPackPidPag *ppidpag, int *pack_size){
 
-	int off = 0;
 	char *pidpag_serial;
 
 	if ((pidpag_serial = malloc(sizeof *ppidpag)) == NULL){
@@ -802,23 +821,37 @@ char *serializePIDPaginas(tPackPidPag *ppidpag){
 		return NULL;
 	}
 
-	memcpy(pidpag_serial + off, &ppidpag->head.tipo_de_proceso, sizeof ppidpag->head.tipo_de_proceso);
-	off += sizeof ppidpag->head.tipo_de_proceso;
-	memcpy(pidpag_serial + off, &ppidpag->head.tipo_de_mensaje, sizeof ppidpag->head.tipo_de_mensaje);
-	off += sizeof ppidpag->head.tipo_de_mensaje;
-	memcpy(pidpag_serial + off, &ppidpag->pid, sizeof ppidpag->pid);
-	off += sizeof ppidpag->pid;
-	memcpy(pidpag_serial + off, &ppidpag->pageCount, sizeof ppidpag->pageCount);
-	off += sizeof ppidpag->pageCount;
+	*pack_size = 0;
+	memcpy(pidpag_serial + *pack_size, &ppidpag->head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(pidpag_serial + *pack_size, &ppidpag->pid, sizeof (int));
+	*pack_size += sizeof (int);
+	memcpy(pidpag_serial + *pack_size, &ppidpag->pageCount, sizeof (int));
+	*pack_size += sizeof (int);
+
+	memcpy(pidpag_serial + HEAD_SIZE, pack_size, sizeof(int));
 
 	return pidpag_serial;
 }
 
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
-// todo:
+
+	int off;
 	tPackPidPag *ppidpag;
-	ppidpag = malloc(3);
-	memcpy(ppidpag, pidpag_serial, 3);
+	if ((ppidpag = malloc(sizeof *ppidpag)) == NULL){
+		printf("Fallo malloc de %d bytes para packPIDPag\n", sizeof *ppidpag);
+		return NULL;
+	}
+
+	off = 0;
+	memcpy(&ppidpag->pid, pidpag_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&ppidpag->pageCount, pidpag_serial + off, sizeof(int));
+	off += sizeof(int);
+
 	return ppidpag;
 }
 

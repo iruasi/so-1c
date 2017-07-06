@@ -39,62 +39,48 @@
  * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
  */
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
-void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags);
-
-void cons_manejador(void *conInfo);
-
-tPackSrcCode *recibir_paqueteSrc(int fd);
 
 
 tHeapProc *hProcs;
 int hProcs_cant;
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int frames, frame_size; // para guardar datos a recibir de Memoria
+int sock_mem;
 tKernel *kernel;
-extern t_valor_variable *shared_vals;
 
-t_list *listaPcb;
 
-t_consola * consola;
-
-sem_t *hayProg;
+sem_t hayProg;
 
 int main(int argc, char* argv[]){
 
-
-	t_cpu * cpu;
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
 	int stat, ready_fds;
-	int sock_cpu, sock_con;
 	int fd;
 	int fd_max = -1;
-	int sock_fs, sock_mem;
+	int sock_fs;
 	int sock_lis_cpu, sock_lis_con;
 
-	hayProg = malloc(sizeof hayProg);
-	if ((stat = sem_init(hayProg, 0, 0)) == -1){
+	if ((stat = sem_init(&hayProg, 0, 0)) == -1){
 		perror("No se pudo inicializar semaforo. error");
 		return FALLO_GRAL;
 	}
 
+	pthread_attr_t attr_ondemand;
+	pthread_attr_init(&attr_ondemand);
+	pthread_attr_setdetachstate(&attr_ondemand, PTHREAD_CREATE_DETACHED);
+
 	pthread_t planif_thread;
-	pthread_t cpu_thread;
-	pthread_t con_thread;
-
-	consola = malloc(sizeof consola);
-	cpu     = malloc(sizeof *cpu);
-
-	listaPcb = list_create();
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
 	fd_set read_fd, master_fd;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 
+	setupVariablesGlobales();
 	kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
 
@@ -168,7 +154,7 @@ int main(int argc, char* argv[]){
 	}
 
 
-	tPackHeader *header_tmp = malloc(HEAD_SIZE); // para almacenar cada recv
+	tPackHeader header_tmp;
 	while (1){
 
 		read_fd = master_fd;
@@ -187,16 +173,14 @@ int main(int argc, char* argv[]){
 			// Controlamos el listen de CPU o de Consola
 			if (fd == sock_lis_cpu){
 
-				sock_cpu = handleNewListened(fd, &master_fd);
+				int *sock_cpu = malloc(sizeof(int));
+				if ((*sock_cpu = makeCommSock(fd)) < 0)
+					break; // Fallo y no se conecto el CPU
 
-				if (sock_cpu < 0){
-					perror("Fallo en manejar un listen. error");
-					return FALLO_CONEXION;
-				}
+				t_RelCC* cpu_i = malloc(sizeof *cpu_i); cpu_i->con = malloc(sizeof *cpu_i->con);
+				cpu_i->cpu.fd_cpu = *sock_cpu;
 
-				t_cpuInfo* cpu_i = malloc(sizeof *cpu_i); cpu_i->con = malloc(sizeof *cpu_i->con);
-
-				cpu_i->cpu.fd_cpu = sock_cpu; cpu_i->msj = HSHAKE;
+				pthread_t cpu_thread;
 				if( pthread_create(&cpu_thread, NULL, (void*) cpu_manejador, (void*) cpu_i) < 0){
 					perror("no pudo crear hilo. error");
 					return FALLO_GRAL;
@@ -206,26 +190,24 @@ int main(int argc, char* argv[]){
 
 			} else if (fd == sock_lis_con){
 
-				sock_con = handleNewListened(fd, &master_fd);
-				if (sock_con < 0){
-					perror("Fallo en manejar un listen. error");
-					return FALLO_CONEXION;
-				}
+				int *sock_con = malloc(sizeof(int));
+				if ((*sock_con = makeCommSock(fd)) < 0)
+					break; // Fallo y no se conecto el Programa
 
-				t_cpuInfo* con_i = malloc(sizeof *con_i); con_i->con = malloc(sizeof *con_i->con);
-				con_i->con->fd_con = sock_con; con_i->msj = header_tmp->tipo_de_mensaje;
-				if( pthread_create(&con_thread, NULL, (void*) cons_manejador, (void*) con_i) < 0){
+				t_RelCC* con_i = malloc(sizeof *con_i); con_i->con = malloc(sizeof *con_i->con);
+				con_i->con->fd_con = *sock_con;
+
+				pthread_t con_thread;
+				if( pthread_create(&con_thread, &attr_ondemand, (void*) cons_manejador, (void*) con_i) < 0){
 					perror("no pudo crear hilo. error");
 					return FALLO_GRAL;
 				}
-
-				fd_max = MAX(sock_con, fd_max);
 
 				break;
 			}
 
 			// Como no es un listen, recibimos el header de lo que llego
-			if ((stat = recv(fd, header_tmp, HEAD_SIZE, 0)) == -1){
+			if ((stat = recv(fd, &header_tmp, HEAD_SIZE, 0)) == -1){
 				perror("Error en recv() de algun socket. error");
 				fprintf(stderr, "El socket asociado al fallo es: %d\n", fd);
 				break;
@@ -238,9 +220,9 @@ int main(int argc, char* argv[]){
 
 
 			if (fd == sock_mem){
-				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				printf("Llego algo desde memoria!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
 
-				if (header_tmp->tipo_de_mensaje != MEMINFO)
+				if (header_tmp.tipo_de_mensaje != MEMINFO)
 					break;
 
 
@@ -254,7 +236,7 @@ int main(int argc, char* argv[]){
 				break;
 
 			} else if (fd == sock_fs){
-				printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp->tipo_de_mensaje);
+				printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
 				break;
 
 			} else if (fd == 0){ //socket del stdin
@@ -263,7 +245,7 @@ int main(int argc, char* argv[]){
 			}
 
 			puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito...");
-			printf("El valor de header_tmp es: proceso %d \t mensaje: %d\n", header_tmp->tipo_de_proceso, header_tmp->tipo_de_mensaje);
+			printf("El valor de header_tmp es: proceso %d \t mensaje: %d\n", header_tmp.tipo_de_proceso, header_tmp.tipo_de_mensaje);
 
 		}} // aca terminan el for() y el if(FD_ISSET)
 	}
@@ -271,9 +253,6 @@ int main(int argc, char* argv[]){
 limpieza:
 	// Un poco mas de limpieza antes de cerrar
 
-	free(header_tmp);
-
-	free(consola);consola = NULL;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&master_fd);
 	close(sock_mem);
@@ -282,154 +261,4 @@ limpieza:
 	close(sock_lis_cpu);
 	liberarConfiguracionKernel(kernel);
 	return stat;
-}
-
-void cons_manejador(void *conInfo){
-
-	t_cpuInfo *ci = (t_cpuInfo*) conInfo;
-
-	int sock_mem = 3; //solo para el test
-	int stat;
-	tPackHeader head;
-
-	do {
-	switch(ci->msj){
-	case SRC_CODE:
-		puts("Consola quiere iniciar un programa");
-
-		int src_size;
-		tPackSrcCode *entradaPrograma = NULL;
-		entradaPrograma = recibir_paqueteSrc(ci->con->fd_con);//Aca voy a recibir el tPackSrcCode
-		src_size = strlen((const char *) entradaPrograma->sourceCode) + 1; // strlen no cuenta el '\0'
-		printf("El size del paquete %d\n", src_size);
-
-		int cant_pag = (int) ceil((float)src_size / frame_size);
-		tPCB *new_pcb = nuevoPCB(entradaPrograma, cant_pag, ci->con->fd_con);
-
-		test_iniciarPaginasDeCodigoEnMemoria(sock_mem, entradaPrograma->sourceCode, src_size, cant_pag);
-
-		encolarEnNewPrograma(new_pcb, ci->con->fd_con);
-		sem_post(hayProg);
-
-		puts("Listo!");
-		break;
-
-	default:
-		break;
-	}
-	}while ((stat = recv(ci->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
-
-
-}
-
-int setGlobal(tPackValComp *val_comp){
-
-	int i;
-	int nlen = strlen(val_comp->nom) + 2; // espacio para el ! y el '\0'
-	char *aux = NULL;
-	for (i = 0; i < kernel->shared_quant; ++i){
-		aux = realloc(aux, nlen); aux[0] = '!'; memcpy(aux + 1, val_comp->nom, nlen); aux[nlen] = '\0';
-
-		if (strcmp(kernel->shared_vars[i], aux) == 0){
-			shared_vals[i] = val_comp->val;
-			free(aux);
-			return 0;
-		}
-	}
-	free(aux);
-	return GLOBAL_NOT_FOUND;
-}
-
-t_valor_variable getGlobal(t_nombre_variable *var, bool* found){
-
-	int i;
-	int nlen = strlen(var) + 2; // espacio para el ! y el '\0'
-	char *aux = NULL;
-	*found = true;
-	for (i = 0; i < kernel->shared_quant; ++i){
-		aux = realloc(aux, nlen); aux[0] = '!'; memcpy(aux + 1, var, nlen); aux[nlen] = '\0';
-
-		if (strcmp(kernel->shared_vars[i], aux) == 0){
-			free(aux);
-			return shared_vals[i];
-		}
-	}
-	free(aux);
-	*found = false;
-	return GLOBAL_NOT_FOUND;
-}
-
-tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
-
-	int paqueteRecibido;
-	int *tamanioMensaje = malloc(sizeof (int));
-
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, (char *) tamanioMensaje, sizeof(int));
-	if(paqueteRecibido <= 0 ) return NULL;
-
-	void *mensaje = malloc(*tamanioMensaje);
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, mensaje, *tamanioMensaje);
-	if(paqueteRecibido <= 0) return NULL;
-
-	tPackSrcCode *pack_src = malloc(sizeof *pack_src);
-	pack_src->sourceLen = paqueteRecibido;
-	pack_src->sourceCode = malloc(pack_src->sourceLen);
-	memcpy(pack_src->sourceCode, mensaje, paqueteRecibido);
-
-	//tPackSrcCode *buffer = deserializeSrcCode(fd);
-
-	free(tamanioMensaje);tamanioMensaje = NULL;
-	free(mensaje);mensaje = NULL;
-
-	return pack_src;
-
-}
-
-// todo: remover test cuando ya no sea necesario
-void test_iniciarPaginasDeCodigoEnMemoria(int sock_mem, char *code, int size_code, int pags){
-	puts("\n\n\t\tEmpieza el test....");
-
-	int stat;
-	int pack_size = 0;
-	tPackHeader ini = { .tipo_de_proceso = KER, .tipo_de_mensaje = INI_PROG };
-	tPackHeader src = { .tipo_de_proceso = KER, .tipo_de_mensaje = ALMAC_BYTES };
-
-	tPackPidPag p;
-	p.head = ini;
-	p.pid = 0;
-	p.pageCount = pags + kernel->stack_size;
-
-	char * pidpag_serial = serializePIDPaginas(&p);
-	if (pidpag_serial == NULL){
-		puts("fallo serialize PID Paginas");
-		return;
-	}
-
-	puts("Enviamos inicializacion de progama");
-	if ((stat = send(sock_mem, pidpag_serial, 16, 0)) == -1)
-		puts("Fallo pedido de inicializacion de prog en Memoria...");
-
-	tPackByteAlmac *pbal = malloc(sizeof *pbal);
-	memcpy(&pbal->head, &src, HEAD_SIZE);
-	pbal->pid = 0;
-	pbal->page = 0;
-	pbal->offset = 0;
-	pbal->size = size_code;
-	pbal->bytes = code;
-
-	char* packBytes;
-	if ((packBytes = serializeByteAlmacenamiento(pbal, &pack_size)) == NULL){
-		puts("fallo serialize Bytes");
-		return;
-	}
-
-	puts("Enviamos el srccode");
-	if ((stat = send(sock_mem, packBytes, pack_size, 0)) == -1)
-		puts("Fallo envio src code a Memoria...");
-
-	printf("se enviaron %d bytes\n", stat);
-
-	freeAndNULL((void **) &pbal);
-	sleep(2);
-	puts("\n\n\t\tSe completo el test.\n\n");
 }

@@ -15,7 +15,7 @@
 #define MAXMSJ 100
 #define MAXALGO 4 		// cantidad maxima de carecteres para kernel->algoritmo (RR o FIFO)
 
-t_valor_variable *shared_vals;
+t_valor_variable *shared_vals; // valores de las variables Globales
 
 tKernel *getConfigKernel(char* ruta){
 

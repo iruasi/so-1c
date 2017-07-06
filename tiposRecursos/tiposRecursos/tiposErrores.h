@@ -6,7 +6,7 @@
 #define TIPOSERRORES_H_
 
 typedef enum {
-  RES_INSUF=            -1
+  RESOURCE_INSUF=       -1
 , NOSUCH_FILE=          -2
 , NOREAD_PERM=          -3
 , NOWRITE_PERM=         -4

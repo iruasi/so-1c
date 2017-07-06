@@ -3,6 +3,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <errno.h>
+#include <math.h>
+#include <pthread.h>
 #include <semaphore.h>
 
 #include <commons/collections/queue.h>
@@ -28,12 +30,20 @@ void setearQuamtumS(void);
 void pausarPlanif(){
 
 }
-int getPosPid(int pid, t_list *Q);
+
+/* Obtiene la posicion en que se encuentra un PCB en una lista,
+ * dado el pid por el cual ubicarlo.
+ * Es requisito necesario que la lista contenga tPCB*
+ * Retorna la posicion si la encuentra.
+ * Retorna valor negativo en caso contrario.
+ */
+int getPCBPositionByPid(int pid, t_list *cola_pcb);
 int obtenerCPUociosa(void);
 
-t_list * listaDeCpu;
-extern t_list * listaPcb;
-
+extern int sock_mem;
+extern int frame_size;
+extern t_list *gl_Programas;
+t_list *listaDeCpu; // el cpu_manejador deberia crear el entry para esta lista.
 
 t_queue *New, *Exit, *Block,*Ready;
 t_list	*cpu_exec,*Exec;
@@ -42,64 +52,90 @@ char *recvHeader(int sock_in, tPackHeader *header);
 int grado_mult;
 extern tKernel *kernel;
 
-extern sem_t *hayProg;
+extern sem_t hayProg;
+
+void setupSemaforosColas(void){
+	pthread_mutex_init(&mux_new,   NULL);
+	pthread_mutex_init(&mux_ready, NULL);
+	pthread_mutex_init(&mux_exec,  NULL);
+	pthread_mutex_init(&mux_block, NULL);
+	pthread_mutex_init(&mux_exec,  NULL);
+}
 
 void setupPlanificador(void){
 
 	grado_mult = kernel->grado_multiprog;
 
-	New = queue_create();
+	New   = queue_create();
 	Ready = queue_create();
-	Exit = queue_create();
+	Exit  = queue_create();
 
-	Exec = list_create();
+	Exec  = list_create();
 	Block = queue_create();
+
+	setupSemaforosColas();
 
 	listaDeCpu = list_create();
 	cpu_exec   = list_create();
 
-	sem_wait(hayProg);
 	planificar();
 }
 
-void mandarPCBaCPU(tPCB *nuevoPCB, t_cpuInfo * cpu){
+void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
 	int pack_size, stat;
 	pack_size = 0;
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
 	puts("Comenzamos a serializar el PCB");
 
-	if(kernel->algo == FIFO){
-		nuevoPCB->proxima_rafaga = FIFO_INST;
-	}else{
-		nuevoPCB->proxima_rafaga = kernel->quantum;
+	pcb->proxima_rafaga = (kernel->algo == FIFO)? FIFO_INST : kernel->quantum;
+
+	char *pcb_serial;
+	if ((pcb_serial = serializePCB(pcb, head, &pack_size)) == NULL){
+		puts("Fallo serializacion de pcb");
+		return;
 	}
-
-	char *pcb_serial = serializePCB(nuevoPCB, head, &pack_size);
-
 	printf("pack_size: %d\n", pack_size);
 
 	puts("Enviamos el PCB a CPU");
-	if ((stat = send(cpu->cpu.fd_cpu, pcb_serial, pack_size, 0)) == -1)
+	if ((stat = send(cpu->cpu.fd_cpu, pcb_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de PCB a CPU. error");
+		return;
+	}
+	printf("Se enviaron %d bytes a CPU\n", pack_size);
 
-	printf("Se enviaron %d de %d bytes a CPU\n", stat, pack_size);
-
-	//list_add(cpu_exec, cpu);
 	printf("Se agrego sock_cpu #%d a lista \n",cpu->cpu.fd_cpu);
 
-	//freeAndNULL((void **) &pcb_serial);
+	//freeAndNULL((void **) &pcb_serial); todo: ver si falla
+}
+
+/* Enlaza el CPU y el Programa, por medio del PID del PCB que comparten.
+ * Se copian los valores de Programa en CPU y se reasignan los punteros.
+ * Se apuntan mutuamente, hasta que se deba reasignar el PCB enlazante.
+ */
+void asociarProgramaACPU(t_RelCC *cpu){
+
+	t_RelPF *pf = getProgByPID(cpu->cpu.pid);
+
+	cpu->con->fd_con = pf->prog->con->fd_con;
+	cpu->con->pid    = pf->prog->con->pid;
+	freeAndNULL((void **) &pf->src->sourceCode);
+	freeAndNULL((void **) &pf->src);
+	free(pf->prog->con); pf->prog->con = cpu->con;
+
+	pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
+	pf->prog->cpu.pid    = cpu->cpu.pid;
 }
 
 void planificar(void){
 
 	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
-	t_cpuInfo * cpu;
+	t_RelCC * cpu;
 
-	t_consola * consolaAsociada = malloc(sizeof consolaAsociada);
 	while(1){
 
+	sem_wait(&hayProg);
 	switch(kernel->algo){
 
 	case (FIFO):
@@ -107,17 +143,26 @@ void planificar(void){
 		if(!queue_is_empty(New)){
 			pcbAux = (tPCB*) queue_pop(New);
 			if(list_size(Exec) < grado_mult){
-				queue_push(Ready,pcbAux);
+				encolarDeNewEnReady(pcbAux);
+				// queue_push(Ready,pcbAux); esto quedo dentro de encolarDeNewEnReady();
 			}
 		}
 
 		if(!queue_is_empty(Ready)){
-			pcbAux = (tPCB*) queue_pop(Ready);
-			if(list_size(listaDeCpu) > 0) {
-				cpu = (t_cpuInfo *) list_get(listaDeCpu, obtenerCPUociosa());
+			if(list_size(listaDeCpu) > 0) { // todo: actualizar esta lista...
+				pcbAux = (tPCB*) queue_peek(Ready);
+				cpu = (t_RelCC *) list_get(listaDeCpu, obtenerCPUociosa());
 				cpu->cpu.pid = pcbAux->id;
+
+				pthread_mutex_lock(&mux_ready);
+				pcbAux = (tPCB*) queue_pop(Ready);
+				pthread_mutex_unlock(&mux_ready);
+				pthread_mutex_lock(&mux_exec);
 				list_add(Exec, pcbAux);
-				mandarPCBaCPU(pcbAux,cpu);
+				pthread_mutex_unlock(&mux_exec);
+
+				mandarPCBaCPU(pcbAux, cpu);
+				asociarProgramaACPU(cpu);
 			}
 		}
 		break;
@@ -188,13 +233,13 @@ void planificar(void){
 	case (RR):
 		break;
 
-				}
+	} // cierra Switch
 
 		setearQuamtumS();
 		//(pcb *) queue_pop(Ready);
 		//list_add(Exec, pcb);
 
-			}
+	} // cierra While
 
 	//free(cpu);cpu = NULL;
 	//free(pcbAux); pcbAux = NULL;
@@ -215,17 +260,40 @@ void setearQuamtumS(void){
 
 	}
 }
-void cpu_handler_planificador(t_cpuInfo * cpu){
-	tPCB *pcbAux;
+
+void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
+	tPCB *pcbAux, *pcbPlanif;
+
 	int j;
 	int stat;
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
+	char *buffer;
 
 	switch(cpu->msj){
+	case (FIN_PROCESO):
+		puts("Se recibe FIN_PROCESO de CPU");
 
+		buffer = recvGeneric(cpu->cpu.fd_cpu);
 
-	case(FIN_PROCESO):case(ABORTO_PROCESO):case(RECURSO_NO_DISPONIBLE): //COLA EXIT
+		pcbAux = deserializarPCB(buffer); // todo: rompe en deserializar Stack
+
+		pthread_mutex_lock(&mux_exec);
+		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+		pthread_mutex_unlock(&mux_exec);
+
+		pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+
+		pthread_mutex_lock(&mux_exit);
+		queue_push(Exit, pcbPlanif);
+		pthread_mutex_unlock(&mux_exit);
+
+		break;
+
+	case (ABORTO_PROCESO): case (RECURSO_NO_DISPONIBLE): //COLA EXIT
 		//queue_push(Exit,pcbAux);
+
+
+
 
 			printf("Se finaliza un proceso, libero memoria y luego consola\n");
 	headerMemoria->tipo_de_mensaje = FIN_PROG;
@@ -237,7 +305,7 @@ void cpu_handler_planificador(t_cpuInfo * cpu){
 	// Le informo a la Consola asociada:
 
 	for(j = 0;j<list_size(listaDeCpu);j++){
-		cpu = (t_cpuInfo *) list_get(listaDeCpu,j);
+		cpu = (t_RelCC *) list_get(listaDeCpu,j);
 		headerMemoria->tipo_de_mensaje = FIN_PROG;
 		headerMemoria->tipo_de_proceso = KER;
 
@@ -247,7 +315,7 @@ void cpu_handler_planificador(t_cpuInfo * cpu){
 		}
 	}
 
-	pcbAux = list_remove(Exec, getPosPid(cpu->cpu.pid, Exec));
+	pcbAux = list_remove(Exec, getPCBPositionByPid(cpu->cpu.pid, Exec));
 	queue_push(Exit,pcbAux);
 
 	break;
@@ -256,12 +324,12 @@ void cpu_handler_planificador(t_cpuInfo * cpu){
 	}
 }
 
-int getPosPid(int pid, t_list *Q){
+int getPCBPositionByPid(int pid, t_list *cola_pcb){
 
 	int i;
 	tPCB *pcb;
-	for (i = 0; i < list_size(Q); ++i){
-		pcb = list_get(Q, i);
+	for (i = 0; i < list_size(cola_pcb); ++i){
+		pcb = list_get(cola_pcb, i);
 		if (pcb->id == pid)
 			return i;
 	}
@@ -284,79 +352,204 @@ void largoPlazo(int multiprog){
 
 void cortoPlazo(){}
 
+void encolarEnNew(tPCB *pcb){
+	puts("Se encola el programa");
+
+	pthread_mutex_lock(&mux_new);
+	queue_push(New, pcb);
+	pthread_mutex_unlock(&mux_new);
+}
+
+t_RelPF *getProgByPID(int pid){
+	puts("Obtener Programa mediante PID");
+
+	t_RelPF *pf;
+	int i;
+	for (i = 0; i < list_size(gl_Programas); ++i){
+		pf = list_get(gl_Programas, i);
+		if (pid == pf->prog->con->pid)
+			return pf;
+	}
+
+	printf("No se encontro el programa relacionado al PID %d\n", pid);
+	return NULL;
+}
+
+void encolarDeNewEnReady(tPCB *pcb){
+	printf("Se encola el PID %d en Ready\n", pcb->id);
+
+	t_RelPF *pf = getProgByPID(pcb->id);
+
+	t_metadata_program *meta = metadata_desde_literal(pf->src->sourceCode);
+	t_size indiceCod_size = meta->instrucciones_size * sizeof(t_intructions);
+	int code_pages = (int) ceil((float) pf->src->sourceLen / frame_size);
+
+	pcb->pc                     = meta->instruccion_inicio;
+	pcb->paginasDeCodigo        = code_pages;
+	pcb->etiquetas_size         = meta->etiquetas_size;
+	pcb->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
+	pcb->cantidad_instrucciones = meta->instrucciones_size;
+
+	if ((pcb->indiceDeCodigo    = malloc(indiceCod_size)) == NULL){
+		printf("Fallo malloc de %d bytes para pcb->indiceDeCodigo\n", indiceCod_size);
+		return;
+	} memcpy(pcb->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
+
+	if (pcb->cantidad_etiquetas){
+		if ((pcb->indiceDeEtiquetas = malloc(meta->etiquetas_size)) == NULL){
+			printf("Fallo malloc de %d bytes para pcb->indiceDeEtiquetas\n", meta->etiquetas_size);
+			return;
+		}
+		memcpy(pcb->indiceDeEtiquetas, meta->etiquetas, pcb->etiquetas_size);
+	}
+
+	avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
+	iniciarYAlojarEnMemoria(pf, code_pages + kernel->stack_size);
+
+	pthread_mutex_lock(&mux_ready);
+	queue_push(Ready, pcb);
+	pthread_mutex_unlock(&mux_ready);
+
+	metadata_destruir(meta);
+}
+
+void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
+
+	int stat;
+	char *pidpag_serial;
+	int pack_size = 0;
+	tPackHeader ini = { .tipo_de_proceso = KER, .tipo_de_mensaje = INI_PROG };
+	tPackHeader src = { .tipo_de_proceso = KER, .tipo_de_mensaje = ALMAC_BYTES };
+
+	tPackPidPag pp;
+	pp.head = ini;
+	pp.pid = pf->prog->con->pid;
+	pp.pageCount = pages;
+
+	if ((pidpag_serial = serializePIDPaginas(&pp, &pack_size)) == NULL){
+		puts("fallo serialize PID Paginas");
+		return;
+	}
+
+	puts("Enviamos inicializacion de programa a Memoria");
+	if ((stat = send(sock_mem, pidpag_serial, pack_size, 0)) == -1){
+		puts("Fallo pedido de inicializacion de prog en Memoria...");
+		return;
+	}
+
+	tPackByteAlmac *pbal;
+	if ((pbal = malloc(sizeof *pbal)) == NULL){
+		printf("Fallo mallocar %d bytes para pbal\n", sizeof *pbal);
+		return;
+	}
+
+	memcpy(&pbal->head, &src, HEAD_SIZE);
+	pbal->pid    = pf->prog->con->pid;
+	pbal->page   = 0;
+	pbal->offset = 0;
+	pbal->size   = pf->src->sourceLen;
+	pbal->bytes  = pf->src->sourceCode;
+
+	char *packBytes; pack_size = 0;
+	if ((packBytes = serializeByteAlmacenamiento(pbal, &pack_size)) == NULL){
+		puts("fallo serialize Bytes");
+		return;
+	}
+
+	puts("Enviamos el srccode");
+	if ((stat = send(sock_mem, packBytes, pack_size, 0)) == -1)
+		puts("Fallo envio src code a Memoria...");
+
+	printf("se enviaron %d bytes\n", stat);
+
+	free(pidpag_serial);
+	free(pbal);
+	free(packBytes);
+}
+
+void avisarPIDaPrograma(int pid, int sock_prog){
+
+	int pack_size, stat;
+	char *pid_serial;
+	tPackPID *pack_pid;
+
+	if ((pack_pid = malloc(sizeof *pack_pid)) == NULL){
+		printf("No se pudieron mallocar %d bytes para packPID\n", sizeof *pack_pid);
+		return;
+	}
+	pack_pid->head.tipo_de_proceso = KER; pack_pid->head.tipo_de_mensaje = PID;
+	pack_pid->val = pid;
+
+	pack_size = 0;
+	if ((pid_serial = serializePID(pack_pid, &pack_size)) == NULL){
+		puts("No se serializo bien");
+		return;
+	}
+	freeAndNULL((void **) &pack_pid);
+
+	printf("Aviso al hilo_consola %d su numero de PID\n", sock_prog);
+	if ((stat = send(sock_prog, pid_serial, pack_size, 0)) == -1){
+		perror("Fallo envio de PID a Consola. error");
+		return;
+	}
+	printf("Se enviaron %d bytes al hilo_consola\n", stat);
+
+	free(pid_serial);
+}
+
 void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 	puts("Se encola el programa");
 	int stat;
 	int pack_size;
 
-	tPackPID *pack_pid = malloc(sizeof *pack_pid);
+	tPackPID *pack_pid;
+	if ((pack_pid = malloc(sizeof *pack_pid)) == NULL){
+		printf("Fallo mallocar %d bytes para pack_pid\n", sizeof *pack_pid);
+		return;
+	}
+
 	pack_pid->head.tipo_de_proceso = KER;
 	pack_pid->head.tipo_de_mensaje = PID;
-
 	pack_pid->val = nuevoPCB->id;
 
 	pack_size = 0;
 	char *pid_serial = serializePID(pack_pid, &pack_size);
 	if (pid_serial == NULL){
 		puts("No se serializo bien");
-
+		return;
 	}
-	printf("Aviso al sock consola %d su numero de PID\n", sock_con);
-	if ((stat = send(sock_con, pid_serial, pack_size, 0)) == -1)
+
+	printf("Aviso al hilo_consola %d su numero de PID\n", sock_con);
+	if ((stat = send(sock_con, pid_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de PID a Consola. error");
-	printf("Se enviaron %d bytes a Consola\n", stat);
+		return;
+	}
+	printf("Se enviaron %d bytes al hilo_consola\n", stat);
 
-
-	t_cpuInfo *cpu_inex = malloc(sizeof *cpu_inex);
-	cpu_inex->con = malloc(sizeof *cpu_inex->con);
+	t_RelCC *cpu_inex   = malloc(sizeof *cpu_inex); cpu_inex->con = malloc(sizeof *cpu_inex->con);
 	cpu_inex->con->fd_con = sock_con;
-	cpu_inex->cpu.pid = -1;
+	cpu_inex->cpu.pid     = -1;
 	list_add(listaDeCpu, cpu_inex);
 
-	queue_push(New,nuevoPCB);
+	queue_push(New, nuevoPCB);
 
 	freeAndNULL((void **) &pack_pid);
-}
-
-int indexPcb(int pid){
-	int i;
-	tPCB * unPcb = NULL;
-	for (i = 0; i < list_size(listaPcb); i++){
-		unPcb = (tPCB*) list_get(listaPcb, i);
-		if(unPcb->id == pid){
-			return i; // el pcb del proceso está en la posición 'i'
-		}
-	}
-	return -1; // no se encontró el proceso
 }
 
 void finalizarPrograma(int pid, tPackHeader * header, int socket){
 
 
-			printf("Aviso a memoria que libere la memoria asiganda al proceso\n");
+	printf("Aviso a memoria que libere la memoria asiganda al proceso\n");
 
-			int* exit_pid = malloc(sizeof exit_pid);
-			*exit_pid = pid;
-			send(socket,header,sizeof(tPackHeader),0);
+	int* exit_pid = malloc(sizeof exit_pid);
+	*exit_pid = pid;
+	send(socket,header,sizeof(tPackHeader),0);
 
-			free(exit_pid);exit_pid = NULL;
-
-
-	}
+	free(exit_pid);exit_pid = NULL;
 
 
+}
 
-
-
-
-/*void limpiarPlanificadores(){
-	freePCBs(New);   queue_destroy(New);
-	freePCBs(Ready); queue_destroy(Ready);
-    freePCBs(Exec);  list_destroy(Exec);
-	freePCBs(Block); queue_destroy(Block);
-	freePCBs(Exit);  queue_destroy(Exit);
-
-}*/
 
 char *recvHeader(int sock_in, tPackHeader *header){
 	puts("Se recibe el paquete serializado..");
@@ -388,18 +581,27 @@ char *recvHeader(int sock_in, tPackHeader *header){
 	return p_serial;
 }
 
+void pasarNewAReady(tPCB *pcb){
+
+	//procesarSrcAPCB(pcb); // obtiene src_code del pcb, crea el metadata del programa, y lo termina de asignar al PCB
+
+
+}
+
+
 void pasarABlock(int sock_cpu){
 
 
 }
 
 int obtenerCPUociosa(void){
-	t_cpuInfo * cpuOciosa;
+	t_RelCC * cpuOciosa;
 	int cantidadCpu;
-	for(cantidadCpu = 1; cantidadCpu< list_size(listaDeCpu); cantidadCpu ++){
-		cpuOciosa = (t_cpuInfo *) list_get(listaDeCpu,cantidadCpu);
+	for(cantidadCpu = 0; cantidadCpu < list_size(listaDeCpu); cantidadCpu ++){
+		cpuOciosa = (t_RelCC *) list_get(listaDeCpu,cantidadCpu);
 		if(cpuOciosa->cpu.pid < 0)
 			return cantidadCpu;
 	}
 	return -1;
 }
+

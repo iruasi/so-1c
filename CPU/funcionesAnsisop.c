@@ -227,7 +227,7 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 	pbal.pid    = pcb->id;
 	pbal.page   = puntero / pag_size + pcb->paginasDeCodigo;
 	pbal.offset = puntero % pag_size;
-	pbal.size   = 4; // todo: siempre va a ser 4???
+	pbal.size   = sizeof variable;
 	pbal.bytes  = (char *) &variable;
 
 	pack_size = 0;
