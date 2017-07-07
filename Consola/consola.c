@@ -7,6 +7,7 @@
 #include <time.h>
 #include <signal.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -18,7 +19,8 @@
 
 #define MAXMSJ 100
 
-tConsola *cons_data;
+
+
 
 /*Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
  */
@@ -30,14 +32,27 @@ void strncopylast(char *,char *,int );
  */
 #define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
 
-//TODO: Esto global?!??
 t_list *listaAtributos;
+
+tConsola *cons_data;
+
+t_log *logger;
 int sock_kern;
 
 int main(int argc, char* argv[]){
 
+
+	//CREOARCHIVOLOGGER!
+
+	logger = log_create("/home/utnso/logConsola.txt","CONSOLA",1,LOG_LEVEL_INFO);
+
+
+	log_info(logger,"Inicia nueva ejecucion de CONSOLA");
+
+
 	if(argc!=2){
-		printf("Error en la cantidad de parametros\n");
+		log_error(logger,"Error en la cantidad de parametros");
+		//printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
@@ -52,33 +67,34 @@ int main(int argc, char* argv[]){
 	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
 
 	printf("\n \n \nIngrese accion a realizar:\n");
+	printf ("Para iniciar un programa: 'nuevo programa <ruta>'\n");
+	printf ("Para finlizar un programa: 'finalizar <PID>'\n");
+	printf ("Para desconectar consola: 'desconectar'\n");
+	printf ("Para limpiar mensajes: 'limpiar'\n");
 	int finalizar = 0;
 	while(finalizar !=1){
-
-		printf ("Para iniciar un programa: 'nuevo programa <ruta>'\n");
-		printf ("Para finlizar un programa: 'finalizar <PID>'\n");
-		printf ("Para desconectar consola: 'desconectar'\n");
-		printf ("Para limpiar mensajes: 'limpiar'\n");
-
-
-
+		printf("Seleccione opcion: \n");
 		char *opcion=malloc(MAXMSJ);
 		fgets(opcion,MAXMSJ,stdin);
 		opcion[strlen(opcion) - 1] = '\0';
 		if (strncmp(opcion,"nuevo programa",14)==0)
 		{
-			printf("Iniciar un nuevo programa\n");
+			log_trace(logger,"nuevo programa");
+			//printf("Iniciar un nuevo programa\n");
 			char *ruta = opcion+15;
+
 			//TODO:Chequear error de ruta..
 			tAtributosProg *atributos = malloc(sizeof *atributos);
 			atributos->sock = sock_kern;
 			atributos->path = ruta;
 
-			printf("Ruta del programa: %s\n",atributos->path);
+			//printf("Ruta del programa: %s\n",atributos->path);
+			log_info(logger,ruta);
 
 			int status = Iniciar_Programa(atributos);
 			if(status<0){
-				puts("Error al iniciar programa");
+				log_error(logger,"error al iniciar programa");
+				//puts("Error al iniciar programa");
 				//TODO: Crear FALLO_INICIARPROGRAMA
 				return -1000;
 			}
@@ -86,15 +102,19 @@ int main(int argc, char* argv[]){
 		}
 		if(strncmp(opcion,"finalizar",9)==0)
 		{
+			log_trace(logger,"finalizar programa");
 			char* pidString=malloc(MAXMSJ);
 			int longitudPid = strlen(opcion) - 10;
 			strncopylast(opcion,pidString,longitudPid);
 			int pidElegido = atoi(pidString);
-			printf("Eligio finalizar el programa %d\n",pidElegido);
+			//printf("Eligio finalizar el programa %d\n",pidElegido);
+			log_info(logger,pidString);
+
 			//TODO: Buscar de la lista de hilos cual sería el q corresponde al pid q queremos matar
-			//int status = Finalizar_Programa(pidElegido,sock_kern,HILOAMATAR);
+			int status = Finalizar_Programa(pidElegido);
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
+			log_trace(logger,"desconectar consola");
 			Desconectar_Consola(cons_data);
 			finalizar = 1;
 
@@ -102,8 +122,9 @@ int main(int argc, char* argv[]){
 			liberarConfiguracionConsola(cons_data);
 		}
 		if(strncmp(opcion,"limpiar",7)==0){
+			log_trace(logger,"limpiar pantalla");
 			Limpiar_Mensajes();
-			printf("Eligio limpiar esta consola \n");
+			//printf("Eligio limpiar esta consola \n");
 		}
 
 	}
@@ -130,8 +151,11 @@ int main(int argc, char* argv[]){
 	}
 */
 
-	printf("Cerrando comunicacion y limpiando proceso...\n");
+	log_trace(logger,"cerrando comunicacion y limpiando proceso");
+	//printf("Cerrando comunicacion y limpiando proceso...\n");
 
+
+	log_destroy(logger);
 
 	return 0;
 }
@@ -190,7 +214,9 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 	status = recv(socketCliente, package->message, message_size, 0);
 	if (!status) return 0;
 
-	printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
+	log_trace(logger,"mensaje deserializacdo y recibido");
+	log_info(logger,package->message);
+	//printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
 
 	free(buffer);
 
@@ -221,12 +247,15 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
 
 //Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
+
+
 void strncopylast(char *str1,char *str2,int n)
 {   int i;
     int l=strlen(str1);
     if(n>l)
     {
-        printf("\nCan't extract more characters from a smaller string.\n");
+       log_error(logger,"Can't extract more characters from a smaller string.");
+    	//printf("\nCan't extract more characters from a smaller string.\n");
         exit(1);
     }
     for(i=0;i<l-n;i++)
@@ -241,24 +270,4 @@ void strncopylast(char *str1,char *str2,int n)
 }
 
 
-/*int agregarAListaDeProgramas(int pid){
-
-	int tamanioAntes = list_size(listaProgramas);
-	list_add(listaProgramas, &pid);
-	int tamanioDespues = list_size(listaProgramas);
-	if(tamanioDespues != (tamanioAntes + 1)){
-		puts("error al agregar el pid a la lista");
-		//TODO: LIST_CREATE_PROBLEM
-		return -99;
-	}
-		puts("Tamanio actual de la lista:");
-		printf("%d\n",tamanioDespues);
-		puts("Pid agregado:");
-		printf("%d\n",pid);
-
-
-	//TODO: agregar PROGRAM_ADDED
-	return 1;
-
-}*/
 

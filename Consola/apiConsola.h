@@ -29,7 +29,7 @@ typedef struct {
 int Iniciar_Programa(tAtributosProg *pack);
 
 
-int Finalizar_Programa(int process_id, int sock_kernel);
+int Finalizar_Programa(int process_id);
 
 
 void Desconectar_Consola();
