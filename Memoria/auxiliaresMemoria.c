@@ -56,30 +56,32 @@ int pageQuantity(int pid){
 
 int reservarPaginas(int pid, int pageCount){
 
-	int fr, off;
-	int pag_assign, nr_pag;
-	int max_page;
+	int fr_apr, fr, off, cic;
+	int pag_assign, nr_pag, max_page;
+
 	if ((nr_pag = max_page = pageQuantity(pid)) != 0){
 		printf("Fallo conteo de paginas para el pid %d\n", pid);
 		return max_page;
 	}
 	
-	// posiciono fr y off al comienzo de las Invertidas que apuntan a frames de memoria utilizables
-	gotoFrameInvertida(marcos_inv, &fr, &off);
+	pag_assign = cic = 0;
+	while (pag_assign != pageCount && cic < memoria->marcos){
 
-	pag_assign = 0;
-	while (fr < marcos_inv && pag_assign != pageCount){
+		fr_apr = frameHash(pid, nr_pag);
+		for(cic = 0; cic < memoria->marcos; cic++){
 
-		if (frameLibre(fr, off)){
-			memcpy(MEM_FIS + fr * memoria->marco_size +  off               , &pid     , sizeof (int));
-			memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag, sizeof (int));
-			pag_assign++;
-			nr_pag++;
+			gotoFrameInvertida(fr_apr, &fr, &off);
+			if (frameLibre(fr, off)){
+				memcpy(MEM_FIS + fr * memoria->marco_size +  off               , &pid    , sizeof (int));
+				memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag , sizeof (int));
+				pag_assign++; nr_pag++;
+				break;
+			}
+			fr_apr = (fr_apr + 1) % memoria->marcos;
 		}
-		nextFrameValue(&fr, &off, sizeof (tEntradaInv));
 	}
 
-	if (fr == marcos_inv){
+	if (cic == memoria->marcos){ // se recorrio toda la tabla de paginas invertidas
 		puts("No hay mas frames disponibles en Memoria para reservar.");
 		return MEMORIA_LLENA;
 	}

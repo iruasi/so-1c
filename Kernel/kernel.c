@@ -20,25 +20,11 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
+#include "defsKernel.h"
 #include "capaMemoria.h"
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
-
-#ifndef SIZEOF_HMD
-#define SIZEOF_HMD 5
-#endif
-
-#ifndef HEAD_SIZE
-#define HEAD_SIZE 8
-#endif
-
-#define BACKLOG 20
-
-/* MAX(A, B) es un macro que devuelve el mayor entre dos argumentos,
- * lo usamos para actualizar el maximo socket existente, a medida que se crean otros nuevos
- */
-#define MAX(A, B) ((A) > (B) ? (A) : (B))
 
 
 tHeapProc *hProcs;
@@ -61,7 +47,7 @@ int main(int argc, char* argv[]){
 	int stat, ready_fds;
 	int fd;
 	int fd_max = -1;
-	int sock_fs, sock_lis_cpu, sock_lis_con, sock_inotify;
+	int sock_fs, sock_lis_cpu, sock_lis_con;
 
 
 	if ((stat = sem_init(&hayProg, 0, 0)) == -1){
@@ -178,10 +164,10 @@ int main(int argc, char* argv[]){
 					break; // Fallo y no se conecto el CPU
 
 				t_RelCC* cpu_i = malloc(sizeof *cpu_i); cpu_i->con = malloc(sizeof *cpu_i->con);
-				cpu_i->cpu.fd_cpu = *sock_cpu;
+				cpu_i->cpu.fd_cpu = *sock_cpu; cpu_i->cpu.pid = PID_IDLE;
 
 				pthread_t cpu_thread;
-				if( pthread_create(&cpu_thread, NULL, (void*) cpu_manejador, (void*) cpu_i) < 0){
+				if( pthread_create(&cpu_thread, &attr_ondemand, (void*) cpu_manejador, (void*) cpu_i) < 0){
 					perror("no pudo crear hilo. error");
 					return FALLO_GRAL;
 				}

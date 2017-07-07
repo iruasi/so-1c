@@ -108,7 +108,7 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	var->id = variable;
 	var->pos.offset= off + size; // todo: arreglar para que off y pag no se vayan del tamanio maximo de pagina (ej: off > pag_size)
 	var->pos.pag = pag;
-	var->pos.size = sizeof variable;
+	var->pos.size = sizeof (t_valor_variable);
 
 	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
 
@@ -183,7 +183,7 @@ t_valor_variable dereferenciar(t_puntero puntero) {
 	pbr.pid    = pcb->id;
 	pbr.page   = puntero / pag_size + pcb->paginasDeCodigo;
 	pbr.offset = puntero % pag_size;
-	pbr.size   = 4;
+	pbr.size   = sizeof(t_puntero);
 
 	if ((byterq_serial = serializeByteRequest(&pbr, &pack_size)) == NULL){
 		puts("Fallo serializacion Pedido de Bytes");
@@ -227,7 +227,7 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 	pbal.pid    = pcb->id;
 	pbal.page   = puntero / pag_size + pcb->paginasDeCodigo;
 	pbal.offset = puntero % pag_size;
-	pbal.size   = sizeof variable;
+	pbal.size   = sizeof (t_valor_variable);
 	pbal.bytes  = (char *) &variable;
 
 	pack_size = 0;

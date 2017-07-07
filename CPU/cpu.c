@@ -29,15 +29,13 @@ int pedirInstruccion(int instr_size);
 int recibirInstruccion(char **linea, int instr_size);
 
 int ejecutarPrograma(void);
-void quantum_sleep(void);
-
-char* conseguirDatosDeLaMemoria(char* , t_puntero_instruccion, t_size);
+void set_quantum_sleep(void);
 
 int pag_size;
 int q_sleep;
 float q_sleep_segs;
 
-void quantum_sleep(void){
+void set_quantum_sleep(void){
 	q_sleep_segs = q_sleep / 1000.0;
 	printf("Se cambio la latencia de ejecucion de instruccion a %f segundos\n", q_sleep_segs);
 }
@@ -94,12 +92,13 @@ int main(int argc, char* argv[]){
 		fprintf(stderr, "No se pudo hacer hadshake con Kernel\n");
 		return FALLO_GRAL;
 	}
+	printf("Se enviaron: %d bytes a KERNEL\n", stat);
+
 	if ((stat = recibirInfoCPUKernel(sock_kern, &q_sleep)) != 0){
 		puts("No se pudo recibir el tamanio de pagina de Memoria!");
 		return ABORTO_CPU;
 	}
-
-	printf("Se enviaron: %d bytes a KERNEL\n", stat);
+	set_quantum_sleep();
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
 	tPackHeader *head = malloc(sizeof *head);
@@ -203,7 +202,7 @@ int ejecutarPrograma(void){
 
 	if (pcb->pc == pcb->cantidad_instrucciones){ // el PCB ejecuto la ultima instruccion todo: revisar logica de esto
 		header.tipo_de_mensaje = FIN_PROCESO;
-
+		pcb->exitCode = 100; // exit_success
 	}
 
 	else if(fin_quantum == true) // se dealoja el PCB, faltandole ejecutar instrucciones
@@ -222,9 +221,9 @@ int ejecutarPrograma(void){
 
 	printf("Se enviaron %d bytes a kernel \n", stat);
 
-	freeAndNULL((void **) linea);
-	freeAndNULL((void **) &linea);
-//	freeAndNULL((void **) &pcb_serial); todo: rompe
+	free(linea);
+	free(&linea);
+	free(pcb_serial);
 	return EXIT_SUCCESS;
 }
 
@@ -282,21 +281,3 @@ int recibirInstruccion(char **linea, int instr_size){
 
 	return 0;
 }
-
-// todo: esto se puede sacar?
-char *conseguirDatosDeLaMemoria(char *programa, t_puntero_instruccion inicioDeLaInstruccion, t_size tamanio) {
-	char *aRetornar = calloc(1, 100);
-	memcpy(aRetornar, programa + inicioDeLaInstruccion, tamanio);
-	return aRetornar;
-}
-
-
-
-
-
-
-
-
-
-
-
