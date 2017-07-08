@@ -19,8 +19,8 @@ typedef struct {
 	char *path;
 	pthread_t hiloProg;
 	int pidProg;
-	tHora horaInicio;
-	tHora horaFin;
+	time_t horaInicio;
+	time_t horaFin;
 } tAtributosProg;
 
 

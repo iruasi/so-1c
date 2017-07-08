@@ -32,7 +32,7 @@ void strncopylast(char *,char *,int );
  */
 #define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
 
-t_list *listaAtributos;
+t_list *listaAtributos,*listaFinalizados;
 
 tConsola *cons_data;
 
@@ -57,14 +57,12 @@ int main(int argc, char* argv[]){
 	}
 
 	//Creo lista de programas para ir agregando a medida q vayan iniciandose.
-
 	listaAtributos = list_create();
 
 	cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
 
 
-	//TODO:No habria q hacer handsakhe aca en lugar de hacerlo cuando iniciamos un programa?
 
 	printf("\n \n \nIngrese accion a realizar:\n");
 	printf ("Para iniciar un programa: 'nuevo programa <ruta>'\n");
@@ -110,7 +108,6 @@ int main(int argc, char* argv[]){
 			//printf("Eligio finalizar el programa %d\n",pidElegido);
 			log_info(logger,pidString);
 
-			//TODO: Buscar de la lista de hilos cual sería el q corresponde al pid q queremos matar
 			int status = Finalizar_Programa(pidElegido);
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
@@ -132,24 +129,7 @@ int main(int argc, char* argv[]){
 
 
 
-	/*tPathYSock *args = malloc(sizeof *args);
-	args->sock = sock_kern;
-	args->path = "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/CPU/facil.ansisop";
-	int status = Iniciar_Programa(args);
 
-	printf("El satus es: %d\n",status);
-
-	while(!(STR_EQ(buf, "terminar\n")) && (stat != -1)){
-
-		printf("Ingrese su mensaje: (esto no realiza ninguna accion en realidad)\n");
-		fgets(buf, MAXMSJ, stdin);
-		buf[MAXMSJ -1] = '\0';
-
-//		stat = send(sock_kern, buf, MAXMSJ, 0);
-
-		clearBuffer(buf, MAXMSJ);
-	}
-*/
 
 	log_trace(logger,"cerrando comunicacion y limpiando proceso");
 	//printf("Cerrando comunicacion y limpiando proceso...\n");
@@ -161,33 +141,7 @@ int main(int argc, char* argv[]){
 }
 
 
-// De momento no necesitamos esta para enviar codigo fuente..
-// puede que sea necesaria para enviar otras cosas. La dejo comentada
-//char* serializarOperandos(t_PackageEnvio *package){
-//
-//	char *serializedPackage = malloc(package->total_size);
-//	int offset = 0;
-//	int size_to_send;
-//
-//
-//	size_to_send =  sizeof(package->tipo_de_proceso);
-//	memcpy(serializedPackage + offset, &(package->tipo_de_proceso), size_to_send);
-//	offset += size_to_send;
-//
-//
-//	size_to_send =  sizeof(package->tipo_de_mensaje);
-//	memcpy(serializedPackage + offset, &(package->tipo_de_mensaje), size_to_send);
-//	offset += size_to_send;
-//
-//	size_to_send =  sizeof(package->message_size);
-//	memcpy(serializedPackage + offset, &(package->message_size), size_to_send);
-//	offset += size_to_send;
-//
-//	size_to_send =  package->message_size;
-//	memcpy(serializedPackage + offset, package->message, size_to_send);
-//
-//	return serializedPackage;
-//}
+
 int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 
 	int status;
@@ -223,27 +177,6 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 	return status;
 }
 
-//
-//void readPackage(t_PackageEnvio* package, tConsola* cons_data, char* ruta){
-//	package->tipo_de_proceso = cons_data->tipo_de_proceso;
-//	package->tipo_de_mensaje = 2;
-//	FILE *f = fopen(ruta, "rb");
-//	fseek(f, 0, SEEK_END);
-//	long fsize = ftell(f);
-//	fseek(f, 0, SEEK_SET);  //same as rewind(f);
-//
-//	char *string = malloc(fsize + 1);
-//	package->message = malloc(fsize);
-//	fread(string, fsize, 1, f);
-//	fclose(f);
-//	string[fsize] = 0;
-//
-//	strcpy(package->message,string);
-//
-//	package->message_size = strlen(package->message)+1;
-//	package->total_size = sizeof(package->tipo_de_proceso)+sizeof(package->tipo_de_mensaje)+sizeof(package->message_size)+package->message_size+sizeof(package->total_size);
-//
-//}
 
 
 //Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
