@@ -3,6 +3,8 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
+#include <commons/collections/queue.h>
+
 
 typedef struct{
 	int fd_cpu,pid;
@@ -63,5 +65,40 @@ void cons_manejador(void *conInfo);
 int setGlobal(tPackValComp *val_comp);
 t_valor_variable getGlobal(t_nombre_variable *var, bool *found);
 
+void consolaKernel(void);
+
+void mostrarColaDe (char* cola);
+
+void mostrarInfoDe(int pidElegido);
+
+void cambiarGradoMultiprogramacion(int nuevoGrado);
+
+void finalizarProceso(int pidAFinalizar);
+
+void stopKernel();
+
+void mostrarTablaGlobal();
+
+void mostrarColaNew();
+
+void mostrarColaReady();
+
+void mostrarColaExec();
+
+void mostrarColaExit();
+
+void mostrarColaBlock();
+
+void mostrarCantRafagasEjecutadasDe(tPCB *pcb);
+
+void mostrarCantPrivilegiadasDe(tPCB *pcb);
+
+void mostrarTablaDeArchivosDe(tPCB *pcb);
+
+void mostrarCantHeapUtilizadasDe(tPCB *pcb);
+
+void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
+
+void* queue_get(t_queue *self,int posicion);
 
 #endif // AUXILIARESKERNEL_H_

@@ -47,6 +47,7 @@ t_list *listaDeCpu; // el cpu_manejador deberia crear el entry para esta lista.
 
 t_queue *New, *Exit, *Block,*Ready;
 t_list	*cpu_exec,*Exec;
+t_list *listaProgramas;
 char *recvHeader(int sock_in, tPackHeader *header);
 
 int grado_mult;
@@ -77,6 +78,7 @@ void setupPlanificador(void){
 
 	listaDeCpu = list_create();
 	cpu_exec   = list_create();
+	listaProgramas = list_create();
 
 	planificar();
 }
@@ -143,6 +145,7 @@ void planificar(void){
 		if(!queue_is_empty(New)){
 			pcbAux = (tPCB*) queue_pop(New);
 			if(list_size(Exec) < grado_mult){
+				list_add(listaProgramas,pcbAux);
 				encolarDeNewEnReady(pcbAux);
 				// queue_push(Ready,pcbAux); esto quedo dentro de encolarDeNewEnReady();
 			}

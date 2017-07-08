@@ -73,6 +73,7 @@ int main(int argc, char* argv[]){
 	pthread_attr_init(&attr_ondemand);
 	pthread_attr_setdetachstate(&attr_ondemand, PTHREAD_CREATE_DETACHED);
 
+	pthread_t consolaKernel_thread;
 	pthread_t planif_thread;
 
 	// Creamos e inicializamos los conjuntos que retendran sockets para el select()
@@ -89,6 +90,11 @@ int main(int argc, char* argv[]){
 		perror("no pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
+
+	if( pthread_create(&consolaKernel_thread, NULL, (void*) consolaKernel, NULL) < 0){
+			perror("no pudo crear hilo. error");
+			return FALLO_GRAL;
+		}
 
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){

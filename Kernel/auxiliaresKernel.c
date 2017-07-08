@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <math.h>
 
+#include <commons/collections/queue.h>
 #include <parser/metadata_program.h>
 #include <commons/collections/list.h>
 
@@ -19,9 +20,11 @@
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
+#define MAXOPCION 200
 
 #ifndef HEAD_SIZE
 #define HEAD_SIZE 8
+
 #endif
 
 extern sem_t hayProg;
@@ -30,8 +33,15 @@ int globalPID;
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
 
+
+
+extern t_queue *New, *Exit, *Block,*Ready;
+extern t_list	*Exec,*listaProgramas;
 extern tKernel *kernel;
 extern t_valor_variable *shared_vals;
+extern int grado_mult;
+
+
 
 /* Este procedimiento inicializa las variables y listas globales.
  */
@@ -161,8 +171,8 @@ void cpu_manejador(void *infoCPU){
 
 		char *sem_id = deserializeBytes(buffer);
 
-		//
-		kernel->sem_init[obtenerPosSemaforo(sem_id)];
+		// todo: me estaba rompiedno aqui
+		//kernel->sem_init[obtenerPosSemaforo(sem_id)];
 
 		//pasarABlock();
 		break;
@@ -320,6 +330,221 @@ void cons_manejador(void *conInfo){
 
 }
 
+void consolaKernel(void){
+
+	printf("\n \n \nIngrese accion a realizar:\n");
+	printf ("1-Para obtener los procesos en todas las colas o 1 especifica: 'procesos <cola>/<todas>'\n");
+	printf ("2-Para ver info de un proceso determinado: 'info <PID>'\n");
+	printf ("3-Para obtener la tabla global de archivos: 'tabla'\n");
+	printf ("4-Para modificar el grado de multiprogramacion: 'nuevoGrado <GRADO>'\n");
+	printf ("5-Para finalizar un proceso: 'finalizar <PID>'\n");
+	printf ("6-Para detener la planificacion: 'stop'\n");
+
+	int finalizar = 0;
+	while(finalizar !=1){
+			printf("Seleccione opcion: \n");
+			char *opcion=malloc(MAXOPCION);
+			fgets(opcion,MAXOPCION,stdin);
+			opcion[strlen(opcion) - 1] = '\0';
+			if (strncmp(opcion,"procesos",8)==0){
+				puts("Opcion procesos");
+				char *cola = opcion+9;
+				mostrarColaDe(cola);
+
+			}
+			if (strncmp(opcion,"info",4)==0){
+				puts("Opcion info");
+				char *pidInfo=opcion+5;
+				int pidElegido = atoi(pidInfo);
+				mostrarInfoDe(pidElegido);
+				printf("Info de PID: %d  \n",pidElegido);
+			}
+			if (strncmp(opcion,"tabla",5)==0){
+				puts("Opcion tabla");
+				mostrarTablaGlobal();
+			}
+			if (strncmp(opcion,"nuevoGrado",10)==0){
+				puts("Opcion nuevoGrado");
+				char *grado = opcion+11;
+				int nuevoGrado = atoi(grado);
+				cambiarGradoMultiprogramacion(nuevoGrado);
+			}
+			if (strncmp(opcion,"finalizar",9)==0){
+				puts("Opcion finalizar");
+				char *pidAFinalizar = opcion+9;
+				int pidFin = atoi(pidAFinalizar);
+				finalizarProceso(pidFin);
+
+			}
+			if (strncmp(opcion,"stop",4)==0){
+				puts("Opcion stop");
+				stopKernel();
+			}
+
+
+		}
+}
+//TODO: Hay q sincronizar las colas?? Solo las estoy mirando, no tendria pq poner un semaforo, no?
+void mostrarColaDe(char* cola){
+	printf("%s",cola);
+	puts("Mostrar estado de: ");
+	if (strncmp(cola,"todas",5)==0){
+		puts("Mostrar estado de todas las colas:");
+		mostrarColaNew();
+		mostrarColaReady();
+		mostrarColaExec();
+		mostrarColaExit();
+		mostrarColaBlock();
+	}
+	if (strncmp(cola,"new",3)==0){
+		puts("Mostrar estado de cola NEW");
+		mostrarColaNew();
+	}
+	if (strncmp(cola,"ready",5)==0){
+		puts("Mostrar estado de cola REDADY");
+		mostrarColaReady();
+	}
+	if (strncmp(cola,"exec",4)==0){
+		puts("Mostrar estado de cola EXEC");
+		mostrarColaExec();
+	}
+	if (strncmp(cola,"exit",4)==0){
+		puts("Mostrar estado de cola EXIT");
+		mostrarColaExit();
+	}
+	if (strncmp(cola,"block",5)==0){
+		puts("Mostrar estado de cola BLOCK");
+		mostrarColaBlock();
+	}
+}
+
+
+
+void mostrarColaNew(){
+	puts("Cola New: ");
+	int k=0;
+	tPCB * pcbAux;
+	for(k=0;k<queue_size(New);k++){
+		pcbAux = (tPCB*) queue_get(New,k);
+		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
+	}
+
+}
+
+void mostrarColaReady(){
+	puts("Cola Ready: ");
+	int k=0;
+	tPCB * pcbAux;
+	for(k=0;k<queue_size(Ready);k++){
+		pcbAux = (tPCB*) queue_get(Ready,k);
+		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
+	}
+}
+
+void mostrarColaExec(){
+	puts("Cola Exec: ");
+	int k=0;
+	tPCB * pcbAux;
+	for(k=0;k<list_size(Exec);k++){
+		pcbAux = (tPCB*) list_get(Exec,k);
+		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
+	}
+}
+
+void mostrarColaExit(){
+	puts("Cola Exit: ");
+	int k=0;
+	tPCB * pcbAux;
+	for(k=0;k<queue_size(Exit);k++){
+		pcbAux = (tPCB*) queue_get(Exit,k);
+		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
+	}
+}
+
+void mostrarColaBlock(){
+	puts("Cola Block: ");
+	int k=0;
+	tPCB * pcbAux;
+	for(k=0;k<queue_size(Block);k++){
+		pcbAux = (tPCB*) queue_get(Block,k);
+		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
+	}
+}
+
+
+void mostrarInfoDe(int pidElegido){
+	int j=0;
+	printf("Estamos en mostrar info de pid: %d\n",pidElegido);
+	tPCB * pcbAuxiliar;
+	for(j=0;j<list_size(listaProgramas);j++){
+		pcbAuxiliar = (tPCB*) list_get(listaProgramas,j);
+		if(pcbAuxiliar->id==pidElegido){
+			j=list_size(listaProgramas);
+		}
+	}
+
+	mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+	mostrarCantPrivilegiadasDe(pcbAuxiliar);
+	mostrarTablaDeArchivosDe(pcbAuxiliar);
+	mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+	mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+
+
+	//todo: se hace free de pcbaux,no?
+
+}
+
+void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
+
+	//todo: ampliar pcb con la cant de rafagas totales?
+	printf("Cantidad de rafagas ejecutadas: x!!!!!!x\n");
+}
+void mostrarCantPrivilegiadasDe(tPCB *pcb){
+
+	printf("Cantidad de operaciones privilegiadas: x!!!!!!x\n");
+
+}
+void mostrarTablaDeArchivosDe(tPCB *pcb){
+
+
+	printf("Tabla de archivos abiertos del proceso: x!!!!!!x\n");
+}
+void mostrarCantHeapUtilizadasDe(tPCB *pcb){
+	printf("Cantidad de paginas de heap utilizacdas: x!!!!!!x\n");
+
+	printf("Cantidad de acciones allocar realizadas: x!!!!!!x\n");
+
+
+	printf("Cantidad de bytes allocados: x!!!!!!x\n");
+
+	printf("Cantidad de acciones liberar realizados: x!!!!!!x\n");
+
+	printf("Cantidad de bytes liberados: x!!!!!!x\n");
+}
+void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
+
+	printf("Cantidad de syscalls utilizadas : x!!!!!!!x\n");
+}
+
+void cambiarGradoMultiprogramacion(int nuevoGrado){
+	printf("vamos a cambiar el grado a %d\n",nuevoGrado);
+	//todo: semaforo
+	grado_mult=nuevoGrado;
+}
+void finalizarProceso(int pidAFinalizar){
+	printf("vamos a finalizar el proceso %d\n",pidAFinalizar);
+
+
+
+}
+void mostrarTablaGlobal(){
+	puts("Mostrar tabla global");
+}
+void stopKernel(){
+	puts("Stop kernel");
+}
+
+
 void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 	puts("Asociar Programa y Codigo Fuente");
 
@@ -398,3 +623,11 @@ t_valor_variable getGlobal(t_nombre_variable *var, bool* found){
 	*found = false;
 	return GLOBAL_NOT_FOUND;
 }
+
+void* queue_get(t_queue *self,int posicion) {
+	return list_get(self->elements, posicion);
+}
+
+
+
+
