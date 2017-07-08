@@ -92,7 +92,7 @@ typedef struct {
 
 	tPackHeader head;
 	int val;
-} tPackPID, tHShakeMemACPU;
+} tPackPID, tHShakeMemACPU, tHShakeProcAProc;
 
 typedef struct {
 	tPackHeader head;

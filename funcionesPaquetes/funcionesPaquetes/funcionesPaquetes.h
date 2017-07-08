@@ -13,6 +13,7 @@ int contestarKernelCPU(int q_sleep, int sock_cpu);
 
 int contestarMemoriaCPU(int marco_size, int sock_cpu);
 
+int contestarProcAProc(tPackHeader head, int val, int sock);
 
 /* Solo la usa Kernel para recibir de Memoria los frames y el size de estos,
  * los almacenara en *frames y *frame_size.

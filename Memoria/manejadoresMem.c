@@ -16,8 +16,6 @@
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 
-int frameHash(int pid, int page);
-
 int pid_free, pid_inv, free_page;
 int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
 
@@ -151,7 +149,7 @@ int frameHash(int pid, int page){
 	return frame_apr;
 }
 
-void dumpMemStructs(void){
+void dumpMemStructs(void){ // todo: revisar
 
 	int i, fr, off;
 	tEntradaInv *entry;

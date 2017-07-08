@@ -9,6 +9,7 @@
 
 #include <commons/collections/queue.h>
 
+#include "defsKernel.h"
 #include "planificador.h"
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
@@ -252,72 +253,6 @@ void planificar(void){
 /* Una vez que lo se envia el pcb a la cpu, la cpu debería avisar si se pudo ejecutar todo o no
  *
  * *///}
-
-
-void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
-	tPCB *pcbAux, *pcbPlanif;
-
-	int j;
-	int stat;
-	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
-	char *buffer;
-
-	switch(cpu->msj){
-	case (FIN_PROCESO):
-		puts("Se recibe FIN_PROCESO de CPU");
-
-		buffer = recvGeneric(cpu->cpu.fd_cpu);
-
-		pcbAux = deserializarPCB(buffer); // todo: rompe en deserializar Stack
-
-		pthread_mutex_lock(&mux_exec);
-		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
-		pthread_mutex_unlock(&mux_exec);
-
-		pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
-
-		pthread_mutex_lock(&mux_exit);
-		queue_push(Exit, pcbPlanif);
-		pthread_mutex_unlock(&mux_exit);
-
-		cpu->cpu.pid = -1;
-
-		break;
-
-	case (ABORTO_PROCESO): case (RECURSO_NO_DISPONIBLE): //COLA EXIT
-		//queue_push(Exit,pcbAux);
-
-
-
-
-			printf("Se finaliza un proceso, libero memoria y luego consola\n");
-	headerMemoria->tipo_de_mensaje = FIN_PROG;
-	headerMemoria->tipo_de_proceso = KER;
-	//ConsolaAsociada()
-
-	//Aviso a memoria
-	finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
-	// Le informo a la Consola asociada:
-
-	for(j = 0;j<list_size(listaDeCpu);j++){
-		cpu = (t_RelCC *) list_get(listaDeCpu,j);
-		headerMemoria->tipo_de_mensaje = FIN_PROG;
-		headerMemoria->tipo_de_proceso = KER;
-
-		if((stat = send(cpu->con->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
-			perror("error al enviar a la consola");
-			break;
-		}
-	}
-
-	pcbAux = list_remove(Exec, getPCBPositionByPid(cpu->cpu.pid, Exec));
-	queue_push(Exit,pcbAux);
-
-	break;
-	default:
-		break;
-	}
-}
 
 int getPCBPositionByPid(int pid, t_list *cola_pcb){
 
@@ -594,9 +529,73 @@ int obtenerCPUociosa(void){
 	int cantidadCpu;
 	for(cantidadCpu = 0; cantidadCpu < list_size(listaDeCpu); cantidadCpu ++){
 		cpuOciosa = (t_RelCC *) list_get(listaDeCpu,cantidadCpu);
-		if(cpuOciosa->cpu.pid < 0)
+		if(cpuOciosa->cpu.pid == PID_IDLE)
 			return cantidadCpu;
 	}
 	return -1;
 }
 
+void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
+	tPCB *pcbAux, *pcbPlanif;
+
+	int j;
+	int stat;
+	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
+	char *buffer;
+
+	switch(cpu->msj){
+	case (FIN_PROCESO):
+		puts("Se recibe FIN_PROCESO de CPU");
+
+		buffer = recvGeneric(cpu->cpu.fd_cpu);
+
+		pcbAux = deserializarPCB(buffer); // todo: rompe en deserializar Stack
+
+		pthread_mutex_lock(&mux_exec);
+		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+		pthread_mutex_unlock(&mux_exec);
+
+		pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+
+		pthread_mutex_lock(&mux_exit);
+		queue_push(Exit, pcbPlanif);
+		pthread_mutex_unlock(&mux_exit);
+
+		cpu->cpu.pid = -1; cpu->con = NULL;
+
+		break;
+
+	case (ABORTO_PROCESO): case (RECURSO_NO_DISPONIBLE): //COLA EXIT
+		//queue_push(Exit,pcbAux);
+
+
+
+
+			printf("Se finaliza un proceso, libero memoria y luego consola\n");
+	headerMemoria->tipo_de_mensaje = FIN_PROG;
+	headerMemoria->tipo_de_proceso = KER;
+	//ConsolaAsociada()
+
+	//Aviso a memoria
+	finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
+	// Le informo a la Consola asociada:
+
+	for(j = 0;j<list_size(listaDeCpu);j++){
+		cpu = (t_RelCC *) list_get(listaDeCpu,j);
+		headerMemoria->tipo_de_mensaje = FIN_PROG;
+		headerMemoria->tipo_de_proceso = KER;
+
+		if((stat = send(cpu->con->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
+			perror("error al enviar a la consola");
+			break;
+		}
+	}
+
+	pcbAux = list_remove(Exec, getPCBPositionByPid(cpu->cpu.pid, Exec));
+	queue_push(Exit,pcbAux);
+
+	break;
+	default:
+		break;
+	}
+}

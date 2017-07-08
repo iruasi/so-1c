@@ -37,6 +37,10 @@ void populateInvertidas(void);
  */
 int buscarEnMemoria(int pid, int page);
 
+/* Dado un PID y una pagina, retorna el frame aproximado que corresponde
+ */
+int frameHash(int pid, int page);
+
 /* Esta es la funcion que en el TP viene a ser "Solicitar Bytes de una Pagina"
  */
 char *leerBytes(int pid, int frame, int offset, int size);

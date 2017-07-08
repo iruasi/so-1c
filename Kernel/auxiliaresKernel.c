@@ -156,22 +156,27 @@ void cpu_manejador(void *infoCPU){
 	char *var = NULL;
 	int stat, pack_size;
 
-	if ((stat = contestarKernelCPU(kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) != 0){
-		puts("No se pudo informar el quantum_sleep a CPU");
-		pthread_cancel(pthread_self());
-	}
+	tPackHeader *head_rta = malloc(HEAD_SIZE);
+	head_rta->tipo_de_proceso = KER; head_rta->tipo_de_mensaje = KERINFO;
+	if ((stat = contestarProcAProc(*head_rta, kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) < 0){
+		puts("No se pudo informar el quantum_sleep a CPU.");
+		return;
+	} freeAndNULL((void**) &head_rta);
 
 	do {
 	printf("proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 	switch(head.tipo_de_mensaje){
-	case S_WAIT:
+	case S_WAIT: // todo: construir logica de semaforos
 		puts("Signal wait a semaforo");
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 
-		char *sem_id = deserializeBytes(buffer);
+		//tPackBytes *sem_bytes = deserializeBytes(buffer);
 
+<<<<<<< HEAD
 		// todo: me estaba rompiedno aqui
+=======
+>>>>>>> 8e5ac5a97107badf99f14ea95ccae312bc03774c
 		//kernel->sem_init[obtenerPosSemaforo(sem_id)];
 
 		//pasarABlock();
@@ -266,20 +271,33 @@ void cpu_manejador(void *infoCPU){
 
 	case LEER:
 		break;
-	case HSHAKE:
-		puts("Es solo un handshake");
-		break;
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): //COLA EXIT
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
 	break;
 
+	case HSHAKE:
+		puts("Es solo un handshake");
+		break;
+
+	case THREAD_INIT:
+		puts("Se inicia thread en handler de CPU");
+		puts("Fin case THREAD_INIT.");
+		break;
+
 	default:
 		puts("Funcion no reconocida!");
 		break;
 
 	}} while((stat = recv(cpu_i->cpu.fd_cpu, &head, sizeof head, 0)) > 0);
+
+	if (stat == -1){
+		perror("Error de recepcion de CPU. error");
+		return;
+	}
+
+	puts("CPU se desconecto");
 
 }
 
