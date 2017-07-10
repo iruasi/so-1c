@@ -77,9 +77,9 @@ int inicializarPrograma(int pid, int pageCount){
 }
 
 int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
+	printf("Se almacenan para el PID %d: %d bytes en la pagina %d\n", pid, size, page);
 
 	int frame;
-
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
 		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
 		return frame;

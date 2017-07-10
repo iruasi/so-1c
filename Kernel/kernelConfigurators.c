@@ -17,6 +17,8 @@
 
 t_valor_variable *shared_vals; // valores de las variables Globales
 
+void inicializarIntSems(tKernel *ker);
+
 tKernel *getConfigKernel(char* ruta){
 
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
@@ -50,12 +52,21 @@ tKernel *getConfigKernel(char* ruta){
 	kernel->sem_init        = config_get_array_value(kernelConfig, "SEM_INIT");
 	kernel->shared_vars     = config_get_array_value(kernelConfig, "SHARED_VARS");
 	kernel->shared_quant    = config_get_int_value(kernelConfig, "SHARED_CANT");
-	shared_vals = calloc(kernel->shared_quant, sizeof(t_valor_variable));
+	shared_vals             = calloc(kernel->shared_quant, sizeof(t_valor_variable));
+	kernel->sem_vals        = malloc(kernel->sem_quant * sizeof(int));
+	inicializarIntSems(kernel);
 	kernel->tipo_de_proceso = KER;
 
 
 	config_destroy(kernelConfig);
 	return kernel;
+}
+
+void inicializarIntSems(tKernel *ker){
+
+	int i;
+	for (i = 0; i < ker->sem_quant; ++i)
+		ker->sem_vals[i] = atoi(ker->sem_init[i]);
 }
 
 void mostrarConfiguracion(tKernel *kernel){
@@ -80,7 +91,7 @@ void mostrarSemaforos(tKernel *kernel){
 	puts("\nSemaforos:");
 	int i;
 	for (i = 0; i < kernel->sem_quant; ++i)
-		printf("Semaforo %s\t Valor: %s\n", kernel->sem_ids[i] ,kernel->sem_init[i]);
+		printf("Semaforo %s\t Valor: %d\n", kernel->sem_ids[i] , kernel->sem_vals[i]);
 }
 
 void mostrarGlobales(tKernel *kernel){

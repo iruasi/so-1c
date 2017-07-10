@@ -113,7 +113,7 @@ tCacheEntrada *getCacheVictim(int *min_line){
 		if (CACHE_lines[i].pid == pid_free) // entrada libre
 			return CACHE_lines + i;
 
-		(CACHE_accs[i] < *min_line)? *min_line = i : *min_line;
+		*min_line = (CACHE_accs[i] < *min_line)? i : *min_line;
 	}
 
 	return CACHE_lines + *min_line;
@@ -134,7 +134,7 @@ void dumpCache(void){
 	int i;
 	puts("Comienzo dump Cache");
 
-	printf("PID \t\t PAGINA");
+	printf("PID \t\t PAGINA\n");
 	for (i = 0; i < memoria->entradas_cache; ++i)
 		printf("%d \t\t %d\n", (CACHE_lines + i)->pid, (CACHE_lines + i)->page);
 

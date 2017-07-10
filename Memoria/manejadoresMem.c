@@ -151,16 +151,13 @@ int frameHash(int pid, int page){
 
 void dumpMemStructs(void){ // todo: revisar
 
-	int i, fr, off;
-	tEntradaInv *entry;
+	int i;
+	tEntradaInv *entry = (tEntradaInv*) MEM_FIS;
 
 	puts("Comienzo dump Tabla de Paginas Invertida");
-	printf("PID \t\t PAGINA");
-	for (i = fr = off = 0; i < marcos_inv; ++i){
-		entry = (tEntradaInv*) (MEM_FIS + fr * memoria->marco_size + off);
-		printf("%d \t\t %d\n", entry->pid, entry->pag);
-		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
-	}
+	printf("FRAME \t\t PID \t\t PAGINA\n");
+	for (i = 0; i < memoria->marcos; ++i)
+		printf("%d \t\t %d \t\t %d\n", i, (entry +i)->pid, (entry +i)->pag);
 	puts("Fin dump Tabla de Paginas Invertida");
 
 	puts("Comienzo dump Listado Procesos Activos");
@@ -180,7 +177,7 @@ void dumpMemContent(int pid){
 	char *cont;
 	int page_count = pageQuantity(pid);
 
-	printf("PID \t\t PAGINA \t\t CONTENIDO");
+	printf("PID \t\t PAGINA \t\t CONTENIDO\n");
 	for (pag = 0; pag < page_count; ++pag){
 		cont = getMemContent(pid, pag);
 		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);

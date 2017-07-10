@@ -47,29 +47,6 @@ int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
 	return stat;
 }
 
-int contestarKernelCPU(int q_sleep, int sock_cpu){
-
-	int stat, pack_size;
-	char *hs_serial;
-
-	tHShakeMemACPU h_shake;
-	h_shake.head.tipo_de_proceso = KER;
-	h_shake.head.tipo_de_mensaje = KERINFO;
-	h_shake.val = q_sleep;
-
-	pack_size = 0;
-	if ((hs_serial = serializeProcAProc(&h_shake, &pack_size)) == NULL){
-		puts("No se pudo serializar el handshake de Memoria a CPU");
-		return FALLO_SERIALIZAC;
-	}
-
-	if((stat = send(sock_cpu, hs_serial, pack_size, 0)) == -1)
-		perror("Error de envio informacion Memoria a CPU. error");
-
-	free(hs_serial);
-	return stat;
-}
-
 int contestarProcAProc(tPackHeader head, int val, int sock){
 
 	int stat, pack_size;
@@ -213,7 +190,7 @@ char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size){
 	return hs_serial;
 }
 
-char *serializeProcAProc(tHShakeMemACPU *h_shake, int *pack_size){
+char *serializeProcAProc(tHShakeProcAProc *h_shake, int *pack_size){
 
 	char *hs_serial;
 	if ((hs_serial = malloc(sizeof *h_shake + sizeof(int))) == NULL){
@@ -274,8 +251,6 @@ char *recvGeneric(int sock_in){
 char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
 
 	char *bytes_serial;
-	int payload_size;
-
 	if ((bytes_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + buffer_size)) == NULL){
 		fprintf(stderr, "No se pudo mallocar espacio para paquete de bytes\n");
 		return NULL;
@@ -293,9 +268,7 @@ char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_
 	memcpy(bytes_serial + *pack_size, buffer, buffer_size);
 	*pack_size += buffer_size;
 
-	payload_size = *pack_size - (HEAD_SIZE + sizeof(int));
-	printf("El size del payload es: %d\n", payload_size);
-	memcpy(bytes_serial + HEAD_SIZE, &payload_size, sizeof(int));
+	memcpy(bytes_serial + HEAD_SIZE, pack_size, sizeof(int));
 
 	return bytes_serial;
 }
@@ -551,39 +524,6 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 	}
 }
 
-char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size){
-
-	int payload_size;
-	int code_page = 0;
-	tPackHeader head_tmp = {.tipo_de_proceso = CPU, .tipo_de_mensaje = INSTR};
-
-	char *bytereq_serial;
-	if ((bytereq_serial = malloc(sizeof(int) + sizeof(tPackByteReq))) == NULL){
-		fprintf(stderr, "No se pudo mallocar espacio para el paquete de pedido de bytes\n");
-		return NULL;
-	}
-
-	*pack_size = 0;
-	memcpy(bytereq_serial, &head_tmp, HEAD_SIZE);
-	*pack_size += HEAD_SIZE;
-
-	*pack_size += sizeof(int);
-
-	memcpy(bytereq_serial + *pack_size, &pcb->id, sizeof pcb->id);
-	*pack_size += sizeof (int);
-	memcpy(bytereq_serial + *pack_size, &code_page, sizeof code_page);
-	*pack_size += sizeof (int);
-	memcpy(bytereq_serial + *pack_size, &(pcb->indiceDeCodigo + pcb->pc)->start, sizeof (t_puntero_instruccion)); // OFFSET_BEGIN
-	*pack_size += sizeof (t_puntero_instruccion);
-	memcpy(bytereq_serial + *pack_size, &size_instr, sizeof size_instr); // SIZE
-	*pack_size += sizeof (int);
-
-	payload_size = *pack_size - (HEAD_SIZE + sizeof(int));
-	memcpy(bytereq_serial + HEAD_SIZE, &payload_size, sizeof(int));
-
-	return bytereq_serial;
-}
-
 char *serializeByteRequest(tPackByteReq *pbr, int *pack_size){
 
 	int payload_size;
@@ -701,7 +641,7 @@ tPackByteAlmac *deserializeByteAlmacenamiento(char *pbal_serial){
 	return pbal;
 }
 
-tPackSrcCode *recvSourceCode(int sock_in){
+tPackSrcCode *recvbytes(int sock_in){
 
 	int stat;
 	tPackSrcCode *src_pack;
@@ -711,19 +651,19 @@ tPackSrcCode *recvSourceCode(int sock_in){
 	}
 
 	// recibimos el valor de size que va a tener el codigo fuente
-	if ((stat = recv(sock_in, &src_pack->sourceLen, sizeof (unsigned long), 0)) <= 0){
+	if ((stat = recv(sock_in, &src_pack->bytelen, sizeof (unsigned long), 0)) <= 0){
 		perror("El socket cerro la conexion o hubo fallo de recepcion. error");
 		errno = FALLO_RECV;
 		return NULL;
 	}
 
 	// hacemos espacio para el codigo fuente
-	if ((src_pack->sourceCode = malloc(src_pack->sourceLen)) == NULL){
-		perror("No se pudo mallocar espacio para el src_pack->sourceCode. error");
+	if ((src_pack->bytes = malloc(src_pack->bytelen)) == NULL){
+		perror("No se pudo mallocar espacio para el src_pack->bytes. error");
 		return NULL;
 	}
 
-	if ((stat = recv(sock_in, src_pack->sourceCode, src_pack->sourceLen, 0)) <= 0){
+	if ((stat = recv(sock_in, src_pack->bytes, src_pack->bytelen, 0)) <= 0){
 		perror("El socket cerro la conexion o hubo fallo de recepcion. error");
 		errno = FALLO_RECV;
 		return NULL;
@@ -732,10 +672,10 @@ tPackSrcCode *recvSourceCode(int sock_in){
 	return src_pack;
 }
 
-char *serializeSrcCode(tPackSrcCode *src_code, int *pack_size){ // todo: escribir deserializador e implementar en Consola y cons_manejador
+char *serializeSrcCode(tPackSrcCode *src_code, int *pack_size){
 
 	char *src_serial;
-	if ((src_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof src_code->sourceLen + src_code->sourceLen)) == NULL){
+	if ((src_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof src_code->bytelen + src_code->bytelen)) == NULL){
 		perror("No se pudo mallocar el src_serial. error");
 		return NULL;
 	}
@@ -746,10 +686,10 @@ char *serializeSrcCode(tPackSrcCode *src_code, int *pack_size){ // todo: escribi
 
 	*pack_size += sizeof(int);
 
-	memcpy(src_serial + *pack_size, &src_code->sourceLen, sizeof src_code->sourceLen);
-	*pack_size += sizeof src_code->sourceLen;
-	memcpy(src_serial + *pack_size, src_code->sourceCode, src_code->sourceLen);
-	*pack_size += src_code->sourceLen;
+	memcpy(src_serial + *pack_size, &src_code->bytelen, sizeof src_code->bytelen);
+	*pack_size += sizeof src_code->bytelen;
+	memcpy(src_serial + *pack_size, src_code->bytes, src_code->bytelen);
+	*pack_size += src_code->bytelen;
 
 	return src_serial;
 }
@@ -1048,7 +988,7 @@ char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre
 // variable ya tiene un '\0' al final
 
 	int varlen = strlen(variable) + 1;
-	printf("El strlen da por resultado: %d\n", varlen);
+
 	char *valor_serial;
 	int m_size = HEAD_SIZE + sizeof(int) + sizeof valor + sizeof(int) + varlen;
 	if ((valor_serial = malloc(m_size)) == NULL){

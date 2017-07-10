@@ -8,9 +8,10 @@
 
 #include "auxiliaresKernel.h"
 
+#ifndef DISPONIBILIDAD_ESTADOS // todo: no se usan, cierto...?
 #define DISPONIBLE 1
 #define OCUPADO 2
-
+#endif
 
 typedef struct {
 	int pid;
@@ -56,5 +57,8 @@ t_RelPF *getProgByPID(int pid);
 void asociarProgramaACPU(t_RelCC *cpu);
 void avisarPIDaPrograma(int pid, int sock_prog);
 void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages);
+
+void blockByPID(int pid);
+void unBlockByPID(int pid);
 
 #endif

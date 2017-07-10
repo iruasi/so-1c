@@ -4,6 +4,8 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include <commons/config.h>
 #include <commons/collections/list.h>
@@ -20,20 +22,19 @@
 #include <parser/parser.h>
 #include <parser/metadata_program.h>
 
-#define MAX_IP_LEN 16 // Este largo solo es util para IPv4
-#define MAX_PORT_LEN 6
-
-#define MAXMSJ 100 // largo maximo de mensajes a enviar. Solo utilizado para 1er checkpoint
-
 int pedirInstruccion(int instr_size);
 int recibirInstruccion(char **linea, int instr_size);
 
 int ejecutarPrograma(void);
 void set_quantum_sleep(void);
+int conectarConServidores(tCPU *cpu_data);
 
 int pag_size;
 int q_sleep;
 float q_sleep_segs;
+
+int exec_err;
+sem_t sem_fallo_exec;
 
 void set_quantum_sleep(void){
 	q_sleep_segs = q_sleep / 1000.0;
@@ -44,6 +45,24 @@ void set_quantum_sleep(void){
  * TODO: hacer un hilo que chequee regularmente que no se haya roto la ejecucion del PCB
  * Si algo se rompe, manda el pid, exitCode y un header a Planificador.
  */
+void err_handler(void){
+while(1){
+
+	sem_wait(&sem_fallo_exec);
+
+	int pcb_exitCode_mock = exec_err;
+	switch(exec_err){
+
+	case FALLO_CONEXION: // por ejemplo...
+		puts("Se detecto FALLO_CONEXION! \nDeteniendo ejecucion...");
+		send(sock_kern, &pcb_exitCode_mock, sizeof(int), 0);
+		break;
+
+	default:
+		break;
+	}
+
+}} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 
 int main(int argc, char* argv[]){
 
@@ -60,46 +79,13 @@ int main(int argc, char* argv[]){
 	setupCPUFunciones();
 	setupCPUFuncionesKernel();
 
-	printf("Conectando con memoria...\n");
-	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
-	if (sock_mem < 0){
-		puts("Fallo conexion a Memoria");
-		return FALLO_CONEXION;
-	}
+	pthread_t errores_th;
+	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
 
-	if ((stat = handshakeCon(sock_mem, cpu_data->tipo_de_proceso)) < 0){
-		fprintf(stderr, "No se pudo hacer hadshake con Memoria\n");
+	if ((stat = conectarConServidores(cpu_data)) != 0){
+		puts("No se pudo conectar con ambos servidores");
 		return FALLO_GRAL;
 	}
-	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
-	puts("Me conecte a memoria!");
-
-	if ((stat = recibirInfoCPUMem(sock_mem, &pag_size)) != 0){
-		puts("No se pudo recibir el tamanio de pagina de Memoria!");
-		return ABORTO_CPU;
-	}
-	printf("Se trabaja con un tamanio de pagina de %d bytes!\n", pag_size);
-	printf("Me conecte a MEMORIA en socket #%d\n",sock_mem);
-
-	printf("Conectando con kernel...\n");
-	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
-	if (sock_kern < 0){
-		puts("Fallo conexion a Kernel");
-		return FALLO_CONEXION;
-	}
-
-	if ((stat = handshakeCon(sock_kern, cpu_data->tipo_de_proceso)) < 0){
-		fprintf(stderr, "No se pudo hacer hadshake con Kernel\n");
-		return FALLO_GRAL;
-	}
-	printf("Se enviaron: %d bytes a KERNEL\n", stat);
-
-	if ((stat = recibirInfoCPUKernel(sock_kern, &q_sleep)) != 0){
-		puts("No se pudo recibir el tamanio de pagina de Memoria!");
-		return ABORTO_CPU;
-	}
-	set_quantum_sleep();
-	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
 	tPackHeader *head = malloc(sizeof *head);
 	char *pcb_serial;
@@ -128,7 +114,6 @@ int main(int argc, char* argv[]){
 				puts("No se continua con la ejecucion del pcb");
 			}
 
-
 		} else {
 			puts("Me re fui");
 			return -99;
@@ -154,7 +139,7 @@ int main(int argc, char* argv[]){
 
 
 int ejecutarPrograma(void){
-
+	sleep(2); // todo: esto esta por race condition vs Kernel para escribir/leer a Memoria las instrucciones
 	int stat;
 	t_size instr_size;
 	tPackHeader header;
@@ -222,7 +207,6 @@ int ejecutarPrograma(void){
 	printf("Se enviaron %d bytes a kernel \n", stat);
 
 	free(linea);
-	free(&linea);
 	free(pcb_serial);
 	return EXIT_SUCCESS;
 }
@@ -230,10 +214,19 @@ int ejecutarPrograma(void){
 int pedirInstruccion(int instr_size){
 	puts("Pide instruccion");
 
-	int stat, pack_size;
+	tPackByteReq pbrq;
+	int stat, pack_size, code_page, offset;
+	code_page = (pcb->indiceDeCodigo + pcb->pc)->start / pag_size;
+	offset    = (pcb->indiceDeCodigo + pcb->pc)->start % pag_size;
+
+	pbrq.head.tipo_de_proceso = MEM; pbrq.head.tipo_de_mensaje = BYTES;
+	pbrq.pid    = pcb->id;
+	pbrq.page   = code_page;
+	pbrq.offset = offset;
+	pbrq.size   = instr_size;
 
 	pack_size = 0;
-	char *bytereq_serial = serializeInstrRequest(pcb, instr_size, &pack_size);
+	char *bytereq_serial = serializeByteRequest(&pbrq, &pack_size);
 
 	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de paquete de pedido de bytes. error");
@@ -281,3 +274,53 @@ int recibirInstruccion(char **linea, int instr_size){
 
 	return 0;
 }
+
+
+int conectarConServidores(tCPU *cpu_data){
+	int stat;
+
+	printf("Conectando con memoria...\n");
+	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
+	if (sock_mem < 0){
+		puts("Fallo conexion a Memoria");
+		return FALLO_CONEXION;
+	}
+
+	if ((stat = handshakeCon(sock_mem, cpu_data->tipo_de_proceso)) < 0){
+		fprintf(stderr, "No se pudo hacer hadshake con Memoria\n");
+		return FALLO_GRAL;
+	}
+	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
+	puts("Me conecte a memoria!");
+
+	if ((stat = recibirInfoCPUMem(sock_mem, &pag_size)) != 0){
+		puts("No se pudo recibir el tamanio de pagina de Memoria!");
+		return ABORTO_CPU;
+	}
+	printf("Se trabaja con un tamanio de pagina de %d bytes!\n", pag_size);
+	printf("Me conecte a MEMORIA en socket #%d\n",sock_mem);
+
+	printf("Conectando con kernel...\n");
+	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
+	if (sock_kern < 0){
+		puts("Fallo conexion a Kernel");
+		return FALLO_CONEXION;
+	}
+
+	if ((stat = handshakeCon(sock_kern, cpu_data->tipo_de_proceso)) < 0){
+		fprintf(stderr, "No se pudo hacer hadshake con Kernel\n");
+		return FALLO_GRAL;
+	}
+	printf("Se enviaron: %d bytes a KERNEL\n", stat);
+
+	if ((stat = recibirInfoCPUKernel(sock_kern, &q_sleep)) != 0){
+		puts("No se pudo recibir el quantum sleep de Kernel!");
+		return ABORTO_CPU;
+	}
+	set_quantum_sleep();
+	printf("Me conecte a kernel (socket %d)\n", sock_kern);
+
+	return 0;
+}
+
+

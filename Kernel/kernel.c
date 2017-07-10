@@ -35,7 +35,8 @@ int sock_mem;
 tKernel *kernel;
 
 
-sem_t hayProg;
+sem_t hayProg; // semaforo estilo productor-consumidor. Se post'ea cuando entran PCBs en New o Ready
+sem_t hayCPUs;
 
 int main(int argc, char* argv[]){
 
@@ -51,6 +52,10 @@ int main(int argc, char* argv[]){
 
 
 	if ((stat = sem_init(&hayProg, 0, 0)) == -1){
+		perror("No se pudo inicializar semaforo. error");
+		return FALLO_GRAL;
+	}
+	if ((stat = sem_init(&hayCPUs, 0, 0)) == -1){
 		perror("No se pudo inicializar semaforo. error");
 		return FALLO_GRAL;
 	}

@@ -4,7 +4,9 @@
 
 #include <parser/parser.h>
 
+#ifndef HEAD_SIZE
 #define HEAD_SIZE 8 // size de la cabecera de cualquier packete (tipo de proceso y de mensaje)
+#endif
 
 typedef enum {KER= 1, CPU= 2, FS= 3, CON= 4, MEM= 5} tProceso;
 
@@ -77,13 +79,6 @@ typedef struct {
 typedef struct {
 
 	tPackHeader head;
-	unsigned long sourceLen;
-	char *sourceCode;
-} tPackSrcCode; // este paquete se utiliza para enviar codigo fuente
-
-typedef struct {
-
-	tPackHeader head;
 	int pid;
 	int pageCount;
 } tPackPidPag; // este paquete se utiliza para enviar un pid y una cant de paginas
@@ -116,7 +111,7 @@ typedef struct {
 	tPackHeader head;
 	int bytelen;
 	char *bytes;
-} tPackBytes, tPackNombreVar; // este paquete se utiliza para responder una Solicitud de Bytes
+} tPackBytes, tPackNombreVar, tPackSrcCode;
 
 typedef struct {
 

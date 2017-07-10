@@ -322,18 +322,18 @@ void retornar (t_valor_variable retorno){
 }
 
 t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
-	printf("Se obtiene el valor de la variable compartida %s.\n", variable);
+	printf("Se obtiene el valor de la variable compartida %s\n", variable);
 
 	t_valor_variable valor;
 	tPackValComp *val_var;
 	int pack_size, stat, var_len;
 	char *var_serial, *var;
-	var = eliminarWhitespace(variable); // variable ahora va a terminar en '\0'
-	var_len = strlen(var);
+	var = eliminarWhitespace(variable);
+	var_len = strlen(var) + 1;
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = GET_GLOBAL};
 	pack_size = 0;
-	if ((var_serial = serializeBytes(head, var, var_len +1, &pack_size)) == NULL){
+	if ((var_serial = serializeBytes(head, var, var_len, &pack_size)) == NULL){
 		puts("No se pudo serializar el valor y variable");
 		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
 	}
@@ -342,6 +342,7 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
 		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
 	}
+	printf("Se enviaron %d bytes a Kernel\n", stat);
 	freeAndNULL((void **) &var_serial);
 
 	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
@@ -378,17 +379,20 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 void wait (t_nombre_semaforo identificador_semaforo){
 	printf("Se pide al kernel un wait para el semaforo %s\n", identificador_semaforo);
 
-	tPackHeader head = {.tipo_de_proceso = CON, .tipo_de_mensaje = S_WAIT};
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_WAIT};
 	int pack_size = 0;
 
-	int lenId = strlen(identificador_semaforo);
+	char * sem = eliminarWhitespace(identificador_semaforo);
+	int lenId = strlen(sem) + 1;
 	char *wait_serial;
-	if ((wait_serial = serializeBytes(head, identificador_semaforo, lenId, &pack_size)) == NULL){
+	if ((wait_serial = serializeBytes(head, sem, lenId, &pack_size)) == NULL){
 		puts("No se pudo serializar el semaforo de wait");
 		return;
 	}
 
 	enviar(wait_serial, pack_size);
+	free(wait_serial);
+	free(sem);
 }
 
 void signal (t_nombre_semaforo identificador_semaforo){
@@ -397,14 +401,17 @@ void signal (t_nombre_semaforo identificador_semaforo){
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
 	int pack_size = 0;
 
-	int lenId = strlen(identificador_semaforo);
+	char * sem = eliminarWhitespace(identificador_semaforo);
+	int lenId = strlen(sem) + 1;
 	char *sig_serial;
-	if ((sig_serial = serializeBytes(head, identificador_semaforo, lenId, &pack_size)) == NULL){
+	if ((sig_serial = serializeBytes(head, sem, lenId, &pack_size)) == NULL){
 		puts("No se pudo serializar el semaforo de signal");
 		return;
 	}
 
 	enviar(sig_serial, pack_size);
+	free(sig_serial);
+	free(sem);
 }
 
 void liberar (t_puntero puntero){
@@ -552,6 +559,3 @@ char *eliminarWhitespace(char *string){
 	var[var_len] = '\0';
 	return var;
 }
-
-
-

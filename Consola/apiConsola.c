@@ -22,10 +22,6 @@
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
-#ifndef HEAD_SIZE
-#define HEAD_SIZE 8
-#endif
-
 #define SIGDISCONNECT 80
 #define MUTEX 1
 
@@ -75,10 +71,6 @@ void differenceBetweenTimePeriod(tHora start, tHora stop, tHora *diff)
 
 
 int Iniciar_Programa(tAtributosProg *atributos){
-
-	int stat, *retval;
-
-
 
 	pthread_attr_t attr;
 	pthread_t hilo_prog;
@@ -197,6 +189,8 @@ void *programa_handler(void *atributos){
 		return NULL;
 	}
 
+	char *buffer;
+	int pack_size;
 	tAtributosProg *args = (tAtributosProg *) atributos;
 	time(&args->horaInicio);
 	log_info(logger,"<-- hora inicio");
@@ -204,7 +198,7 @@ void *programa_handler(void *atributos){
 
 	handshakeCon(sock_kern, CON);
 	//puts("handshake realizado");
-	log_trace(logger,"handhsake realizado");
+	log_trace(logger,"handshake realizado");
 	tPackHeader head_tmp;
 
 	log_trace(logger,"creando codigo fuente");
@@ -216,12 +210,13 @@ void *programa_handler(void *atributos){
 	//puts("codigo fuente creado");
 	log_trace(logger,"serializando codigo fuente");
 	//puts("Serializando codigo fuente...");
-	tPackSrcCode *paquete_serializado = serializarSrcCode(src_code);
+	head_tmp.tipo_de_proceso = CON; head_tmp.tipo_de_mensaje = SRC_CODE; pack_size = 0;
+	buffer = serializeBytes(head_tmp, src_code->bytes, src_code->bytelen, &pack_size);
+
 	log_trace(logger,"codigo fuente serializado");
 	//puts("codigo fuente serializado");
 	puts("Enviando codigo fuente...");
-	int packSize = sizeof src_code->head + sizeof src_code->sourceLen + src_code->sourceLen;
-	if ((stat = send(sock_kern, paquete_serializado, packSize, 0)) < 0){
+	if ((stat = send(sock_kern, buffer, pack_size, 0)) == -1){
 		log_error(logger,"no se pudo enviar codigo fuente a kernel. ");
 		//perror("No se pudo enviar codigo fuente a Kernel. error");
 		return (void *) FALLO_SEND;
@@ -231,17 +226,15 @@ void *programa_handler(void *atributos){
 
 
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
-	freeAndNULL((void **) &src_code->sourceCode);
+	freeAndNULL((void **) &src_code->bytes);
 	freeAndNULL((void **) &src_code);
-	freeAndNULL((void **) &paquete_serializado);
+	freeAndNULL((void **) &buffer);
 
-	tPackPID ppid;
-	ppid.head = head_tmp;
-	log_trace(logger,"esperando a reciir el PID");
+	tPackPID *ppid;
+	log_trace(logger,"esperando a recibir el PID");
 	//puts("Esperando a recibir el PID");
 	int fin = 0;
 
-	char *buffer;
 	while(fin !=1){
 		while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
@@ -255,18 +248,21 @@ void *programa_handler(void *atributos){
 				log_trace(logger,"reciimos PID");
 				//puts("recibimos PID");
 
-				//			buffer = recvGeneric(sock_kern);
-				//			deserializarPID()
-				//			memcpy(&ppid.val, buffer, sizeof(int));
-				if((stat = recv(sock_kern, &(ppid.val), sizeof ppid.val, 0)) < 0 ){
+				if ((buffer = recvGeneric(sock_kern)) == NULL){
 					log_error(logger,"error al recibir el pid");
-					//perror("error al recibir el pid");
-					return 0;
+					return (void *) FALLO_RECV;
 				}
+
+				if ((ppid = deserializePID(buffer)) == NULL){
+					log_error(logger,"error al deserializar el packPID");
+					return (void *) FALLO_DESERIALIZAC;
+				}
+
 				log_trace(logger,"asigno pid a la estructura");
 				//puts("Asigno pid a la estructura");
-				args->pidProg = ppid.val;
+				memcpy(&args->pidProg, &ppid->val, sizeof(int));
 				args->hiloProg = pthread_self();
+				freeAndNULL((void **)&ppid);
 
 				sem_wait(&semLista);
 				list_add(listaAtributos,args);

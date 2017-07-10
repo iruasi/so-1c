@@ -24,6 +24,7 @@ typedef struct{
 	int grado_multiprog;
 	char** sem_ids;
 	char** sem_init;
+	int*  sem_vals;
 	int sem_quant;
 	char** shared_vars;
 	int shared_quant;

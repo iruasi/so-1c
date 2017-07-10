@@ -9,10 +9,6 @@
  */
 int contestarMemoriaKernel(int size_marco, int cant_marcos, int socket_kernel);
 
-int contestarKernelCPU(int q_sleep, int sock_cpu);
-
-int contestarMemoriaCPU(int marco_size, int sock_cpu);
-
 int contestarProcAProc(tPackHeader head, int val, int sock);
 
 /* Solo la usa Kernel para recibir de Memoria los frames y el size de estos,
@@ -45,12 +41,6 @@ char *recvGeneric(int sock_in);
  */
 char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size);
 
-/* habiendo recibido los 8 bytes del header, se recibe el resto del paquete.
- * Retorna el buffer recibido.
- * Retorna NULL si algo falla.
- */
-char *recvBytes(int sock_in);
-
 /* Deserializa un buffer en un Paquete de Bytes
  */
 tPackBytes *deserializeBytes(char *bytes_serial);
@@ -74,15 +64,6 @@ tPCB *deserializarPCB(char *pcb_serial);
 
 void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset);
 
-/* para el momento que ejecuta esta funcion, ya se recibio el HEADER de 8 bytes,
- * por lo tanto hay que recibir el resto del paquete...
- */
-char *recvPCB(int sock_in);
-
-/* Serializa un pcb para poder hacer una Solicitud de Instruccion a Memoria
- */
-char *serializeInstrRequest(tPCB *pcb, int size_instr, int *pack_size);
-
 /* Serializa un Pedido de Bytes para la Memoria
  */
 char *serializeByteRequest(tPackByteReq *pbr, int *pack_size);
@@ -99,28 +80,13 @@ char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size);
  */
 tPackByteAlmac *deserializeByteAlmacenamiento(char * pbal_serial);
 
-/* recibimos codigo fuente del socket de entrada
- * devolvemos un puntero a memoria que lo contiene
- * !! Asumimos que ya se recibio el Header !!
- */
-tPackSrcCode *recvSourceCode(int sock_in);
-
-/* Dado un socket de recepcion, recibe y deserializa codigo fuente
- */
-tPackSrcCode *deserializeSrcCode(int sock_in);
-
-/* Recibe de un socket el codigo fuente y lo serializa,
- * copia ademas los contenidos de algun header pasado por parametro
- * retorna un espacio de memoria utilizable para reenviar el codigo fuente.
- * !! Suponemos que ya se recibio antes un tPackHeader u 8 bytes !!
- */
-void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *serialized_pack_size);
-
 /* Serializa un tPackPID dado.
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
 char *serializePID(tPackPID *ppid, int *pack_size);
+
+tPackPID *deserializePID(char *pid_serial);
 
 /* Serializa un tPackPIDPag dado.
  * Retorna el buffer serializado;
@@ -130,7 +96,7 @@ char *serializePIDPaginas(tPackPidPag *ppidpag, int *pack_size);
 
 tPackPidPag *deserializePIDPaginas(char *pidpag_serial);
 
-
+/****** Definiciones de [De]Serializaciones CPU ******/
 
 char *serializeAbrir(t_direccion_archivo direccion, t_banderas flags, int *pack_size);
 

@@ -37,11 +37,6 @@ bool frameLibre(int frame, int off){
 
 int pageQuantity(int pid){
 
-	if (pid < 0){
-		fprintf(stderr, "No se puede calcular la cantidad de paginas para el pid %d", pid);
-		return PID_INVALIDO;
-	}
-
 	int i, off, fr;
 	int page_quant = 0;
 

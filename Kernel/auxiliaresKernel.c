@@ -14,6 +14,7 @@
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
+#include "funcionesSyscalls.h"
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -28,6 +29,7 @@
 #endif
 
 extern sem_t hayProg;
+extern sem_t hayCPUs;
 int globalPID;
 
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
@@ -49,37 +51,6 @@ void setupVariablesGlobales(void){
 
 	gl_Programas = list_create();
 
-}
-
-int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size){
-
-	int stat;
-	tProceso proc = KER;
-	tMensaje msj  = SRC_CODE;
-
-	int packageSize; // aca guardamos el tamanio total del paquete serializado
-
-	puts("Entremos a serializeSrcCodeFromRecv");
-	void *pack_src_serial = serializeSrcCodeFromRecv(fd_sender, *head, &packageSize);
-
-	if (pack_src_serial == NULL){
-		puts("Fallo al recibir y serializar codigo fuente");
-		return FALLO_GRAL;
-	}
-
-	*src_size = packageSize - (HEAD_SIZE + sizeof(unsigned long));
-
-	// pisamos el header del paquete serializado
-	memcpy(pack_src_serial              , &proc, sizeof proc);
-	memcpy(pack_src_serial + sizeof proc, &msj, sizeof msj);
-
-	if ((stat = send(fd_mem, pack_src_serial, packageSize, 0)) == -1){
-		perror("Error en el envio de codigo fuente. error");
-		return FALLO_SEND;
-	}
-
-	free(pack_src_serial);
-	return 0;
 }
 
 tPCB *crearPCBInicial(void){
@@ -105,7 +76,7 @@ tPCB *crearPCBInicial(void){
 
 tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog){
 
-	t_metadata_program *meta = metadata_desde_literal(src_code->sourceCode);
+	t_metadata_program *meta = metadata_desde_literal(src_code->bytes);
 	t_size indiceCod_size = meta->instrucciones_size * 2 * sizeof(int);
 
 	tPCB *nuevoPCB              = malloc(sizeof *nuevoPCB);
@@ -146,44 +117,37 @@ void cpu_manejador(void *infoCPU){
 	t_RelCC *cpu_i = (t_RelCC *) infoCPU;
 	printf("cpu_manejador socket %d\n", cpu_i->cpu.fd_cpu);
 
-	pthread_mutex_lock(&mux_listaDeCPU);
-	list_add(listaDeCpu, cpu_i); pthread_mutex_unlock(&mux_listaDeCPU);
-
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
 	tMensaje rta;
 	bool found;
 	char *buffer;
-	char *var = NULL;
+	char *var;
 	int stat, pack_size;
 
-	tPackHeader *head_rta = malloc(HEAD_SIZE);
-	head_rta->tipo_de_proceso = KER; head_rta->tipo_de_mensaje = KERINFO;
-	if ((stat = contestarProcAProc(*head_rta, kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) < 0){
-		puts("No se pudo informar el quantum_sleep a CPU.");
-		return;
-	} freeAndNULL((void**) &head_rta);
+	tPackBytes *sem_bytes = NULL;
 
 	do {
 	printf("proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 	switch(head.tipo_de_mensaje){
-	case S_WAIT: // todo: construir logica de semaforos
+	case S_WAIT:
 		puts("Signal wait a semaforo");
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		sem_bytes = deserializeBytes(buffer);
+		waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid);
 
-		//tPackBytes *sem_bytes = deserializeBytes(buffer);
-
-<<<<<<< HEAD
-		// todo: me estaba rompiedno aqui
-=======
->>>>>>> 8e5ac5a97107badf99f14ea95ccae312bc03774c
-		//kernel->sem_init[obtenerPosSemaforo(sem_id)];
-
-		//pasarABlock();
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &sem_bytes);
 		break;
+
 	case S_SIGNAL:
-		//planificadorPasarDeBlock();
 		puts("Signal continuar a semaforo");
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		sem_bytes = deserializeBytes(buffer);
+		signalSyscall(sem_bytes->bytes, cpu_i->cpu.pid);
+
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &sem_bytes);
 		break;
 
 	case SET_GLOBAL:
@@ -224,12 +188,12 @@ void cpu_manejador(void *infoCPU){
 		var_name = deserializeBytes(buffer);
 		freeAndNULL((void **) &buffer);
 
-		var = realloc(var, var_name->bytelen);
+		var = malloc(var_name->bytelen);
 		memcpy(var, var_name->bytes, var_name->bytelen);
 
 		val = getGlobal(var, &found);
 		rta = (found)? GET_GLOBAL : GLOBAL_NOT_FOUND;
-		head.tipo_de_mensaje = rta;
+		head.tipo_de_proceso = KER; head.tipo_de_mensaje = rta;
 
 		if ((buffer = serializeValorYVariable(head, val, var, &pack_size)) == NULL){
 			puts("No se pudo serializar Valor Y Variable");
@@ -242,6 +206,7 @@ void cpu_manejador(void *infoCPU){
 		}
 
 		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &var);
 		freeAndNULL((void **) &var_name->bytes); freeAndNULL((void **) &var_name);
 		break;
 
@@ -267,6 +232,7 @@ void cpu_manejador(void *infoCPU){
 
 		printf("Se escriben en fd %d, la info %s\n", escr->fd, (char*) escr->info);
 		free(escr->info); free(escr);
+		freeAndNULL((void **) &buffer);
 		break;
 
 	case LEER:
@@ -278,7 +244,20 @@ void cpu_manejador(void *infoCPU){
 	break;
 
 	case HSHAKE:
-		puts("Es solo un handshake");
+		puts("Se recibe handshake de CPU");
+
+		head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO;
+		if ((stat = contestarProcAProc(head, kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) < 0){
+			puts("No se pudo informar el quantum_sleep a CPU.");
+			return;
+		}
+
+		pthread_mutex_lock(&mux_listaDeCPU);
+		list_add(listaDeCpu, cpu_i);
+		pthread_mutex_unlock(&mux_listaDeCPU);
+		sem_post(&hayCPUs);
+
+		puts("Fin case HSHAKE.");
 		break;
 
 	case THREAD_INIT:
@@ -307,27 +286,36 @@ void cons_manejador(void *conInfo){
 	printf("cons_manejador socket %d\n", con_i->con->fd_con);
 
 	int stat;
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
+	tPackHeader head = {.tipo_de_proceso = CON, .tipo_de_mensaje = THREAD_INIT};
+	char *buffer;
+	tPackBytes *pbytes;
+	tPackSrcCode *entradaPrograma;
 
 	do {
 	switch(head.tipo_de_mensaje){
 	case SRC_CODE:
 		puts("Consola quiere iniciar un programa");
 
-		tPackSrcCode *entradaPrograma;
+		if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
+			puts("Fallo recepcion de SRC_CODE");
+			return;
+		}
 
-		//recvGeneric(con_i->con->fd_con);
+		if ((entradaPrograma = (tPackSrcCode *) deserializeBytes(buffer)) == NULL){
+			puts("Fallo deserializacion de Bytes");
+			return;
+		}
 
-		entradaPrograma = recibir_paqueteSrc(con_i->con->fd_con); // Aca voy a recibir el tPackSrcCode
 		tPCB *new_pcb = crearPCBInicial();
 		con_i->con->pid = new_pcb->id;
 		asociarSrcAProg(con_i, entradaPrograma);
 
-		printf("El size del paquete %d\n", strlen(entradaPrograma->sourceCode) + 1);
+		printf("El size del paquete %d\n", strlen(entradaPrograma->bytes) + 1);
 
 		encolarEnNew(new_pcb);
-		sem_post(&hayProg);
 
+		freeAndNULL((void **) &pbytes);
+		freeAndNULL((void **) &buffer);
 		puts("Fin case SRC_CODE.");
 		break;
 
@@ -591,9 +579,9 @@ tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para re
 	if(paqueteRecibido <= 0) return NULL;
 
 	tPackSrcCode *pack_src = malloc(sizeof *pack_src);
-	pack_src->sourceLen = paqueteRecibido;
-	pack_src->sourceCode = malloc(pack_src->sourceLen);
-	memcpy(pack_src->sourceCode, mensaje, paqueteRecibido);
+	pack_src->bytelen = paqueteRecibido;
+	pack_src->bytes = malloc(pack_src->bytelen);
+	memcpy(pack_src->bytes, mensaje, paqueteRecibido);
 
 	//tPackSrcCode *buffer = deserializeSrcCode(fd);
 

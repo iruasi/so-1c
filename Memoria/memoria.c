@@ -100,9 +100,8 @@ int main(int argc, char* argv[]){
 					return FALLO_GRAL;
 				}
 
-			} else {
+			} else
 				fprintf(stderr, "Se trato de conectar otro Kernel. Ignoramos el paquete...\n");
-			}
 
 			break;
 
@@ -112,6 +111,13 @@ int main(int argc, char* argv[]){
 			pthread_t cpu_thread;
 			int *sock_cpu = malloc(sizeof(int));
 			*sock_cpu    = client_sock;
+
+			head.tipo_de_proceso = MEM; head.tipo_de_mensaje = MEMINFO;
+			if ((stat = contestarProcAProc(head, memoria->marco_size, *sock_cpu)) == -1){
+				puts("No se pudo enviar la informacion relevante a Kernel!");
+				return FALLO_GRAL;
+			}
+
 			if( pthread_create(&cpu_thread, NULL, (void*) cpu_handler, (void*) sock_cpu) < 0){
 				perror("no pudo crear hilo. error");
 				return FALLO_GRAL;
@@ -243,11 +249,6 @@ void* cpu_handler(void *socket_cpu){
 	int stat;
 	int *sock_cpu = (int*) socket_cpu;
 
-	if ((stat = contestarMemoriaCPU(memoria->marco_size, *sock_cpu)) == -1){
-		puts("No se pudo enviar la informacion relevante a Kernel!");
-		return (void *) FALLO_GRAL;
-	}
-
 	printf("Esperamos que lleguen cosas del socket CPU: %d\n", *sock_cpu);
 
 	do {
@@ -285,6 +286,7 @@ void* cpu_handler(void *socket_cpu){
 
 			sem_post(&mem_access);
 			break;
+
 		default:
 			puts("Se recibio un mensaje no considerado");
 			break;
