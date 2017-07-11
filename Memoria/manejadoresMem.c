@@ -44,7 +44,7 @@ int setupMemoria(void){
 
 	retardo(memoria->retardo_memoria);
 
-	pid_free   = -2;
+	pid_free  = -2;
 	pid_inv   = -3;
 	free_page = -1;
 
@@ -73,7 +73,7 @@ void populateInvertidas(void){
 
 
 	// creamos las primeras entradas administrativas, una por cada `marco_invertido'
-	for(i = off = fr = 0; i < marcos_inv; i ++){
+	for(i = off = fr = 0; i < marcos_inv; i++){
 		memcpy(MEM_FIS + fr * memoria->marco_size + off, &entry_inv, sizeof(tEntradaInv));
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
 	}

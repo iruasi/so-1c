@@ -15,6 +15,7 @@
 #include "auxiliaresKernel.h"
 #include "planificador.h"
 #include "funcionesSyscalls.h"
+#include "capaMemoria.h"
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -28,14 +29,16 @@
 
 #endif
 
-extern sem_t hayProg;
+//extern t_dictionary *heapDict;
+extern sem_t sem_heapDict;
+extern sem_t sem_bytes;
+extern sem_t sem_end_exec;
+
 extern sem_t hayCPUs;
 int globalPID;
 
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
-
-
 
 extern t_queue *New, *Exit, *Block,*Ready;
 extern t_list	*Exec,*listaProgramas;
@@ -123,11 +126,12 @@ void cpu_manejador(void *infoCPU){
 	char *buffer;
 	char *var;
 	int stat, pack_size;
-
-	tPackBytes *sem_bytes = NULL;
+	tPackBytes *sem_bytes;
+	tPackVal *alloc;
+	t_puntero ptr;
 
 	do {
-	printf("proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+	printf("(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 	switch(head.tipo_de_mensaje){
 	case S_WAIT:
@@ -212,6 +216,27 @@ void cpu_manejador(void *infoCPU){
 
 	case RESERVAR:
 		puts("Funcion reservar");
+
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		alloc = deserializeVal(buffer);
+		freeAndNULL((void **) &buffer);
+
+		if ((ptr = reservar(cpu_i->cpu.pid, alloc->val)) == 0){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ptr;
+			//enviarFallo(head, cpu_i->cpu.pid, stat);?
+			break;
+		}
+
+		alloc->head.tipo_de_proceso = KER; alloc->head.tipo_de_mensaje = RESERVAR;
+		alloc->val = ptr;
+		pack_size = 0;
+		buffer = serializeVal(alloc, &pack_size);
+
+		if ((stat = send(cpu_i->cpu.fd_cpu, buffer, pack_size, 0)) == -1){
+			perror("Fallo send de puntero alojado a CPU. error");
+			break;
+		}
+
 		break;
 
 	case LIBERAR:
@@ -280,6 +305,44 @@ void cpu_manejador(void *infoCPU){
 
 }
 
+void mem_manejador(void *m_sock){
+	int *sock_mem = (int*) m_sock;
+	printf("mem_manejador socket %d\n", *sock_mem);
+
+	int stat;
+	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = THREAD_INIT};
+
+	do {
+	switch(head.tipo_de_mensaje){
+	printf("(MEM) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+
+	case ASIGN_SUCCS:
+		puts("Se asigno paginas para algun proceso");
+		sem_post(&sem_heapDict);
+		sem_wait(&sem_end_exec);
+		puts("Fin case ASIGN_SUCCS");
+		break;
+
+	case BYTES:
+		puts("Se reciben bytes desde Memoria");
+		sem_post(&sem_bytes);
+		sem_wait(&sem_end_exec);
+		puts("Fin case BYTES");
+		break;
+
+	case THREAD_INIT:
+		puts("Se inicia thread en handler de Memoria");
+		puts("Fin case THREAD_INIT");
+		break;
+
+	default:
+		puts("Se recibe un mensaje de Memoria no considerado");
+		break;
+
+	}} while ((stat = recv(*sock_mem, &head, HEAD_SIZE, 0)) > 0);
+
+
+}
 
 void cons_manejador(void *conInfo){
 	t_RelCC *con_i = (t_RelCC*) conInfo;
@@ -293,6 +356,8 @@ void cons_manejador(void *conInfo){
 
 	do {
 	switch(head.tipo_de_mensaje){
+	printf("(CON) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+
 	case SRC_CODE:
 		puts("Consola quiere iniciar un programa");
 
@@ -330,8 +395,8 @@ void cons_manejador(void *conInfo){
 
 	default:
 		break;
-	}
-	}while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
+
+	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
 
 
 }
@@ -564,34 +629,6 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 	pf->src  = src;
 	list_add(gl_Programas, pf);
 }
-
-
-tPackSrcCode *recibir_paqueteSrc(int fd){ //Esta funcion tiene potencial para recibir otro tipos de paquetes
-
-	int paqueteRecibido;
-	int *tamanioMensaje = malloc(sizeof (int));
-
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, (char *) tamanioMensaje, sizeof(int));
-	if(paqueteRecibido <= 0 ) return NULL;
-
-	void *mensaje = malloc(*tamanioMensaje);
-	paqueteRecibido = cantidadTotalDeBytesRecibidos(fd, mensaje, *tamanioMensaje);
-	if(paqueteRecibido <= 0) return NULL;
-
-	tPackSrcCode *pack_src = malloc(sizeof *pack_src);
-	pack_src->bytelen = paqueteRecibido;
-	pack_src->bytes = malloc(pack_src->bytelen);
-	memcpy(pack_src->bytes, mensaje, paqueteRecibido);
-
-	//tPackSrcCode *buffer = deserializeSrcCode(fd);
-
-	free(tamanioMensaje);tamanioMensaje = NULL;
-	free(mensaje);mensaje = NULL;
-
-	return pack_src;
-
-}
-
 
 int setGlobal(tPackValComp *val_comp){
 

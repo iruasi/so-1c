@@ -74,7 +74,7 @@ int contestarMemoriaCPU(int marco_size, int sock_cpu){
 	int stat, pack_size;
 	char *hs_serial;
 
-	tHShakeMemACPU h_shake;
+	tHShakeProcAProc h_shake;
 	h_shake.head.tipo_de_proceso = MEM;
 	h_shake.head.tipo_de_mensaje = MEMINFO;
 	h_shake.val = marco_size;
@@ -94,7 +94,20 @@ int contestarMemoriaCPU(int marco_size, int sock_cpu){
 
 int recibirInfoKerMem(int sock_mem, int *frames, int *frame_size){
 
+	int stat;
 	char *info_serial;
+	tPackHeader head;
+
+	if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recepcion de info de Memoria. error");
+		return FALLO_RECV;
+	}
+
+	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != MEMINFO){
+		printf("El paquete recibido no era el esperado! Proceso: %d, Mensaje: %d\n",
+				head.tipo_de_proceso, head.tipo_de_mensaje);
+		return FALLO_GRAL;
+	}
 
 	if ((info_serial = recvGeneric(sock_mem)) == NULL){
 		puts("Fallo la creacion de info serializada desde Memoria");
@@ -784,37 +797,39 @@ void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
 	return src_pack;
 }
 
-char *serializePID(tPackPID *ppid, int *pack_size){
+char *serializeVal(tPackVal *pval, int *pack_size){
 
-	char *pid_serial;
-	if ((pid_serial = malloc(sizeof(int) + sizeof *ppid)) == NULL){
+	char *val_serial;
+	if ((val_serial = malloc(sizeof(int) + sizeof *pval)) == NULL){
 		perror("No se pudo crear espacio de memoria para PID serial. error");
 		return NULL;
 	}
 
 	*pack_size = 0;
-	memcpy(pid_serial + *pack_size, &ppid->head, HEAD_SIZE);
+	memcpy(val_serial + *pack_size, &pval->head, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 
 	*pack_size += sizeof(int);
 
-	memcpy(pid_serial + *pack_size, &ppid->val, sizeof(int));
+	memcpy(val_serial + *pack_size, &pval->val, sizeof(int));
 	*pack_size += sizeof (int);
 
-	return pid_serial;
+	memcpy(val_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return val_serial;
 }
 
-tPackPID *deserializePID(char *pid_serial){
+tPackPID *deserializeVal(char *val_serial){
 
-	tPackPID *ppid;
-	if ((ppid = malloc(sizeof *ppid)) == NULL){
-		printf("No se pudieron mallocar %d bytes para paquete PID\n", sizeof *ppid);
+	tPackVal *pval;
+	if ((pval = malloc(sizeof *pval)) == NULL){
+		printf("No se pudieron mallocar %d bytes para paquete PID\n", sizeof *pval);
 		return NULL;
 	}
 
-	memcpy(&ppid->val, pid_serial, sizeof(int));
+	memcpy(&pval->val, val_serial, sizeof(int));
 
-	return ppid;
+	return pval;
 }
 
 char *serializePIDPaginas(tPackPidPag *ppidpag, int *pack_size){

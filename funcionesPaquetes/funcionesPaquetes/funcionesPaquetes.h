@@ -27,7 +27,7 @@ int recibirInfoCPUKernel(int sock_kern, int *q_sleep);
 
 char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size);
 
-char *serializeProcAProc(tHShakeMemACPU *h_shake, int *pack_size);
+char *serializeProcAProc(tHShakeProcAProc *h_shake, int *pack_size);
 
 /* Funcion generica de recepcion. Toda serializacion deberia dar un paquete
  * que responda al formato |HEAD(8)|PAYLOAD_SIZE(int)|PAYLOAD(char*)|
@@ -84,9 +84,9 @@ tPackByteAlmac *deserializeByteAlmacenamiento(char * pbal_serial);
  * Retorna el buffer serializado;
  * retorna NULL si falla
  */
-char *serializePID(tPackPID *ppid, int *pack_size);
+char *serializeVal(tPackVal *pval, int *pack_size);
 
-tPackPID *deserializePID(char *pid_serial);
+tPackPID *deserializeVal(char *val_serial);
 
 /* Serializa un tPackPIDPag dado.
  * Retorna el buffer serializado;

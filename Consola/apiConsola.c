@@ -253,7 +253,7 @@ void *programa_handler(void *atributos){
 					return (void *) FALLO_RECV;
 				}
 
-				if ((ppid = deserializePID(buffer)) == NULL){
+				if ((ppid = deserializeVal(buffer)) == NULL){
 					log_error(logger,"error al deserializar el packPID");
 					return (void *) FALLO_DESERIALIZAC;
 				}

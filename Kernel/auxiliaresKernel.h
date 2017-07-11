@@ -30,9 +30,6 @@ typedef struct {
  */
 void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src);
 
-// todo: refactorizar
-tPackSrcCode *recibir_paqueteSrc(int fd);
-
 /* Recibe, serializa y reenvia a Memoria el codigo fuente
  * El parametro src_size es un auxiliar para obtener ese dato hasta fuera del proceso
  */
@@ -55,7 +52,9 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog);
  * Tiene que redireccionar a Planificador lo que corresponda.
  * El resto son en su mayoria Syscalls.
  */
-void cpu_manejador(void *sockYmsj);
+void cpu_manejador(void *cpuInfo);
+
+void mem_manejador(void *m_sock);
 
 /* Es un recv() constante al socket del hilo Programa.
  * Gestiona los mensaje recibidos del hilo.

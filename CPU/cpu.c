@@ -33,34 +33,31 @@ int pag_size;
 int q_sleep;
 float q_sleep_segs;
 
-int exec_err;
-sem_t sem_fallo_exec;
-
 void set_quantum_sleep(void){
 	q_sleep_segs = q_sleep / 1000.0;
 	printf("Se cambio la latencia de ejecucion de instruccion a %f segundos\n", q_sleep_segs);
 }
 
+
 /*
- * TODO: hacer un hilo que chequee regularmente que no se haya roto la ejecucion del PCB
- * Si algo se rompe, manda el pid, exitCode y un header a Planificador.
+ * Si algo se rompe, manda el pid, exitCode y un header a Planificador (o a quien corresponda del Kernel?)
  */
+int exec_err;         // esta variable global va a retener el codigo de error con el que se rompio una primitiva
+sem_t sem_fallo_exec; // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
 void err_handler(void){
 while(1){
+	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
 
-	sem_wait(&sem_fallo_exec);
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_CPU};
+	pcb->exitCode = exec_err; // nos guardamos el
+	printf("Fallo ejecucion del PID %d con el error numero %d\n", pcb->id, pcb->exitCode);
 
-	int pcb_exitCode_mock = exec_err;
-	switch(exec_err){
-
-	case FALLO_CONEXION: // por ejemplo...
-		puts("Se detecto FALLO_CONEXION! \nDeteniendo ejecucion...");
-		send(sock_kern, &pcb_exitCode_mock, sizeof(int), 0);
-		break;
-
-	default:
-		break;
-	}
+	puts("Se detecto FALLO_CONEXION!");
+	puts("Detengo la ejecucion del PCB (o se detiene a si mismo, puede ser otra opcion)");
+	puts("Creo el paquete de comunicacion de error para cpu_manejador del Kernel");
+	puts("Envio el paquete (podria ser un pcb limpio y ligero, solo nos importa el pid y el exit_code)");
+	puts("Podria limpiar el PCB y algunas variables globales que controlaban ejecucion?");
+	puts("El CPU vuelve a un estado consistente, listo para recibir un pcb nuevo");
 
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 

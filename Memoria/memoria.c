@@ -145,11 +145,13 @@ int main(int argc, char* argv[]){
 void* kernel_handler(void *sock_kernel){
 
 	int *sock_ker = (int *) sock_kernel;
-	int stat, new_page;
-	int pid, pageCount;
+	int stat, new_page, pack_size;
+	int pid;
 	char *buffer;
 
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = THREAD_INIT};
+	tPackPidPag *pp;
+	tPackVal val;
 
 	printf("Esperamos que lleguen cosas del socket Kernel: %d\n", *sock_ker);
 
@@ -158,8 +160,6 @@ void* kernel_handler(void *sock_kernel){
 		switch(head.tipo_de_mensaje){
 		case INI_PROG:
 			puts("Kernel quiere inicializar un programa.");
-
-			tPackPidPag *pp;
 
 			if ((buffer = recvGeneric(*sock_ker)) == NULL){
 				puts("Fallo recepcion generica");
@@ -178,12 +178,25 @@ void* kernel_handler(void *sock_kernel){
 			}
 			sem_post(&mem_access);
 
+			freeAndNULL((void **) pp);
+			freeAndNULL((void **) buffer);
 			puts("Fin case INI_PROG.");
 			break;
 
-		case ALMAC_BYTES:
+		case BYTES:
+			puts("Kernel quiere Solicitar Bytes");
 			sem_wait(&mem_access);
+
+			if ((stat = manejarSolicitudBytes(*sock_ker)) != 0)
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+
+			sem_post(&mem_access);
+			puts("Se completo Solicitud de Bytes");
+			break;
+
+		case ALMAC_BYTES:
 			puts("Kernel quiere almacenar bytes");
+			sem_wait(&mem_access);
 
 			if ((stat = manejarAlmacenamientoBytes(*sock_ker)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Bytes. status: %d\n", stat);
@@ -194,19 +207,40 @@ void* kernel_handler(void *sock_kernel){
 
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
-			sem_wait(&mem_access);
 
-			recv(*sock_ker, &pid, sizeof pid, 0);
-			recv(*sock_ker, &pageCount, sizeof pageCount, 0);
-
-			if ((new_page = asignarPaginas(pid, pageCount)) != 0){
-				fprintf(stderr, "No se pudieron asignar %d paginas al proceso %d\n", pageCount, pid);
-				//return new_page;
+			if ((buffer = recvGeneric(*sock_ker)) == NULL){
+				puts("Fallo recepcion generica");
+				break;
 			}
 
-			//responderAsignacion(*sock_ker, new_page); todo: send(sock_ker, ASIGN_PAG_SUCCESS ...);
+			if ((pp = deserializePIDPaginas(buffer)) == NULL){
+				puts("Fallo deserializacion PIDPaginas");
+				break;
+			}
 
+			sem_wait(&mem_access);
+			if ((new_page = asignarPaginas(pp->pid, pp->pageCount)) < 0){
+				fprintf(stderr, "No se pudieron asignar %d paginas al proceso %d\n", pp->pageCount, pp->pid);
+				//return new_page;
+			}
 			sem_post(&mem_access);
+
+			pp->head.tipo_de_proceso = MEM; pp->head.tipo_de_mensaje = ASIGN_SUCCS;
+			pp->pageCount = new_page;
+
+			pack_size = 0;
+			if ((buffer = serializePIDPaginas(pp, &pack_size)) == NULL){
+				puts("No se pudo serializar la pagina asignada");
+				break;
+			}
+
+			if ((stat = send(*sock_ker, buffer, pack_size, 0)) == -1){
+				perror("Fallo send de pagina asignada a Kernel. error");
+				break;
+			}
+
+			freeAndNULL((void **) &pp);
+			freeAndNULL((void **) &buffer);
 			puts("Fin case ASIGN_PAG.");
 			break;
 
@@ -226,8 +260,6 @@ void* kernel_handler(void *sock_kernel){
 			break;
 		}
 	} while((stat = recv(*sock_ker, &head, HEAD_SIZE, 0)) > 0);
-
-
 
 	if (stat == -1){
 		perror("Se perdio conexion con Kernel. error");

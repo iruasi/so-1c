@@ -109,7 +109,7 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
 	printf("Se agrego sock_cpu #%d a lista \n",cpu->cpu.fd_cpu);
 
-	//freeAndNULL((void **) &pcb_serial); todo: ver si falla
+	free(pcb_serial);
 }
 
 /* Enlaza el CPU y el Programa, por medio del PID del PCB que comparten.
@@ -394,7 +394,7 @@ void avisarPIDaPrograma(int pid, int sock_prog){
 	pack_pid.val = pid;
 
 	pack_size = 0;
-	if ((pid_serial = serializePID(&pack_pid, &pack_size)) == NULL){
+	if ((pid_serial = serializeVal(&pack_pid, &pack_size)) == NULL){
 		puts("No se serializo bien");
 		return;
 	}
@@ -425,7 +425,7 @@ void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
 	pack_pid->val = nuevoPCB->id;
 
 	pack_size = 0;
-	char *pid_serial = serializePID(pack_pid, &pack_size);
+	char *pid_serial = serializeVal(pack_pid, &pack_size);
 	if (pid_serial == NULL){
 		puts("No se serializo bien");
 		return;
@@ -518,7 +518,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 		buffer = recvGeneric(cpu->cpu.fd_cpu);
 
-		pcbAux = deserializarPCB(buffer); // todo: rompe en deserializar Stack
+		pcbAux = deserializarPCB(buffer);
 
 		pthread_mutex_lock(&mux_exec);
 		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));

@@ -97,7 +97,7 @@ void mostrarSemaforos(tKernel *kernel){
 void mostrarGlobales(tKernel *kernel){
 	puts("\nVariables Globales:");
 	int i;
-	for (i = 0; i < kernel->sem_quant; ++i)
+	for (i = 0; i < kernel->shared_quant; ++i)
 		printf("Variable %s\t Valor: %d\n", kernel->shared_vars[i], 0);
 }
 

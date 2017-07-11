@@ -39,7 +39,9 @@ typedef enum {
 , PID_INVALIDO=        -52
 , FALLO_ESCRITURA=     -53
 , MAX_CACHE_ENTRIES=   -54
+, SIZE_INVALID=        -55
 
+, ABORTO_KERNEL=       -96
 , ABORTO_CPU=          -97
 , ABORTO_FILESYSTEM=   -98
 , ABORTO_MEMORIA=      -99

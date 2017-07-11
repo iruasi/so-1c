@@ -3,9 +3,15 @@
 
 #include <stdbool.h>
 
-#define SIZEOF_HMD 5
-#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
+#include <parser/parser.h>
 
+#ifndef SIZEOF_HMD
+#define SIZEOF_HMD 5
+#endif
+
+#ifndef ULTIMO_HMD
+#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
+#endif
 
 typedef struct{
 	int size;
@@ -18,7 +24,7 @@ typedef struct {
 	int pag_heap_cant;
 } tHeapProc;
 
-t_puntero allocar(int pid, int size);
+void setupHeapStructs(void);
 
 /* Nos dice, dado un HMD, si su espacio de memoria es reservable por una cantidad size de bytes
  * Retorna true si es reservable.
@@ -36,13 +42,13 @@ void crearNuevoHMD(char *dir_mem, int size);
  * Retorna un puntero a la direccion del bloque escribible si va bien.
  * Retorna NULL si no encuentra espacio reservable en esa pagina.
  */
-char *reservarBytes(char* heap_page, int sizeReserva);
+t_puntero reservarBytes(char* heap_page, int sizeReserva); // todo: cambios
 
 /* Reserva en Memoria una pagina para Heap;
  * Retorna 0 en salida exitosa.
  * Retorna negativo en caso contrario.
  */
-int reservarPagHeap(int socket_memoria, int pid, int size_reserva);
+int reservarPagHeap(int pid, int size_reserva);
 
 /* Se utiliza cuando Kernel recibe la respuesta de Memoria de ASIGN_SUCCS.
  * Si la pagina que se asigno es de Heap, le escribe el Heap_Metadata a la misma.
@@ -59,5 +65,32 @@ void liberarMemoria(void);
  */
 void actualizarHProcsConPagina(int pid, int heap_page);
 
+
+// manejo de heap 2.0
+
+
+t_puntero reservar(int pid, int size);
+
+int escribirEnMemoria(int pid, int pag, char *heap);
+
+t_puntero reservarEnHeap(int pid, int size, int *pag);
+
+/* Busca la pagina solicitada en Memoria y la trae completa;
+ * es un wrapper de Solicitud de Bytes.
+ * Retorna el contenido de la pagina en un buffer.
+ */
+char *obtenerHeapDeMemoria(int pid, int pag);
+
+int crearNuevoHeap(int pid);
+
+int pagMasReciente(int pid);
+
+void enviarPrimerHMD(int pid, int pag);
+
+void agregarHeapAPID(int pid, int pag);
+
+/* Revisa en el diccionario si un PID tiene alguna pagina de Heap
+ */
+bool tieneHeap(int pid);
 
 #endif /* CAPAMEMORIA_H_ */

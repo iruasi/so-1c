@@ -517,20 +517,37 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_val
 	enviar(leer_serial, pack_size);
 }
 
-t_puntero reservar (t_valor_variable espacio){
+t_puntero reservar (t_valor_variable espacio){ // todo: ya casi esta
 	printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = RESERVAR};
-	int pack_size = 0;
+	int stat;
+	char *ptr_serial;
+	tPackVal *val;
+	tPackHeader head;
 
+	val = malloc(sizeof *val);
+	val->head.tipo_de_proceso = CPU; val->head.tipo_de_mensaje = RESERVAR;
+	val->val = espacio;
+
+	int pack_size = 0;
 	char *reserva_serial;
-	if ((reserva_serial = serializeBytes(head, (char*) &espacio, sizeof espacio, &pack_size)) == NULL){
+	if ((reserva_serial = serializeVal(val, &pack_size)) == NULL){
 		puts("No se pudo serializar el semaforo de signal");
 		return FALLO_SERIALIZAC;
 	}
+	freeAndNULL((void **) &val);
 
 	enviar(reserva_serial, pack_size);
-	return 40;
+	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recv de puntero alojado de Kernel. error");
+		// todo: setear error del err_handler y etc
+		return -1;
+	}
+
+	ptr_serial = recvGeneric(sock_kern);
+	val = deserializeVal(ptr_serial);
+
+	return val->val;
 }
 
 void enviar(char *op_kern_serial, int pack_size){

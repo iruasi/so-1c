@@ -37,10 +37,10 @@ bool frameLibre(int frame, int off){
 
 int pageQuantity(int pid){
 
-	int i, off, fr;
+	int off, fr;
 	int page_quant = 0;
 
-	for(i = off = fr = 0; i < marcos_inv; ++i){
+	for(off = fr = 0; fr < marcos_inv;){
 		if (pid_match(pid, fr, off))
 			page_quant++;
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
@@ -54,7 +54,7 @@ int reservarPaginas(int pid, int pageCount){
 	int fr_apr, fr, off, cic;
 	int pag_assign, nr_pag, max_page;
 
-	if ((nr_pag = max_page = pageQuantity(pid)) != 0){
+	if ((nr_pag = max_page = pageQuantity(pid)) < 0){
 		printf("Fallo conteo de paginas para el pid %d\n", pid);
 		return max_page;
 	}
@@ -111,7 +111,7 @@ void limpiarDeInvertidas(int pid){
 }
 
 void nextFrameValue(int *fr, int *off, int step_size){
-	if(*off + step_size > memoria->marco_size){
+	if(*off + step_size >= memoria->marco_size){
 		(*fr)++; *off = 0;
 	} else {
 		(*off) += step_size;
