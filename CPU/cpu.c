@@ -22,10 +22,10 @@
 #include <parser/parser.h>
 #include <parser/metadata_program.h>
 
-int pedirInstruccion(int instr_size);
-int recibirInstruccion(char **linea, int instr_size);
+void pedirInstruccion(int instr_size);
+void recibirInstruccion(char **linea, int instr_size);
 
-int ejecutarPrograma(void);
+int *ejecutarPrograma(void);
 void set_quantum_sleep(void);
 int conectarConServidores(tCPU *cpu_data);
 
@@ -39,27 +39,26 @@ void set_quantum_sleep(void){
 }
 
 
-/*
- * Si algo se rompe, manda el pid, exitCode y un header a Planificador (o a quien corresponda del Kernel?)
- */
-int exec_err;         // esta variable global va a retener el codigo de error con el que se rompio una primitiva
+int err_exec;         // esta variable global va a retener el codigo de error con el que se rompio una primitiva
 sem_t sem_fallo_exec; // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
+
 void err_handler(void){
 while(1){
 	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_CPU};
-	pcb->exitCode = exec_err; // nos guardamos el
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_PCB};
+	pcb->exitCode = err_exec;
 	printf("Fallo ejecucion del PID %d con el error numero %d\n", pcb->id, pcb->exitCode);
 
-	puts("Se detecto FALLO_CONEXION!");
-	puts("Detengo la ejecucion del PCB (o se detiene a si mismo, puede ser otra opcion)");
+
 	puts("Creo el paquete de comunicacion de error para cpu_manejador del Kernel");
 	puts("Envio el paquete (podria ser un pcb limpio y ligero, solo nos importa el pid y el exit_code)");
 	puts("Podria limpiar el PCB y algunas variables globales que controlaban ejecucion?");
 	puts("El CPU vuelve a un estado consistente, listo para recibir un pcb nuevo");
 
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
+
+pthread_t pcb_th; // el hilo del pcb se puede matar desde caluqier lugar ahora >:C
 
 int main(int argc, char* argv[]){
 
@@ -69,6 +68,7 @@ int main(int argc, char* argv[]){
 	}
 
 	int stat;
+	int *retval;
 
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
@@ -106,25 +106,21 @@ int main(int argc, char* argv[]){
 			pcb = deserializarPCB(pcb_serial);
 
 			puts("Recibimos un PCB para ejecutar...");
-			if ((stat = ejecutarPrograma()) != 0){
-				fprintf(stderr, "Fallo ejecucion de programa. status: %d\n", stat);
-				puts("No se continua con la ejecucion del pcb");
-			}
+			pthread_create(&pcb_th, NULL, (void *) ejecutarPrograma, NULL);
+
+			pthread_join(pcb_th, (void **) &retval);
+			printf("Termino la ejecucion del PCB con valor retorno = %d!\n", *retval);
 
 		} else {
 			puts("Me re fui");
-			return -99;
+			return ABORTO_CPU;
 		}
-
-		//todo: aca vendria otro if cuando kernel tiene q imprimir algo por consola. le manda un mensaje.
 	}
-
 
 	if (stat == -1){
 		perror("Error en la recepcion con Kernel. error");
 		return FALLO_RECV;
 	}
-
 
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);
@@ -135,34 +131,26 @@ int main(int argc, char* argv[]){
 }
 
 
-int ejecutarPrograma(void){
+int *ejecutarPrograma(void){
 	sleep(2); // todo: esto esta por race condition vs Kernel para escribir/leer a Memoria las instrucciones
+
+	tPackHeader header;
+	int *retval = malloc(sizeof(int));
 	int stat;
 	t_size instr_size;
-	tPackHeader header;
 	char **linea = malloc(0);
 	*linea = NULL;
 	bool fin_quantum = false;
 	termino = false;
-
-
 	int cantidadDeRafagas = 0;
 
 	puts("Empieza a ejecutar...");
-
 	do{
 		instr_size = (pcb->indiceDeCodigo + pcb->pc)->offset;
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		if ((stat = pedirInstruccion(instr_size)) != 0){
-			fprintf(stderr, "Fallo pedido de instruccion. stat: %d\n", stat);
-			return FALLO_GRAL;
-		}
-
-		if ((stat = recibirInstruccion(linea, instr_size)) != 0){
-			fprintf(stderr, "Fallo recepcion de instruccion. stat: %d\n", stat);
-			return FALLO_GRAL;
-		}
+		pedirInstruccion(instr_size);
+		recibirInstruccion(linea, instr_size);
 
 		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
@@ -184,14 +172,13 @@ int ejecutarPrograma(void){
 
 	if (pcb->pc == pcb->cantidad_instrucciones){ // el PCB ejecuto la ultima instruccion todo: revisar logica de esto
 		header.tipo_de_mensaje = FIN_PROCESO;
-		pcb->exitCode = 100; // exit_success
-	}
+		*retval = pcb->exitCode = 0; // exit_success
 
-	else if(fin_quantum == true) // se dealoja el PCB, faltandole ejecutar instrucciones
-		header.tipo_de_mensaje = PCB_PREEMPT;
+	} else if(fin_quantum == true) // se dealoja el PCB, faltandole ejecutar instrucciones
+		*retval = header.tipo_de_mensaje = PCB_PREEMPT;
 
-	else
-		header.tipo_de_mensaje = ABORTO_PROCESO;
+	  else
+		*retval = header.tipo_de_mensaje = ABORTO_PROCESO;
 
 	header.tipo_de_proceso = CPU;
 
@@ -205,13 +192,14 @@ int ejecutarPrograma(void){
 
 	free(linea);
 	free(pcb_serial);
-	return EXIT_SUCCESS;
+	return retval;
 }
 
-int pedirInstruccion(int instr_size){
+void pedirInstruccion(int instr_size){
 	puts("Pide instruccion");
 
 	tPackByteReq pbrq;
+	char *bytereq_serial;
 	int stat, pack_size, code_page, offset;
 	code_page = (pcb->indiceDeCodigo + pcb->pc)->start / pag_size;
 	offset    = (pcb->indiceDeCodigo + pcb->pc)->start % pag_size;
@@ -223,18 +211,23 @@ int pedirInstruccion(int instr_size){
 	pbrq.size   = instr_size;
 
 	pack_size = 0;
-	char *bytereq_serial = serializeByteRequest(&pbrq, &pack_size);
+	if ((bytereq_serial = serializeByteRequest(&pbrq, &pack_size)) == NULL){
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
 
 	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de paquete de pedido de bytes. error");
-		return FALLO_SEND;
+		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
-	freeAndNULL((void **) &bytereq_serial);
-	return 0;
+	free(bytereq_serial);
 }
 
-int recibirInstruccion(char **linea, int instr_size){
+void recibirInstruccion(char **linea, int instr_size){
 	puts("vamos a recibir instruccion");
 
 	int stat;
@@ -243,33 +236,39 @@ int recibirInstruccion(char **linea, int instr_size){
 	tPackBytes *instr;
 
 	if ((*linea = realloc(*linea, instr_size)) == NULL){
-		fprintf(stderr, "No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
-		return FALLO_GRAL;
+		printf("No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
+		err_exec = FALLO_GRAL;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
 		perror("Fallo recepcion de header. error");
-		return FALLO_RECV;
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != BYTES){
-		fprintf(stderr, "Error de comunicacion. Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
+		printf("Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
 				head.tipo_de_proceso, head.tipo_de_mensaje);
-		return FALLO_GRAL;
+		err_exec = CONEX_INVAL;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((byte_serial = recvGeneric(sock_mem)) == NULL){
-		puts("Fallo recepcion de bytes");
-		return FALLO_RECV;
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((instr = deserializeBytes(byte_serial)) == NULL){
-		puts("Fallo deserializacion de bytes");
-		return FALLO_DESERIALIZAC;
+		err_exec = FALLO_DESERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 	memcpy(*linea, instr->bytes, instr->bytelen);
-
-	return 0;
 }
 
 

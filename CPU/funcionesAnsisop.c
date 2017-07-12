@@ -1,5 +1,7 @@
 #include <stdbool.h>
 #include <netdb.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include <commons/string.h>
 
@@ -14,6 +16,9 @@ extern bool termino;
 extern AnSISOP_funciones functions;
 extern int pag_size;
 char *eliminarWhitespace(char *string);
+
+extern int err_exec;
+extern sem_t sem_fallo_exec;
 
 void setupCPUFunciones(void){
 	functions.AnSISOP_definirVariable		= definirVariable;
@@ -100,11 +105,10 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
 
 	indiceStack* ult_stack;
-	int pag,
-		off,
-		size;
+	int pag, off, size;
 	obtenerUltimoEnStack(pcb->indiceDeStack, &pag, &off, &size);
 	posicionMemoriaId* var = malloc(sizeof(posicionMemoriaId));
+
 	var->id = variable;
 	var->pos.offset= off + size; // todo: arreglar para que off y pag no se vayan del tamanio maximo de pagina (ej: off > pag_size)
 	var->pos.pag = pag;
@@ -137,13 +141,18 @@ t_puntero obtenerPosicionVariable(t_nombre_variable variable){
 		var = list_get(stack->vars, i);
 		if(var->id == variable){
 			pm.offset = var->pos.offset;
-			pm.pag    = var->pos.pag;
+			pm.pag    = var->pos.pag + pcb->paginasDeCodigo;
 			pm.size   = var->pos.size;
 			break;
 		}
 	}
 
-	return (var->id != variable)? VAR_NOT_FOUND : pm.pag * pag_size + pm.offset;
+	if (var->id != variable){
+		err_exec = FALLO_INSTR;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+	return pm.pag * pag_size + pm.offset;
 }
 
 void finalizar(void){
@@ -171,6 +180,7 @@ void finalizar(void){
 }
 
 t_valor_variable dereferenciar(t_puntero puntero) {
+	printf("Dereferenciar al puntero de posicion %d\n", puntero);
 
 	t_valor_variable var;
 	tPackByteReq pbr;
@@ -181,34 +191,40 @@ t_valor_variable dereferenciar(t_puntero puntero) {
 
 	memcpy(&pbr.head, &h, HEAD_SIZE);
 	pbr.pid    = pcb->id;
-	pbr.page   = puntero / pag_size + pcb->paginasDeCodigo;
+	pbr.page   = puntero / pag_size;
 	pbr.offset = puntero % pag_size;
 	pbr.size   = sizeof(t_puntero);
 
 	if ((byterq_serial = serializeByteRequest(&pbr, &pack_size)) == NULL){
-		puts("Fallo serializacion Pedido de Bytes");
-		return FALLO_SERIALIZAC;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if((stat = send(sock_mem, byterq_serial, pack_size, 0)) == -1){
 		perror("Fallo send de byte request. error");
-		// bool algo_fallo = true;
-		return FALLO_SEND;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((stat = recv(sock_mem, &h, HEAD_SIZE, 0)) == -1){
 		perror("Fallo recepcion de header desde Memoria. error");
-		return FALLO_RECV;
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((bytes_serial = recvGeneric(sock_mem)) == NULL){
-		puts("Fallo recepcion generica desde Memoria");
-		return FALLO_GRAL;
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((bytes = deserializeBytes(bytes_serial)) == NULL){
-		puts("Fallo deserializacion de Bytes");
-		return FALLO_DESERIALIZAC;
+		err_exec = FALLO_DESERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	memcpy(&var, bytes->bytes, sizeof(var));
@@ -220,26 +236,32 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 	printf("Asignando en %d el valor %d\n", puntero, variable);
 
 	tPackByteAlmac pbal;
+	char *byteal_serial;
 	int pack_size, stat;
 	tPackHeader h = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ALMAC_BYTES};
 
 	memcpy(&pbal.head, &h, HEAD_SIZE);
 	pbal.pid    = pcb->id;
-	pbal.page   = puntero / pag_size + pcb->paginasDeCodigo;
+	pbal.page   = puntero / pag_size;
 	pbal.offset = puntero % pag_size;
 	pbal.size   = sizeof (t_valor_variable);
 	pbal.bytes  = (char *) &variable;
 
 	pack_size = 0;
-	char *byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size);
-	if((stat = send(sock_mem, byteal_serial, pack_size, 0)) == -1){
-		perror("Fallo send de byte request. error");
-		// bool algo_fallo = true;
-		freeAndNULL((void **) &byteal_serial);
-		return;
+	if ((byteal_serial = serializeByteAlmacenamiento(&pbal, &pack_size)) == NULL){
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
-	//freeAndNULL((void **) &byteal_serial); //todo: rompe
+	if((stat = send(sock_mem, byteal_serial, pack_size, 0)) == -1){
+		perror("Fallo send de byte request. error");
+		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
+	free(byteal_serial);
 }
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
@@ -252,13 +274,16 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = SET_GLOBAL};
 	pack_size = 0;
 	if ((valor_serial = serializeValorYVariable(head, valor, variable, &pack_size)) == NULL){
-		puts("No se pudo serializar el valor y variable");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((stat = send(sock_kern, valor_serial, pack_size, 0)) == -1){
 		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	free(valor_serial);
@@ -269,16 +294,20 @@ void irAlLabel (t_nombre_etiqueta etiqueta){
 	char* label = eliminarWhitespace(etiqueta);
 	printf("Se va al label %s\n", label);
 
-	pcb->pc = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
+	if ((pcb->pc = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->etiquetas_size)) == -1){
+		printf("No se encontro la etiqueta %s en el indiceDeEtiquetas", label);
+		err_exec = FALLO_INSTR;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
 	pcb->pc--; // es porque ejecutarInstruccion() incrementa el pc. Si, esto es efectivamente un asco
 	free(label);
 }
 
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 	printf("Se llama a la funcion %s\n", etiqueta);
-	//uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
+
 	indiceStack *nuevoStack = crearStackVacio();
-	//pcb->etiquetaSize = tamlineaStack;
 	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
 
@@ -334,36 +363,45 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = GET_GLOBAL};
 	pack_size = 0;
 	if ((var_serial = serializeBytes(head, var, var_len, &pack_size)) == NULL){
-		puts("No se pudo serializar el valor y variable");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((stat = send(sock_kern, var_serial, pack_size, 0)) == -1){
 		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 	printf("Se enviaron %d bytes a Kernel\n", stat);
 	freeAndNULL((void **) &var_serial);
 
 	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
-		perror("No se recibir header con Valor Global de Kernel. error");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		perror("Fallo recepcion de header. error");
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if (head.tipo_de_proceso != KER || head.tipo_de_mensaje != GET_GLOBAL){
 		printf("Error de comunicacion. Se recibio Header con: proc %d, msj %d\n",
 				head.tipo_de_proceso, head.tipo_de_mensaje);
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = CONEX_INVAL;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((var_serial = recvGeneric(sock_kern)) == NULL){
-		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	if ((val_var = deserializeValorYVariable(var_serial)) == NULL){
-		puts("No se pudo deserializar el valor de la variable.");
-		return 0xFFFF; // no se me ocurre algo mejor que retornar un valor bien power
+		err_exec = FALLO_DESERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	memcpy(&valor, &val_var->val, sizeof(t_valor_variable));
@@ -386,8 +424,9 @@ void wait (t_nombre_semaforo identificador_semaforo){
 	int lenId = strlen(sem) + 1;
 	char *wait_serial;
 	if ((wait_serial = serializeBytes(head, sem, lenId, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de wait");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(wait_serial, pack_size);
@@ -405,8 +444,9 @@ void signal (t_nombre_semaforo identificador_semaforo){
 	int lenId = strlen(sem) + 1;
 	char *sig_serial;
 	if ((sig_serial = serializeBytes(head, sem, lenId, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de signal");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(sig_serial, pack_size);
@@ -422,8 +462,9 @@ void liberar (t_puntero puntero){
 
 	char *free_serial;
 	if ((free_serial = serializeBytes(head, (char*) &puntero, sizeof puntero, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de signal");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(free_serial, pack_size);
@@ -436,8 +477,9 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags){
 
 	char *abrir_serial;
 	if ((abrir_serial = serializeAbrir(direccion, flags, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de signal");
-		return FALLO_SERIALIZAC;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(abrir_serial, pack_size);
@@ -452,8 +494,9 @@ void borrar (t_descriptor_archivo direccion){
 
 	char *borrar_serial;
 	if ((borrar_serial = serializeBytes(head, (char*) &direccion, sizeof direccion, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de signal");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(borrar_serial, pack_size);
@@ -467,8 +510,9 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 
 	char *cerrar_serial;
 	if ((cerrar_serial = serializeBytes(head, (char*) &descriptor_archivo, sizeof descriptor_archivo, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de signal");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(cerrar_serial, pack_size);
@@ -481,8 +525,9 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 
 	char *mov_serial;
 	if ((mov_serial = serializeMoverCursor(descriptor_archivo, posicion, &pack_size)) == NULL){
-		puts("No se pudo serializar la posicion a mover el cursor");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(mov_serial, pack_size);
@@ -495,8 +540,9 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 
 	char *esc_serial;
 	if ((esc_serial = serializeEscribir(descriptor_archivo, informacion, tamanio, &pack_size)) == NULL){
-		puts("No se pudo serializar la posicion a mover el cursor");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(esc_serial, pack_size);
@@ -510,8 +556,9 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_val
 
 	char *leer_serial;
 	if ((leer_serial = serializeLeer(descriptor_archivo, informacion, tamanio, &pack_size)) == NULL){
-		puts("No se pudo serializar la posicion a mover el cursor");
-		return;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
 	enviar(leer_serial, pack_size);
@@ -532,20 +579,32 @@ t_puntero reservar (t_valor_variable espacio){ // todo: ya casi esta
 	int pack_size = 0;
 	char *reserva_serial;
 	if ((reserva_serial = serializeVal(val, &pack_size)) == NULL){
-		puts("No se pudo serializar el semaforo de signal");
-		return FALLO_SERIALIZAC;
+		err_exec = FALLO_SERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 	freeAndNULL((void **) &val);
 
 	enviar(reserva_serial, pack_size);
 	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
 		perror("Fallo recv de puntero alojado de Kernel. error");
-		// todo: setear error del err_handler y etc
-		return -1;
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 
-	ptr_serial = recvGeneric(sock_kern);
-	val = deserializeVal(ptr_serial);
+	if ((ptr_serial = recvGeneric(sock_kern)) == NULL){
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+
+	}
+
+	if ((val = deserializeVal(ptr_serial)) == NULL){
+		err_exec = FALLO_DESERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
 
 	return val->val;
 }
@@ -554,7 +613,9 @@ void enviar(char *op_kern_serial, int pack_size){
 	int stat;
 	if ((stat = send(sock_kern, op_kern_serial, pack_size, 0)) == -1){
 		perror("No se pudo enviar la operacion privilegiada a Kernel. error");
-		return;
+		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
 	}
 	printf("Se enviaron %d bytes a Kernel\n", stat);
 }
