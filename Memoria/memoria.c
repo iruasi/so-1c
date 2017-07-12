@@ -34,7 +34,7 @@ char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
-sem_t mem_access;
+sem_t mem_access; // todo: cambiar por pthread_mutex
 
 int main(int argc, char* argv[]){
 
@@ -161,78 +161,73 @@ void* kernel_handler(void *sock_kernel){
 		case INI_PROG:
 			puts("Kernel quiere inicializar un programa.");
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL){
-				puts("Fallo recepcion generica");
+			if ((buffer = recvGeneric(*sock_ker)) == NULL)
 				break;
-			}
 
-			if ((pp = deserializePIDPaginas(buffer)) == NULL){
-				puts("Fallo deserializacion PIDPaginas");
+			if ((pp = deserializePIDPaginas(buffer)) == NULL)
 				break;
-			}
+			freeAndNULL((void **) buffer);
 
 			sem_wait(&mem_access);
-			if ((stat = inicializarPrograma(pp->pid, pp->pageCount)) != 0){
-				puts("No se pudo inicializar el programa. Se aborta el programa.");
-				finalizarPrograma(pp->pid);
-			}
+			stat = inicializarPrograma(pp->pid, pp->pageCount);
 			sem_post(&mem_access);
 
 			freeAndNULL((void **) pp);
-			freeAndNULL((void **) buffer);
+			if (stat != 0)
+				puts("No se pudo inicializar el programa");
+
 			puts("Fin case INI_PROG.");
 			break;
 
 		case BYTES:
 			puts("Kernel quiere Solicitar Bytes");
+
 			sem_wait(&mem_access);
-
-			if ((stat = manejarSolicitudBytes(*sock_ker)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
-
+			stat = manejarSolicitudBytes(*sock_ker);
 			sem_post(&mem_access);
-			puts("Se completo Solicitud de Bytes");
+
+			if (stat != 0){
+				printf("Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
+				head.tipo_de_proceso = MEM; head.tipo_de_mensaje = stat;
+				informarFallo(*sock_ker, head);
+
+			} else
+				puts("Se completo Solicitud de Bytes");
+
 			break;
 
 		case ALMAC_BYTES:
 			puts("Kernel quiere almacenar bytes");
+
 			sem_wait(&mem_access);
-
-			if ((stat = manejarAlmacenamientoBytes(*sock_ker)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Bytes. status: %d\n", stat);
-
+			stat = manejarAlmacenamientoBytes(*sock_ker);
 			sem_post(&mem_access);
+
+			if (stat != 0)
+				printf("Fallo el manejo de la Almacenamiento de Bytes. status: %d\n", stat);
+
 			puts("Fin case ALMAC_BYTES.");
 			break;
 
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL){
-				puts("Fallo recepcion generica");
+			if ((buffer = recvGeneric(*sock_ker)) == NULL)
 				break;
-			}
 
-			if ((pp = deserializePIDPaginas(buffer)) == NULL){
-				puts("Fallo deserializacion PIDPaginas");
+			if ((pp = deserializePIDPaginas(buffer)) == NULL)
 				break;
-			}
+			freeAndNULL((void **) &buffer);
 
 			sem_wait(&mem_access);
-			if ((new_page = asignarPaginas(pp->pid, pp->pageCount)) < 0){
-				fprintf(stderr, "No se pudieron asignar %d paginas al proceso %d\n", pp->pageCount, pp->pid);
-				//return new_page;
-			}
+			new_page = asignarPaginas(pp->pid, pp->pageCount);
 			sem_post(&mem_access);
 
-			pp->head.tipo_de_proceso = MEM; pp->head.tipo_de_mensaje = ASIGN_SUCCS;
+			pp->head.tipo_de_mensaje = (new_page < 0)? FALLO_ASIGN : ASIGN_SUCCS;
+			pp->head.tipo_de_proceso = MEM;
 			pp->pageCount = new_page;
-
 			pack_size = 0;
-			if ((buffer = serializePIDPaginas(pp, &pack_size)) == NULL){
-				puts("No se pudo serializar la pagina asignada");
-				break;
-			}
+			buffer = serializePIDPaginas(pp, &pack_size);
 
 			if ((stat = send(*sock_ker, buffer, pack_size, 0)) == -1){
 				perror("Fallo send de pagina asignada a Kernel. error");

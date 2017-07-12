@@ -26,7 +26,6 @@
 
 #ifndef HEAD_SIZE
 #define HEAD_SIZE 8
-
 #endif
 
 //extern t_dictionary *heapDict;
@@ -43,10 +42,7 @@ t_list *listaDeCpu;
 extern t_queue *New, *Exit, *Block,*Ready;
 extern t_list	*Exec,*listaProgramas;
 extern tKernel *kernel;
-extern t_valor_variable *shared_vals;
 extern int grado_mult;
-
-
 
 /* Este procedimiento inicializa las variables y listas globales.
  */
@@ -164,14 +160,16 @@ void cpu_manejador(void *infoCPU){
 
 		tPackValComp *val_comp;
 		if ((val_comp = deserializeValorYVariable(buffer)) == NULL){
-			puts("No se pudo deserializar Valor y Variable");
-			// todo: abortar programa?
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
+			//informarFallo(cpu_i->cpu.fd_cpu, head);
+			//finalizarProceso(pid) // todo: funcion finalizar proceso
 			break;
 		}
 
-		if ((stat = setGlobal(val_comp)) != 0){
-			puts("No se pudo asignar la variable global");
-			// todo: abortar programa?
+		if ((stat = setGlobalSyscall(val_comp)) != 0){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = stat;
+			//informarFallo(cpu_i->cpu.fd_cpu, head);
+			//finalizarProceso(pid) // todo: funcion finalizar proceso
 			break;
 		}
 
@@ -195,7 +193,7 @@ void cpu_manejador(void *infoCPU){
 		var = malloc(var_name->bytelen);
 		memcpy(var, var_name->bytes, var_name->bytelen);
 
-		val = getGlobal(var, &found);
+		val = getGlobalSyscall(var, &found);
 		rta = (found)? GET_GLOBAL : GLOBAL_NOT_FOUND;
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = rta;
 
@@ -222,8 +220,9 @@ void cpu_manejador(void *infoCPU){
 		freeAndNULL((void **) &buffer);
 
 		if ((ptr = reservar(cpu_i->cpu.pid, alloc->val)) == 0){
-			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ptr;
-			//enviarFallo(head, cpu_i->cpu.pid, stat);?
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_HEAP;
+			informarFallo(cpu_i->cpu.fd_cpu, head);
+			//finalizarProceso(pid) // todo: funcion finalizar proceso
 			break;
 		}
 
@@ -316,11 +315,11 @@ void mem_manejador(void *m_sock){
 	switch(head.tipo_de_mensaje){
 	printf("(MEM) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
-	case ASIGN_SUCCS:
-		puts("Se asigno paginas para algun proceso");
+	case ASIGN_SUCCS : case FALLO_ASIGN:
+		puts("Se recibe respuesta de asignacion de paginas para algun proceso");
 		sem_post(&sem_heapDict);
 		sem_wait(&sem_end_exec);
-		puts("Fin case ASIGN_SUCCS");
+		puts("Fin case ASIGN_SUCCESS_OR_FAIL");
 		break;
 
 	case BYTES:
@@ -630,47 +629,6 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 	list_add(gl_Programas, pf);
 }
 
-int setGlobal(tPackValComp *val_comp){
-
-	int i;
-	int nlen = strlen(val_comp->nom) + 2; // espacio para el ! y el '\0'
-	char *aux = NULL;
-	for (i = 0; i < kernel->shared_quant; ++i){
-		aux = realloc(aux, nlen); aux[0] = '!'; memcpy(aux + 1, val_comp->nom, nlen); aux[nlen] = '\0';
-
-		if (strcmp(kernel->shared_vars[i], aux) == 0){
-			shared_vals[i] = val_comp->val;
-			free(aux);
-			return 0;
-		}
-	}
-	free(aux);
-	return GLOBAL_NOT_FOUND;
-}
-
-t_valor_variable getGlobal(t_nombre_variable *var, bool* found){
-
-	int i;
-	int nlen = strlen(var) + 2; // espacio para el ! y el '\0'
-	char *aux = NULL;
-	*found = true;
-	for (i = 0; i < kernel->shared_quant; ++i){
-		aux = realloc(aux, nlen); aux[0] = '!'; memcpy(aux + 1, var, nlen); aux[nlen] = '\0';
-
-		if (strcmp(kernel->shared_vars[i], aux) == 0){
-			free(aux);
-			return shared_vals[i];
-		}
-	}
-	free(aux);
-	*found = false;
-	return GLOBAL_NOT_FOUND;
-}
-
 void* queue_get(t_queue *self,int posicion) {
 	return list_get(self->elements, posicion);
 }
-
-
-
-

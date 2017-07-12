@@ -15,13 +15,9 @@
 #include "capaMemoria.h"
 #include "defsKernel.h"
 
-#ifndef VALID_ALLOC
-#define VALID_ALLOC(S) (((S) > 0 && (S) <= MAX_ALLOC_SIZE)? true : false)
-#endif
-
 extern int MAX_ALLOC_SIZE;
 
-t_dictionary *heapDict; // pid_string(char*) : heap_pages(t_list)
+t_dictionary *heapDict; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
 sem_t sem_heapDict;
 sem_t sem_bytes;
 sem_t sem_end_exec;
@@ -40,56 +36,56 @@ void setupHeapStructs(void){
 	sem_init(&sem_end_exec, 0, 0);
 }
 
-uint8_t esReservable(int size, tHeapMeta *hmd){
+bool esReservable(int size_req, tHeapMeta *hmd){
 
-	if(! hmd->isFree || hmd->size - SIZEOF_HMD < size)
+	if(! hmd->isFree || hmd->size < size_req)
 		return false;
-
-	else if (hmd->size == 0) // esta libre y con espacio cero => es el ultimo MetaData
-		return ULTIMO_HMD;
 
 	return true;
 }
 
-void crearNuevoHMD(char *dir_mem, int size){
+void crearNuevoHMD(tHeapMeta *dir_mem, int size){
 
-	tHeapMeta *new_hmd = (tHeapMeta *) dir_mem;
-	new_hmd->size = size;
-	new_hmd->isFree = true;
+	dir_mem->size = size;
+	dir_mem->isFree = true;
 }
 
-t_puntero reservarBytes(char* heap_page, int sizeReserva){ // todo: convertir retorno a t_puntero
+/* retorna posicion relativa la pagina de heap, NO ES ABSOLUTA
+ */
+t_puntero reservarBytes(char* heap_page, int sizeReserva){
+	printf("Se tratan de reservar %d bytes en pagina de Heap\n", sizeReserva);
 
-	int sizeLibre = frame_size - SIZEOF_HMD;
-	char *next_hmd = heap_page;
-	tHeapMeta *hmd = (tHeapMeta*) next_hmd;
+	int sizeLibre = MAX_ALLOC_SIZE;
+	int dist      = MAX_ALLOC_SIZE + SIZEOF_HMD;
+	tHeapMeta *hmd, *hmd_next;
 
-	uint8_t rta = esReservable(sizeReserva, hmd);
-	while(rta != ULTIMO_HMD){
-		hmd = (tHeapMeta *) next_hmd;
-		next_hmd = (char *) hmd + SIZEOF_HMD + hmd->size;
+	hmd = (tHeapMeta *) heap_page;
+	while(sizeLibre >= sizeReserva){
 
-		if (rta == true){
+		if (esReservable(sizeReserva, hmd)){
 
 			hmd->size = sizeReserva;
 			hmd->isFree = false;
 
 			sizeLibre -= sizeReserva;
-			crearNuevoHMD(next_hmd, sizeLibre);
+			hmd_next = nextBlock(hmd, &dist);
 
-			return (char *) hmd + SIZEOF_HMD;
+			crearNuevoHMD(hmd_next, sizeLibre);
+			return ((char *) hmd - heap_page) + SIZEOF_HMD; // posicion relativa
 		}
 
 		sizeLibre -= hmd->size;
-		rta = esReservable(sizeReserva, (tHeapMeta *) next_hmd);
+		hmd = nextBlock(hmd, &dist);
 	}
 
-	return NULL;
+	return 0;
 }
 
 t_puntero reservar(int pid, int size){
+	printf("Se reservaran %d bytes para el PID %d\n", size, pid);
 
-	int stat, pag_h;
+	int stat;
+	t_puntero ptr;
 
 	if (!VALID_ALLOC(size)){
 		printf("El size %d no es un tamanio valido para almacenar en Memoria\n", size);
@@ -103,8 +99,43 @@ t_puntero reservar(int pid, int size){
 		}
 	}
 
-	return reservarEnHeap(pid, size, &pag_h);
+	if ( !(ptr = reservarEnHeap(pid, size)) )
+		if ( !(ptr = intentarReservaUnica(pid, size)) )
+			return 0;
+
+	return ptr;
 }
+
+t_puntero intentarReservaUnica(int pid, int size){
+
+	t_puntero  ptr;
+	int stat;
+	t_list    *heaps;
+	tHeapProc *hp;
+	char      *heap, spid[MAXPID_DIG];
+
+	if ((stat = crearNuevoHeap(pid)) != 0){
+		puts("No se pudo crear pagina de heap!");
+		return 0;
+	}
+
+	sprintf(spid, "%d", pid);
+	heaps    = dictionary_get(heapDict, spid);
+	hp = list_get(heaps, list_size(heaps)-1);
+
+	if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL)
+		return 0;
+
+	if ( !(ptr = reservarBytes(heap, size)) ){
+		printf("No se pudieron reservar %d bytes en la pagina %d del PID %d\n", size, hp->page, pid);
+		return 0;
+	}
+
+	hp->max_size = getMaxFreeBlock(heap);
+	escribirEnMemoria(pid, hp->page, heap);
+	return ptr + hp->page * frame_size;
+}
+
 
 int escribirEnMemoria(int pid, int pag, char *heap){
 
@@ -133,7 +164,7 @@ int escribirEnMemoria(int pid, int pag, char *heap){
 	return 0;
 }
 
-t_puntero reservarEnHeap(int pid, int size, int *pag){
+t_puntero reservarEnHeap(int pid, int size){
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 
@@ -141,32 +172,71 @@ t_puntero reservarEnHeap(int pid, int size, int *pag){
 	t_puntero ptr;
 	char *heap;
 	t_list *heaps_pid;
+	tHeapProc *hp;
 
 	heaps_pid = dictionary_get(heapDict, spid);
 	for (i = 0; i < list_size(heaps_pid); ++i){
+		hp = list_get(heaps_pid, i);
 
-		pag = list_get(heaps_pid, i);
-		heap = obtenerHeapDeMemoria(pid, *pag);
+		if (size > hp->max_size)
+			continue;
 
-		if ((ptr = (t_puntero) reservarBytes(heap, size))){
-			escribirEnMemoria(pid, *pag, heap);
-			return ptr;
+		heap = obtenerHeapDeMemoria(pid, hp->page);
+
+		if ((ptr = reservarBytes(heap, size))){
+			hp->max_size = getMaxFreeBlock(heap);
+			escribirEnMemoria(pid, hp->page, heap);
+			return ptr + hp->page * frame_size; // posicion absoluta de Memoria
 		}
+
 		freeAndNULL((void **) &heap);
 	}
 
-	printf("No se encontro espacio en Heaps del PID %d para %d bytes\n", pid, size);
-	puts("Pedimos una nueva pagina..");
+	return 0;
+}
 
-	crearNuevoHeap(pid);
-	heap = obtenerHeapDeMemoria(pid, *pag);
-	if ( !(ptr = (t_puntero) reservarBytes(heap, size)) ){
-		printf("Fue imposible allocar %d bytes para PID %d en un Heap nuevo\n", size, pid);
-		return MEM_EXCEPTION;
+/* Retorna el bloque contiguo al dado por parametro, si es que hay uno...
+ */
+tHeapMeta *nextBlock(tHeapMeta *hmd, int *dist){
+
+	if (ES_ULTIMO_HMD(hmd, *dist)){
+		*dist = 0;
+		return hmd;
 	}
 
-	escribirEnMemoria(pid, *pag, heap);
-	return ptr;
+	*dist -= hmd->size + SIZEOF_HMD;
+	return (tHeapMeta* ) ((char *) hmd + hmd->size + SIZEOF_HMD);
+}
+
+/* Avanza sobre el heap hasta encontrar el proximo bloque libre.
+ * El maximo puede llegar es hasta el ULTIMO_HMD, el cual siempre es free.
+ * Retorna el bloque encontrado.
+ */
+tHeapMeta *nextFreeBlock(tHeapMeta *hmd, int *dist){
+
+	tHeapMeta *hmd_next = nextBlock(hmd, dist);
+	while (!hmd_next->isFree)
+		hmd_next = nextBlock(hmd_next, dist);
+
+	return hmd_next;
+}
+
+
+int getMaxFreeBlock(char *heap){
+
+	tHeapMeta *hmd = (tHeapMeta *) heap;
+	int dist = MAX_ALLOC_SIZE + SIZEOF_HMD;
+	int max  = 0;
+
+	if (!hmd->isFree)
+		hmd = nextFreeBlock(hmd, &dist);
+
+	while (dist){
+		max = MAX(max, hmd->size);
+		hmd = nextFreeBlock(hmd, &dist);
+	}
+
+	return max;
 }
 
 char *obtenerHeapDeMemoria(int pid, int pag){
@@ -242,8 +312,13 @@ int crearNuevoHeap(int pid){
 	sem_post(&sem_end_exec);
 	heap_pp = deserializePIDPaginas(buffer);
 
+	if (heap_pp->pageCount < 0){
+		puts("No se pudo asignar una pagina en Memoria para el Heap");
+		return FALLO_ASIGN;
+	}
+
 	agregarHeapAPID(heap_pp->pid, heap_pp->pageCount);
-	printf("Se asigno la pagina %d al proceso %d", heap_pp->pageCount, heap_pp->pid);
+
 
 	free(heap_pp);
 	free(buffer);
@@ -258,84 +333,26 @@ void liberar(t_puntero ptr){
 
 }
 
-void enviarPrimerHMD(int pid, int pag){
-puts("Le asignamos el HMD inicial a la pagina de Heap...");
-
-	int pack_size, stat;
-	tPackByteAlmac fst_hmd;
-	char *hmd_serial;
-	tHeapMeta hmd = {.isFree = true, .size = MAX_ALLOC_SIZE};
-
-	fst_hmd.head.tipo_de_proceso = KER; fst_hmd.head.tipo_de_mensaje = BYTES;
-	fst_hmd.pid    = pid; fst_hmd.page = pag;
-	fst_hmd.offset = 0;	  fst_hmd.size = SIZEOF_HMD;
-	fst_hmd.bytes = malloc(SIZEOF_HMD);
-	memcpy(fst_hmd.bytes, &hmd, SIZEOF_HMD);
-
-	hmd_serial = serializeByteAlmacenamiento(&fst_hmd, &pack_size);
-
-	if ((stat = send(sock_mem, hmd_serial, pack_size, 0)) == -1){
-		perror("Fallo envio del primer HMD a Memoria. error");
-		return;
-	}
-	printf("Se enviaron %d bytes a Memoria\n", stat);
-
-	free(fst_hmd.bytes);
-	free(hmd_serial);
-}
-
-void agregarHeapAPID(int pid, int pag){ // todo: verificar que se agrega el nro de pag correcto
+void agregarHeapAPID(int pid, int pag){
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 	printf("Registramos la pagina de heap %d al PID %s\n", pag, spid);
 
-	int *pag_v = malloc(sizeof(int));
-	    *pag_v = pid; // copio por valor a un nuevo ptr, habra que free'arlo
+	tHeapProc *hp = malloc(sizeof *hp);
+	hp->page = pag; hp->max_size = MAX_ALLOC_SIZE;
 
-	    if (!tieneHeap(pid)){
+	if (!tieneHeap(pid)){
 		t_list *heaps = list_create();
 		dictionary_put(heapDict, spid, heaps);
 	}
-	t_list *heaps = dictionary_get(heapDict, spid);
-	list_add(heaps, pag_v);
-}
 
+	t_list *heaps = dictionary_get(heapDict, spid);
+	list_add(heaps, hp);
+}
 
 bool tieneHeap(int pid){
 
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 	return dictionary_has_key(heapDict, spid);
-}
-
-
-
-int reservarPagHeap(int pid, int size_reserva){
-
-	int stat;
-	char *pidpag_serial;
-
-	tPackPidPag *pidpag;
-	if ((pidpag = malloc(sizeof *pidpag)) == NULL){
-		fprintf(stderr, "No se pudo crear espacio de memoria para paquete pid_paginas\n");
-		return FALLO_GRAL;
-	}
-	pidpag->head.tipo_de_proceso = KER;
-	pidpag->head.tipo_de_mensaje = ASIGN_PAG;
-	pidpag->pid = pid;
-	pidpag->pageCount = 1;
-	int pack_size;
-	if ((pidpag_serial = serializePIDPaginas(pidpag, &pack_size)) == NULL){
-		fprintf(stderr, "Fallo el serializado de PID y Paginas\n");
-		return FALLO_SERIALIZAC;
-	}
-
-	if ((stat = send(sock_mem, pidpag_serial, sizeof *pidpag, 0)) == -1){
-		perror("Fallo el envio de pid y paginas serializado. error");
-		return FALLO_SEND;
-	}
-
-	freeAndNULL((void **) &pidpag);
-	freeAndNULL((void **) &pidpag_serial);
-	return 0;
 }

@@ -261,6 +261,13 @@ char *recvGeneric(int sock_in){
 
 /****** Definiciones de [De]Serializaciones Regulares ******/
 
+char *serializeHeader(tPackHeader head, int *pack_size){
+
+	char *h_serial = malloc(HEAD_SIZE);
+	*pack_size = HEAD_SIZE;
+	return memcpy(h_serial, &head, HEAD_SIZE);
+}
+
 char *serializeBytes(tPackHeader head, char* buffer, int buffer_size, int *pack_size){
 
 	char *bytes_serial;

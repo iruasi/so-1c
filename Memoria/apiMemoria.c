@@ -107,16 +107,17 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 
 int asignarPaginas(int pid, int page_count){
 
-	int new_page;
+	int new_page, stat;
 	tHeapMeta hmd = {.size = memoria->marco_size - 2*SIZEOF_HMD, .isFree = true};
 
 	if((new_page = reservarPaginas(pid, page_count)) < 0){
-		fprintf(stderr, "No se pudieron reservar paginas para el proceso. error: %d\n", new_page);
-		finalizarPrograma(pid);
+		printf("No se pudieron reservar paginas para el proceso. error: %d\n", new_page);
+		return new_page;
 	}
 
 	// escribimos el primer HeapMetaData
-	almacenarBytes(pid, new_page, 0, SIZEOF_HMD, (char *) &hmd);
+	if ((stat = almacenarBytes(pid, new_page, 0, SIZEOF_HMD, (char *) &hmd)) != 0)
+		return stat;
 
 	printf("Se reservaron correctamente %d paginas\n", page_count);
 	return new_page;

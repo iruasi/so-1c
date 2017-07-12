@@ -36,6 +36,9 @@ char *serializeProcAProc(tHShakeProcAProc *h_shake, int *pack_size);
  */
 char *recvGeneric(int sock_in);
 
+/* Para mandar solamente un Header. Util para informar fallos */
+char *serializeHeader(tPackHeader head, int *pack_size);
+
 /* Serializa un buffer de bytes para que respete el protocolo de HEADER
  * int *pack_size se usa para almacenar el size del paquete serializado, asi se lo puede send'ear
  */

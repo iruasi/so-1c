@@ -6,6 +6,7 @@
 #include <stdbool.h>
 
 #include <tiposRecursos/misc/pcb.h>
+#include <tiposRecursos/tiposPaquetes.h>
 
 /* Verifica que dos valores enteros sean equivalentes. Si lo son, retorna true.
  * Si no coinciden, emite el mensaje `errmsg' en stderr junto con los valores obtenidos, y retorna false.
@@ -61,9 +62,7 @@ int handleNewListened(int sock_listen, fd_set *setFD);
  */
 void clearAndClose(int *fd, fd_set *setFD);
 
-/* Util para recibir cualquier struct sin campos variables
- */
-int cantidadTotalDeBytesRecibidos(int fdServidor, char * buffer, int tamanioBytes);
+void informarFallo(int sock, tPackHeader head);
 
 /* Crea un espacio de memoria para un indiceStack.
  * Ademas llama list_create() para args y vars.

@@ -41,6 +41,8 @@ typedef enum {
 , MAX_CACHE_ENTRIES=   -54
 , SIZE_INVALID=        -55
 , FALLO_HEAP=          -56
+, FALLO_ALMAC=         -57
+, FALLO_ASIGN=         -58
 
 , ABORTO_PCB=          -95
 , ABORTO_KERNEL=       -96

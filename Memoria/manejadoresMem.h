@@ -12,8 +12,6 @@ extern char *MEM_FIS;
 #define SIZEOF_HMD 5
 #endif
 
-#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
-
 /* Libera todas las estructuras del proceso Memoria,
  * desde la Memoria Fisica hasta los componentes de la Cache
  */

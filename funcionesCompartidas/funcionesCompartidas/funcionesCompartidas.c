@@ -12,6 +12,7 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
+#include <funcionesPaquetes/funcionesPaquetes.h>
 #include "funcionesCompartidas.h"
 
 #define BACKLOG 20
@@ -173,31 +174,30 @@ void clearAndClose(int *fd, fd_set *setFD){
 	close(*fd);
 }
 
+void informarFallo(int sock, tPackHeader head){
 
-int cantidadTotalDeBytesRecibidos(int fdServidor, char *buffer, int tamanioBytes) { //Esta función va en funcionesCompartidas
-	int total = 0;
-	int bytes_recibidos;
+	char *buffer;
+	int pack_size, stat;
 
-	while (total < tamanioBytes){
-
-	bytes_recibidos = recv(fdServidor, buffer+total, tamanioBytes, MSG_WAITALL);
-	// MSG_WAITALL: el recv queda completamente bloqueado hasta que el paquete sea recibido completamente
-
-	if (bytes_recibidos == -1) { // Error al recibir mensaje
-		perror("[SOCKETS] No se pudo recibir correctamente los datos.\n");
-		break;
-			}
-
-	if (bytes_recibidos == 0) { // Conexión cerrada
-		printf("[SOCKETS] La conexión fd #%d se ha cerrado.\n", fdServidor);
-		break;
+	pack_size = 0;
+	if ((buffer = serializeHeader(head, &pack_size)) == NULL){
+		puts("No se pudo serializar el Header de Fallo");
+		return;
 	}
-	total += bytes_recibidos;
-	tamanioBytes -= bytes_recibidos;
-		}
-	return bytes_recibidos; // En caso de éxito, se retorna la cantidad de bytes realmente recibida
-}
 
+	if ((stat = send(sock, buffer, pack_size, 0)) == -1){
+		perror("Error en envio del Informe de Fallo. error");
+		return;
+	}
+
+	if (stat != pack_size){
+		puts("No se pudo enviar el paquete completo");
+		return;
+	}
+
+	printf("Se enviaron %d bytes al socket %d\n", stat, sock);
+	free(buffer);
+}
 
 indiceStack *crearStackVacio(void){
 	indiceStack *stack = malloc(sizeof *stack);

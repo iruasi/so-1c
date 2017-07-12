@@ -9,8 +9,12 @@
 #define SIZEOF_HMD 5
 #endif
 
-#ifndef ULTIMO_HMD
-#define ULTIMO_HMD 0x02 // valor hexa de 1 byte, se distingue de entre true y false
+#ifndef VALID_ALLOC
+#define VALID_ALLOC(S) (((S) > 0 && (S) <= MAX_ALLOC_SIZE)? true : false)
+#endif
+
+#ifndef ES_ULTIMO_HMD
+#define ES_ULTIMO_HMD(H, D) (((D) - ((H)->size + SIZEOF_HMD) < 0)? true : false)
 #endif
 
 typedef struct{
@@ -19,30 +23,26 @@ typedef struct{
 } tHeapMeta;
 
 typedef struct {
-	int pid;
-	int static_pages;
-	int pag_heap_cant;
+	int page;
+	int max_size;
 } tHeapProc;
 
 void setupHeapStructs(void);
 
-/* Nos dice, dado un HMD, si su espacio de memoria es reservable por una cantidad size de bytes
- * Retorna true si es reservable.
- * Si es el ultimo HMD, retorna el #define ULTIMO_HMD.
- * Aparte de esos casos, retorna false si no es reservable.
+/* Nos dice, dado un HMD, si su espacio de memoria es reservable por un size
  */
-uint8_t esReservable(int size, tHeapMeta *hmd);
+bool esReservable(int size, tHeapMeta *hmd);
 
 /* Crea un nuevo HMD de tamanio `size' en la direccion `dir_mem'.
  */
-void crearNuevoHMD(char *dir_mem, int size);
+void crearNuevoHMD(tHeapMeta *dir_mem, int size);
 
 /* Dada una pagina de heap y un tamanio de bytes a reservar,
  * intenta reservar en un bloque suficientemente grande.
  * Retorna un puntero a la direccion del bloque escribible si va bien.
  * Retorna NULL si no encuentra espacio reservable en esa pagina.
  */
-t_puntero reservarBytes(char* heap_page, int sizeReserva); // todo: cambios
+t_puntero reservarBytes(char* heap_page, int sizeReserva);
 
 /* Reserva en Memoria una pagina para Heap;
  * Retorna 0 en salida exitosa.
@@ -68,12 +68,16 @@ void actualizarHProcsConPagina(int pid, int heap_page);
 
 // manejo de heap 2.0
 
-
+/* Reserva un bloque de datos en Heap interactuando con memoria y administrando
+ * el pedido de paginas nuevas segun se requiera.
+ * Retorna el puntero absoluto. Si falla retorna 0;
+ */
 t_puntero reservar(int pid, int size);
+t_puntero intentarReservaUnica(int pid, int pag);
 
 int escribirEnMemoria(int pid, int pag, char *heap);
 
-t_puntero reservarEnHeap(int pid, int size, int *pag);
+t_puntero reservarEnHeap(int pid, int size);
 
 /* Busca la pagina solicitada en Memoria y la trae completa;
  * es un wrapper de Solicitud de Bytes.
@@ -88,6 +92,10 @@ int pagMasReciente(int pid);
 void enviarPrimerHMD(int pid, int pag);
 
 void agregarHeapAPID(int pid, int pag);
+
+tHeapMeta *nextBlock(tHeapMeta *hmd, int *dist);
+tHeapMeta *nextFreeBlock(tHeapMeta *hmd, int *dist);
+int getMaxFreeBlock(char *heap);
 
 /* Revisa en el diccionario si un PID tiene alguna pagina de Heap
  */
