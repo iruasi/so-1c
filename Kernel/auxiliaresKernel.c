@@ -236,11 +236,20 @@ void cpu_manejador(void *infoCPU){
 			break;
 		}
 
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &alloc);
 		break;
 
 	case LIBERAR:
 		puts("Funcion liberar");
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		alloc = deserializeVal(buffer);
+		freeAndNULL((void **) &buffer);
+
+		liberar(cpu_i->cpu.pid, alloc->val);
+
 		break;
+
 	case ABRIR:
 		break;
 	case BORRAR:

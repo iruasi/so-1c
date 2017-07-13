@@ -33,6 +33,7 @@ typedef enum {
 , FALLO_INSTR=         -40
 , VAR_NOT_FOUND=       -41
 , GLOBAL_NOT_FOUND=    -42
+, PUNTERO_INVALIDO=    -43
 
 , MEMORIA_LLENA=       -50
 , FRAME_NOT_FOUND=     -51
@@ -43,6 +44,7 @@ typedef enum {
 , FALLO_HEAP=          -56
 , FALLO_ALMAC=         -57
 , FALLO_ASIGN=         -58
+, FALLO_SOLIC=         -59
 
 , ABORTO_PCB=          -95
 , ABORTO_KERNEL=       -96

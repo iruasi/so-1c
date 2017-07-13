@@ -181,7 +181,8 @@ t_puntero reservarEnHeap(int pid, int size){
 		if (size > hp->max_size)
 			continue;
 
-		heap = obtenerHeapDeMemoria(pid, hp->page);
+		if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL)
+			return 0;
 
 		if ((ptr = reservarBytes(heap, size))){
 			hp->max_size = getMaxFreeBlock(heap);
@@ -325,12 +326,116 @@ int crearNuevoHeap(int pid){
 	return 0;
 }
 
-void liberar(t_puntero ptr){
+int liberar(int pid, t_puntero ptr){
+	char spid[MAXPID_DIG];
+	sprintf(spid, "%d", pid);
 
-	// obtener pagina de Memoria
-	// si ptr es puntero a hmd notFree
-	// marcar como libre, revisar a derecha
+	char *heap;
+	tHeapMeta *hmd;
+	int pag = ptr / frame_size;
+	int off = ptr % frame_size - 5;
+	tHeapProc *hp;
 
+	if (!paginaPerteneceAPID(spid, pag, &hp)){
+		printf("No se encontro para el programa %s la pagina %d\n", spid, pag);
+		return FALLO_HEAP;
+	}
+
+	if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL)
+		return FALLO_SOLIC;
+
+	if (!punteroApuntaABloqueValido(heap, ptr))
+		return PUNTERO_INVALIDO;
+
+	hmd = (tHeapMeta *) (heap + off);
+	hmd->isFree = true; // liberamos el bloque
+	consolidar(heap);
+	hp->max_size = getMaxFreeBlock(heap);
+
+	if ((escribirEnMemoria(pid, hp->page, heap)) != 0)
+		return FALLO_ALMAC;
+
+	return 0;
+}
+
+bool paginaPerteneceAPID(char *spid, int pag, tHeapProc **hp){
+
+	int i;
+	t_list *heaps = dictionary_get(heapDict, spid);
+
+	for (i = 0; i < list_size(heaps); ++i){
+		*hp = list_get(heaps, i);
+		if ((*hp)->page == pag)
+			return true;
+	}
+	return false;
+}
+
+bool punteroApuntaABloqueValido(char *heap, t_puntero ptr){
+
+	tHeapMeta *hmd;
+	// off apuntaria 5 bytes despues del comienzo del HMD, corregimos eso...
+	int off = ptr % frame_size - 5;
+
+	if (!punteroApuntaABloque(heap, ptr))
+		return false;
+
+	if ((hmd = (tHeapMeta *) (heap + off))->isFree){
+		printf("Puntero %d con off %d apunta a bloque Heap ya libre\n", ptr, off);
+		return false;
+	}
+
+	return true;
+}
+
+bool punteroApuntaABloque(char *heap, t_puntero ptr){
+
+	tHeapMeta *hmd = (tHeapMeta *) heap;
+	int dist = MAX_ALLOC_SIZE + SIZEOF_HMD;
+
+	// off apuntaria 5 bytes despues del comienzo del HMD, corregimos eso...
+	int off = ptr % frame_size - 5;
+
+	while(dist){
+		if ((char *) hmd == heap + off)
+			return true;
+		hmd = nextBlock(hmd, &dist);
+	}
+	printf("Puntero %d con off %d no apunta a ningun bloque Heap\n", ptr, off);
+	return false;
+}
+
+/* Trata de consolidar bloques libres contiguos del Heap.
+ */
+void consolidar(char *heap){
+
+	tHeapMeta *hmd, *hmd_n;
+	int dist = MAX_ALLOC_SIZE + SIZEOF_HMD;
+	int dist_n;
+
+	hmd = (tHeapMeta *) heap;
+	if (!hmd->isFree)
+		hmd = nextFreeBlock((tHeapMeta *) heap, &dist);
+	if (!dist)
+		return;
+
+	dist_n = dist;
+	hmd_n  = nextFreeBlock(hmd, &dist_n);
+	while(dist_n){
+
+		if ((char *) hmd_n != (char *) hmd + hmd->size + SIZEOF_HMD){ // no son contiguos
+			hmd   = hmd_n;
+			hmd_n = nextFreeBlock(hmd, &dist_n);
+			continue;
+
+		} else{ // son contiguos, cosolidamos y `limpiamos' hmd_n
+			printf("Encontro bloques consolidables size %d y %d, size final: %d\n",
+					hmd->size, hmd_n->size, hmd->size + hmd_n->size);
+			hmd->size += hmd_n->size;
+			hmd_n = nextFreeBlock(hmd_n, &dist_n);
+		}
+	}
+	hmd_n->size = 0; hmd_n->isFree = 0;
 }
 
 void agregarHeapAPID(int pid, int pag){

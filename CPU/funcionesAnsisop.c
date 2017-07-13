@@ -126,7 +126,7 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		list_add(ult_stack->vars, var);
 	}
 
-	return (pag + pcb->paginasDeCodigo) * pag_size + off;
+	return (pag + pcb->paginasDeCodigo) * pag_size + var->pos.offset;
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable variable){
@@ -457,11 +457,15 @@ void signal (t_nombre_semaforo identificador_semaforo){
 void liberar (t_puntero puntero){
 	printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = LIBERAR};
+
+	tPackVal *pval;
 	int pack_size = 0;
+	pval = malloc(sizeof *pval);
+	pval->head.tipo_de_proceso = CPU; pval->head.tipo_de_mensaje = LIBERAR;
+	pval->val = puntero;
 
 	char *free_serial;
-	if ((free_serial = serializeBytes(head, (char*) &puntero, sizeof puntero, &pack_size)) == NULL){
+	if ((free_serial = serializeVal(pval, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
