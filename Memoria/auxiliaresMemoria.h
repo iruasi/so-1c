@@ -44,4 +44,7 @@ void nextFrameValue(int *fr, int *off, int step_size);
  */
 void gotoFrameInvertida(int frame_repr, int *fr_inv, int *off_inv);
 
+void consolaMemoria(void);
+
+
 #endif // _AUXILIARESMEMORIA_H_
