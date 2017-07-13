@@ -25,6 +25,10 @@ typedef struct {
 	tPackSrcCode *src;
 } t_RelPF; // Relacion Programa <---> Codigo Fuente
 
+void liberarCC(t_RelCC *cc);
+
+int getCPUPosByFD(int fd, t_list *list);
+
 /* Crea un t_RelPF* y lo guarda en la lista global de Programas,
  * asi quedan asociados el socket de un Programa y su source code.
  */

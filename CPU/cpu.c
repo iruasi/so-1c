@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <math.h>
 
 #include <commons/config.h>
 #include <commons/collections/list.h>
@@ -22,8 +23,8 @@
 #include <parser/parser.h>
 #include <parser/metadata_program.h>
 
-void pedirInstruccion(int instr_size);
-void recibirInstruccion(char **linea, int instr_size);
+void pedirInstruccion(int instr_size, int *solics);
+void recibirInstruccion(char **linea, int instr_size, int solics);
 
 int *ejecutarPrograma(void);
 void set_quantum_sleep(void);
@@ -58,8 +59,6 @@ while(1){
 
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 
-pthread_t pcb_th; // el hilo del pcb se puede matar desde caluqier lugar ahora >:C
-
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -76,6 +75,7 @@ int main(int argc, char* argv[]){
 	setupCPUFunciones();
 	setupCPUFuncionesKernel();
 
+	pthread_t pcb_th;
 	pthread_t errores_th;
 	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
 
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]){
 			pthread_create(&pcb_th, NULL, (void *) ejecutarPrograma, NULL);
 
 			pthread_join(pcb_th, (void **) &retval);
-			printf("Termino la ejecucion del PCB con valor retorno = %d!\n", *retval);
+			printf("Termino la ejecucion del PCB con valor retorno = %d\n", *retval);
 
 		} else {
 			puts("Me re fui");
@@ -136,7 +136,7 @@ int *ejecutarPrograma(void){
 
 	tPackHeader header;
 	int *retval = malloc(sizeof(int));
-	int stat;
+	int stat, solics = 0;
 	t_size instr_size;
 	char **linea = malloc(0);
 	*linea = NULL;
@@ -149,8 +149,8 @@ int *ejecutarPrograma(void){
 		instr_size = (pcb->indiceDeCodigo + pcb->pc)->offset;
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
-		pedirInstruccion(instr_size);
-		recibirInstruccion(linea, instr_size);
+		pedirInstruccion(instr_size, &solics);
+		recibirInstruccion(linea, instr_size, solics);
 
 		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
@@ -170,7 +170,7 @@ int *ejecutarPrograma(void){
 
 	puts("Termino de ejecutar...");
 
-	if (pcb->pc == pcb->cantidad_instrucciones){ // el PCB ejecuto la ultima instruccion todo: revisar logica de esto
+	if (pcb->pc == pcb->cantidad_instrucciones){
 		header.tipo_de_mensaje = FIN_PROCESO;
 		*retval = pcb->exitCode = 0; // exit_success
 
@@ -195,42 +195,61 @@ int *ejecutarPrograma(void){
 	return retval;
 }
 
-void pedirInstruccion(int instr_size){
+void pedirInstruccion(int instr_size, int *solics){
 	puts("Pide instruccion");
 
-	tPackByteReq pbrq;
+	tPackHeader head;
+	tPackByteReq *pbrq;
 	char *bytereq_serial;
-	int stat, pack_size, code_page, offset;
+	int i, stat, pack_size, code_page, offset;
 	code_page = (pcb->indiceDeCodigo + pcb->pc)->start / pag_size;
 	offset    = (pcb->indiceDeCodigo + pcb->pc)->start % pag_size;
 
-	pbrq.head.tipo_de_proceso = MEM; pbrq.head.tipo_de_mensaje = BYTES;
-	pbrq.pid    = pcb->id;
-	pbrq.page   = code_page;
-	pbrq.offset = offset;
-	pbrq.size   = instr_size;
+	head.tipo_de_proceso = CPU; head.tipo_de_mensaje = BYTES;
 
-	pack_size = 0;
-	if ((bytereq_serial = serializeByteRequest(&pbrq, &pack_size)) == NULL){
+	t_list *pedidos = list_create();
+	// cantidad de Solicitudes a responder
+	*solics = ceil((float) ((pcb->indiceDeCodigo + pcb->pc)->start + instr_size) / pag_size) - code_page;
+
+	for (i = 0; i < *solics; ++i){
+		pbrq = malloc(sizeof *pbrq);
+		memcpy(&pbrq->head, &head, HEAD_SIZE);
+		pbrq->pid    = pcb->id;
+		pbrq->page   = code_page + i;
+		pbrq->offset = offset;
+		pbrq->size   = (offset + instr_size > pag_size)? pag_size - offset : instr_size;
+
+		list_add(pedidos, pbrq);
+		offset = 0; // luego del primer pedido, el offset siempre es 0
+		instr_size -= pbrq->size;
+	}
+
+	for (i = 0; i < *solics; ++i){
+		pbrq = list_get(pedidos, i);
+
+		pack_size = 0;
+		if ((bytereq_serial = serializeByteRequest(pbrq, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
-	}
+		}
 
-	if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
-		perror("Fallo envio de paquete de pedido de bytes. error");
-		err_exec = FALLO_SEND;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
+		if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
+			perror("Fallo envio de paquete de pedido de bytes. error");
+			err_exec = FALLO_SEND;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+		}
+		freeAndNULL((void **) &pbrq);
+		freeAndNULL((void **) &bytereq_serial);
 	}
-
-	free(bytereq_serial);
+	list_destroy(pedidos);
 }
 
-void recibirInstruccion(char **linea, int instr_size){
+void recibirInstruccion(char **linea, int instr_size, int solics){
 	puts("vamos a recibir instruccion");
 
-	int stat;
+	int stat, i, offset;
 	char *byte_serial;
 	tPackHeader head;
 	tPackBytes *instr;
@@ -242,33 +261,41 @@ void recibirInstruccion(char **linea, int instr_size){
 		pthread_exit(&err_exec);
 	}
 
-	if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
-		perror("Fallo recepcion de header. error");
-		err_exec = FALLO_RECV;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
+	for (offset = i = 0; i < solics; ++i){ // todo: recibir 2 pedidos acumulados se desvirtua
 
-	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != BYTES){
-		printf("Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
-				head.tipo_de_proceso, head.tipo_de_mensaje);
-		err_exec = CONEX_INVAL;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
+		if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
+			perror("Fallo recepcion de header. error");
+			err_exec = FALLO_RECV;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+		}
 
-	if ((byte_serial = recvGeneric(sock_mem)) == NULL){
-		err_exec = FALLO_RECV;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
+		if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != BYTES){
+			printf("Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
+					head.tipo_de_proceso, head.tipo_de_mensaje);
+			err_exec = CONEX_INVAL;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+		}
 
-	if ((instr = deserializeBytes(byte_serial)) == NULL){
-		err_exec = FALLO_DESERIALIZAC;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
+		if ((byte_serial = recvGeneric(sock_mem)) == NULL){
+			err_exec = FALLO_RECV;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+		}
+
+		if ((instr = deserializeBytes(byte_serial)) == NULL){
+			err_exec = FALLO_DESERIALIZAC;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+		}
+
+		memcpy(*linea + offset, instr->bytes, instr->bytelen);
+		offset += instr->bytelen - 1;
+
+		freeAndNULL((void **) &byte_serial);
+		freeAndNULL((void **) &instr);
 	}
-	memcpy(*linea, instr->bytes, instr->bytelen);
 }
 
 

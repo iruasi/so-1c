@@ -309,8 +309,30 @@ void cpu_manejador(void *infoCPU){
 		return;
 	}
 
-	puts("CPU se desconecto");
+	puts("CPU se desconecto, la sacamos de la listaDeCpu..");
+	pthread_mutex_lock(&mux_listaDeCPU);
+	cpu_i = list_remove(listaDeCpu, getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu));
+	pthread_mutex_unlock(&mux_listaDeCPU);
+	liberarCC(cpu_i);
+}
 
+void liberarCC(t_RelCC *cc){
+	free(cc->con);
+	free(cc);
+}
+
+int getCPUPosByFD(int fd, t_list *list){
+
+	int i;
+	t_RelCC *cc;
+	for (i = 0; i < list_size(list); ++i){
+		cc = list_get(list, i);
+		if (cc->cpu.fd_cpu == fd)
+			return i;
+	}
+
+	printf("No se encontro el CPU de socket %d en la listaDeCpu", fd);
+	return -1;
 }
 
 void mem_manejador(void *m_sock){

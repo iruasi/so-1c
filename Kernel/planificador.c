@@ -169,8 +169,8 @@ void planificar(void){
 				list_add(Exec, pcbAux);
 				pthread_mutex_unlock(&mux_exec);
 
-				mandarPCBaCPU(pcbAux, cpu);
 				asociarProgramaACPU(cpu);
+				mandarPCBaCPU(pcbAux, cpu);
 			}
 		}
 		break;
@@ -326,7 +326,6 @@ void encolarDeNewEnReady(tPCB *pcb){
 	}
 
 	avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
-	//todo: aca rompe.. dps de mandar esto rompe memoria y el resto sigue andando.. dps se desconecta kernel a causa de  qno hay memoria  y rompe el resto!
 	iniciarYAlojarEnMemoria(pf, code_pages + kernel->stack_size);
 
 	pthread_mutex_lock(&mux_ready);
@@ -343,7 +342,7 @@ void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
 
 	int stat;
 	char *pidpag_serial;
-	int pack_size = 0;
+ 	int pack_size = 0;
 	tPackHeader ini = { .tipo_de_proceso = KER, .tipo_de_mensaje = INI_PROG };
 	tPackHeader src = { .tipo_de_proceso = KER, .tipo_de_mensaje = ALMAC_BYTES };
 
@@ -539,11 +538,11 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		queue_push(Exit, pcbPlanif);
 		pthread_mutex_unlock(&mux_exit);
 
+		cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
 		puts("sem post hay cpu");
 		sem_post(&hayCPUs);
 
-
-//esto me pa q con mas d 1 cpu romperia.. lea visa a todas?!
+//esto me pa q con mas d 1 cpu romperia.. lea visa a todas?! //todo: si. cambiar. ja
 		for(j = 0;j<list_size(listaDeCpu);j++){
 			cpu = (t_RelCC *) list_get(listaDeCpu,j);
 			headerMemoria->tipo_de_mensaje = FIN_PROG;
