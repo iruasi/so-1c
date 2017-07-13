@@ -181,13 +181,13 @@ void* kernel_handler(void *sock_kernel){
 
 			if ((pp = deserializePIDPaginas(buffer)) == NULL)
 				break;
-			freeAndNULL((void **) buffer);
+			freeAndNULL((void **) &buffer);
 
 			sem_wait(&mem_access);
 			stat = inicializarPrograma(pp->pid, pp->pageCount);
 			sem_post(&mem_access);
 
-			freeAndNULL((void **) pp);
+			freeAndNULL((void **) &pp);
 			if (stat != 0)
 				puts("No se pudo inicializar el programa");
 
