@@ -61,7 +61,8 @@ void setupSemaforosColas(void){
 	pthread_mutex_init(&mux_ready, NULL);
 	pthread_mutex_init(&mux_exec,  NULL);
 	pthread_mutex_init(&mux_block, NULL);
-	pthread_mutex_init(&mux_exec,  NULL);
+
+	//pthread_mutex_init(&mux_exec,  NULL);
 }
 
 void setupPlanificador(void){
@@ -538,10 +539,29 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		queue_push(Exit, pcbPlanif);
 		pthread_mutex_unlock(&mux_exit);
 
-		cpu->cpu.pid = -1; cpu->con = NULL;
 		puts("sem post hay cpu");
 		sem_post(&hayCPUs);
+
+
+//esto me pa q con mas d 1 cpu romperia.. lea visa a todas?!
+		for(j = 0;j<list_size(listaDeCpu);j++){
+			cpu = (t_RelCC *) list_get(listaDeCpu,j);
+			headerMemoria->tipo_de_mensaje = FIN_PROG;
+			headerMemoria->tipo_de_proceso = KER;
+
+			if((stat = send(cpu->con->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
+				perror("error al enviar a la consola");
+				break;
+			}
+		}
+		cpu->cpu.pid=cpu->con->pid=cpu->con->fd_con=-1;
+
+
 		break;
+
+
+
+
 
 	case (ABORTO_PROCESO): case (RECURSO_NO_DISPONIBLE): //COLA EXIT
 		//queue_push(Exit,pcbAux);
