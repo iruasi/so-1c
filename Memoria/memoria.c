@@ -17,6 +17,7 @@
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
 #include "apiMemoria.h"
+#include "auxiliaresMemoria.h"
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
 #include "memoriaConfigurators.h"
@@ -24,6 +25,7 @@
 #include "flujosMemoria.h"
 
 #define BACKLOG 20
+#define MAXOPCION 200
 
 void* kernel_handler(void *sock_ker);
 void* cpu_handler(void *sock_cpu);
@@ -50,15 +52,28 @@ int main(int argc, char* argv[]){
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
+
+
+
+
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
 	pthread_t kern_thread;
+	pthread_t consMemoria_thread;
 	bool kernExists = false;
 	int sock_entrada , client_sock , clientSize;
 
 	struct sockaddr_in client;
 	clientSize = sizeof client;
+
+
+	if( pthread_create(&consMemoria_thread, NULL, (void*) consolaMemoria,NULL) < 0){
+		perror("No pudo crear hilo. error");
+		return FALLO_GRAL;
+	}
+
+
 
 	if ((sock_entrada = makeListenSock(memoria->puerto_entrada)) < 0){
 		fprintf(stderr, "No se pudo crear un socket de listen. fallo: %d", sock_entrada);
@@ -328,3 +343,55 @@ void* cpu_handler(void *socket_cpu){
 	printf("El CPU de socket %d cerro su conexion. Cerramos el thread\n", *sock_cpu);
 	return NULL;
 }
+
+void consolaMemoria(void){
+
+	printf("\n \n \nIngrese accion a realizar:\n");
+	printf ("1-Para Modificar retardo: 'retardo <ms>'\n");
+	printf ("2-Para Generar reporte del estado actual: 'dump'\n");
+	printf ("3-Para limpiar la cache: 'flush'\n");
+	printf ("4-Para ver size de la memoria: 'sizeMemoria'\n");
+	printf ("5-Para ver size de un proceso: 'sizeProceso <PID>'\n");
+
+
+	int finalizar = 0;
+	while(finalizar !=1){
+			printf("Seleccione opcion: \n");
+			char *opcion=malloc(MAXOPCION);
+			fgets(opcion,MAXOPCION,stdin);
+			opcion[strlen(opcion) - 1] = '\0';
+			if (strncmp(opcion,"retardo",7)==0){
+				puts("Opcion retardo");
+				char *msChar = opcion+8;
+				int ms = atoi(msChar);
+				printf("Ms a retardar %d\n",ms);
+				retardo(ms);
+
+			}
+			if (strncmp(opcion,"dump",4)==0){
+				puts("Opcion dump");
+				//todo: dump recibe parmetros??
+				//dump();
+
+			}
+			if (strncmp(opcion,"flush",5)==0){
+				puts("Opcion flush");
+				flush();
+			}
+			if (strncmp(opcion,"sizeMemoria",11)==0){
+				puts("Opcion sizeMemoria");
+					size(-1);
+			}
+			if (strncmp(opcion,"sizeProceso",11)==0){
+				puts("Opcion sizeProceso");
+				char *pidProceso = opcion+12;
+				int pid = atoi(pidProceso);
+				size(pid);
+
+			}
+
+
+
+		}
+}
+

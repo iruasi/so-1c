@@ -137,9 +137,14 @@ void planificar(void){
 	t_RelCC * cpu;
 
 	while(1){
-
+	puts("wait hay prog");
 	sem_wait(&hayProg);
+	puts("pase hay prog");
+	puts("wait hay cpus");
 	sem_wait(&hayCPUs);
+	puts("pase hay cpus");
+
+	puts("pase los semwait de hayprog y haycpu");
 
 	switch(kernel->algo){
 	case (FIFO):
@@ -320,12 +325,15 @@ void encolarDeNewEnReady(tPCB *pcb){
 	}
 
 	avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
+	//todo: aca rompe.. dps de mandar esto rompe memoria y el resto sigue andando.. dps se desconecta kernel a causa de  qno hay memoria  y rompe el resto!
 	iniciarYAlojarEnMemoria(pf, code_pages + kernel->stack_size);
 
 	pthread_mutex_lock(&mux_ready);
 	queue_push(Ready, pcb);
 	pthread_mutex_unlock(&mux_ready);
-	sem_post(&hayProg);
+
+	//se esta haciendo 2 post para el mismo prog, cuando pasa a new y dsp cdo pasa a ready.. me pa q no esta bien.. lo comento
+	//sem_post(&hayProg);
 
 	metadata_destruir(meta);
 }
@@ -531,7 +539,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		pthread_mutex_unlock(&mux_exit);
 
 		cpu->cpu.pid = -1; cpu->con = NULL;
-
+		puts("sem post hay cpu");
+		sem_post(&hayCPUs);
 		break;
 
 	case (ABORTO_PROCESO): case (RECURSO_NO_DISPONIBLE): //COLA EXIT
@@ -562,6 +571,10 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 	pcbAux = list_remove(Exec, getPCBPositionByPid(cpu->cpu.pid, Exec));
 	queue_push(Exit,pcbAux);
+
+	//agrego esto aunque no me convence si asi hay q tratar a la multiprogra..
+	sem_post(&hayCPUs);
+
 
 	break;
 	default:
