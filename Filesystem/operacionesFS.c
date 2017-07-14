@@ -99,37 +99,15 @@ static int unlink2 (const char *path){
  * Como se observa la estructura contiene punteros a funciones.
  */
 
-static struct fuse_operations oper = {
-		.getattr = getattr,
-		.readdir = readdir,
-		.open = open2,
-		.read = read2,
-		.write = write2,
-		.unlink = unlink2,
-};
+void setupFuseOperations(void){
+	oper.getattr = getattr;
+	oper.readdir = readdir;
+	oper.open = open2;
+	oper.read = read2;
+	oper.write = write2;
+	oper.unlink = unlink2;
+}
 
-
-/** keys for FUSE_OPT_ options */
-enum {
-	KEY_VERSION,
-	KEY_HELP,
-};
-
-/*
- * Esta estructura es utilizada para decirle a la biblioteca de FUSE que
- * parametro puede recibir y donde tiene que guardar el valor de estos
- */
-static struct fuse_opt fuse_options[] = {
-		// Este es un parametro definido por nosotros
-		CUSTOM_FUSE_OPT_KEY("--welcome-msg %s", welcome_msg, 0),
-
-		// Estos son parametros por defecto que ya tiene FUSE
-		FUSE_OPT_KEY("-V", KEY_VERSION),
-		FUSE_OPT_KEY("--version", KEY_VERSION),
-		FUSE_OPT_KEY("-h", KEY_HELP),
-		FUSE_OPT_KEY("--help", KEY_HELP),
-		FUSE_OPT_END,
-};
 //TODO: pasar al main
 // Dentro de los argumentos que recibe nuestro programa obligatoriamente
 // debe estar el path al directorio donde vamos a montar nuestro FS

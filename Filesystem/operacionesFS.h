@@ -31,6 +31,7 @@ struct t_runtime_options {
 	char* welcome_msg;
 } runtime_options;
 
+static struct fuse_operations oper;
 /*
  * Esta Macro sirve para definir nuestros propios parametros que queremos que
  * FUSE interprete. Esta va a ser utilizada mas abajo para completar el campos
@@ -118,5 +119,6 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 
 static int unlink2 (const char *path);
 
+void setupFuseOperation(void);
 
 #endif /* OPERACIONESFS_H_ */
