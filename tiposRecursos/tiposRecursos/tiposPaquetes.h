@@ -40,6 +40,7 @@ typedef enum {
 	LEER        = 38,
 	RESERVAR    = 39,
 
+	ENTREGO_FD = 40, //KERNEL - CPU
 	// API Memoria & Mensaje que recibe/envia Memoria
 	ASIGN_PAG   = 50,
 	INI_PROG    = 51,
@@ -135,5 +136,16 @@ typedef struct {
 	void *info;
 	t_valor_variable tamanio;
 } tPackEscribir;
+
+typedef struct{
+	int longitudDireccion;
+	t_direccion_archivo direccion;
+	t_banderas flags;
+}tPackAbrir;
+
+typedef struct{
+	t_descriptor_archivo fd;
+	int *cantidadOpen;
+}tPackFS; //Sirve para mandar el fd a la CPU
 
 #endif /* TIPOSPAQUETES_H_ */

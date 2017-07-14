@@ -56,7 +56,7 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable);
 void wait (t_nombre_semaforo identificador_semaforo);
 void signal (t_nombre_semaforo identificador_semaforo);
 void liberar (t_puntero puntero);
-t_descriptor_archivo abrir (t_direccion_archivo direccion, t_banderas flags);
+t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags);
 void borrar (t_descriptor_archivo direccion);
 void cerrar (t_descriptor_archivo descriptor_archivo);
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion);

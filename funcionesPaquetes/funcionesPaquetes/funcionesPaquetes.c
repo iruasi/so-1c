@@ -886,13 +886,13 @@ tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
 
 /****** Definiciones de [De]Serializaciones CPU ******/
 
-char *serializeAbrir(t_direccion_archivo direccion, t_banderas flags, int *pack_size){
+char *serializeAbrir(tPackAbrir *abrir, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABRIR};
-	int dirSize = strlen(direccion);
+	abrir->longitudDireccion = strlen(abrir->direccion);
 
 	char *abrir_serial;
-	abrir_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof flags);
+	abrir_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + abrir->longitudDireccion + sizeof abrir->flags);
 
 	*pack_size = 0;
 	memcpy(abrir_serial + *pack_size, &head, HEAD_SIZE);
@@ -900,19 +900,17 @@ char *serializeAbrir(t_direccion_archivo direccion, t_banderas flags, int *pack_
 
 	*pack_size += sizeof(int);
 
-	memcpy(abrir_serial + *pack_size, &dirSize, sizeof(int));
+	memcpy(abrir_serial + *pack_size,&abrir->longitudDireccion,  sizeof(int));
 	*pack_size += sizeof(int);
-	memcpy(abrir_serial + *pack_size, direccion, dirSize);
-	*pack_size += dirSize;
-	memcpy(abrir_serial + *pack_size, &flags, sizeof flags);
-	*pack_size += sizeof flags;
+	memcpy(abrir_serial + *pack_size,&abrir->direccion,  abrir->longitudDireccion);
+	*pack_size += abrir->longitudDireccion;
+	memcpy(abrir_serial + *pack_size, &abrir->flags, sizeof (abrir->flags));
+	*pack_size += sizeof (abrir->flags);
 
 	memcpy(abrir_serial + HEAD_SIZE, pack_size, sizeof(int));
 
 	return abrir_serial;
 }
-
-
 char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = MOVERCURSOR};
@@ -1059,6 +1057,45 @@ tPackValComp *deserializeValorYVariable(char *valor_serial){
 }
 
 
+tPackAbrir * deserializeAbrir(char *abrir_serial){
+	tPackAbrir * abrir = malloc(sizeof *abrir);
+	int off = 0;
+
+	memcpy(&abrir->longitudDireccion, abrir_serial + off, sizeof(int));
+	off += sizeof(int);
+	abrir->direccion = malloc(abrir->longitudDireccion);
+	memcpy(&abrir->direccion,abrir_serial + off, abrir->longitudDireccion);
+	off += abrir->longitudDireccion;
+	memcpy(&abrir->flags, abrir_serial + off, sizeof abrir->flags);
+	off += sizeof abrir->flags;
+
+	return abrir;
+
+}
+
+char * serializeFileDescriptor(tPackFS * fileSystem,int *pack_size){
+
+
+	char *file_serial;
+	file_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + sizeof(int));
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ENTREGO_FD};
+	*pack_size = 0;
+	memcpy(pack_size + *file_serial,&head,HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(pack_size + *file_serial,&fileSystem->fd,sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(pack_size + *file_serial,&fileSystem->cantidadOpen,sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(file_serial + HEAD_SIZE,pack_size,sizeof(int));
+
+	return file_serial;
+}
+
+
 
 /*
  * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?
@@ -1078,5 +1115,29 @@ int sumarPesosStack(t_list *stack){
 	}
 
 	return sum;
+}
+void informarFallo(int sock, tPackHeader head){
+
+	char *buffer;
+	int pack_size, stat;
+
+	pack_size = 0;
+	if ((buffer = serializeHeader(head, &pack_size)) == NULL){
+		puts("No se pudo serializar el Header de Fallo");
+		return;
+	}
+
+	if ((stat = send(sock, buffer, pack_size, 0)) == -1){
+		perror("Error en envio del Informe de Fallo. error");
+		return;
+	}
+
+	if (stat != pack_size){
+		puts("No se pudo enviar el paquete completo");
+		return;
+	}
+
+	printf("Se enviaron %d bytes al socket %d\n", stat, sock);
+	free(buffer);
 }
 

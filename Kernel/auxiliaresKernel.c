@@ -9,6 +9,7 @@
 
 #include <commons/collections/queue.h>
 #include <parser/metadata_program.h>
+#include <parser/parser.h>
 #include <commons/collections/list.h>
 
 #include "kernelConfigurators.h"
@@ -35,15 +36,20 @@ extern sem_t sem_end_exec;
 
 extern sem_t hayCPUs;
 int globalPID;
+int globalFD;
 
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
 
-extern t_queue *New, *Exit, *Block,*Ready;
-extern t_list	*Exec,*listaProgramas;
+extern t_queue *New, *Exit,*Ready;
+extern t_list	*Exec,*listaProgramas, *Block;
 extern tKernel *kernel;
 extern int grado_mult;
 
+
+extern t_dictionary * tablaGlobal;
+
+extern int sock_fs;
 /* Este procedimiento inicializa las variables y listas globales.
  */
 void setupVariablesGlobales(void){
@@ -117,6 +123,7 @@ void cpu_manejador(void *infoCPU){
 	printf("cpu_manejador socket %d\n", cpu_i->cpu.fd_cpu);
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
+
 	tMensaje rta;
 	bool found;
 	char *buffer;
@@ -125,6 +132,8 @@ void cpu_manejador(void *infoCPU){
 	tPackBytes *sem_bytes;
 	tPackVal *alloc;
 	t_puntero ptr;
+	char *file_serial;
+
 
 	do {
 	printf("(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
@@ -221,7 +230,7 @@ void cpu_manejador(void *infoCPU){
 
 		if ((ptr = reservar(cpu_i->cpu.pid, alloc->val)) == 0){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_HEAP;
-			informarFallo(cpu_i->cpu.fd_cpu, head);
+		//	informarFallo(cpu_i->cpu.fd_cpu, head);
 			//finalizarProceso(pid) // todo: funcion finalizar proceso
 			break;
 		}
@@ -242,10 +251,32 @@ void cpu_manejador(void *infoCPU){
 		puts("Funcion liberar");
 		break;
 	case ABRIR:
+
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		tPackFS * fileSystem = malloc(sizeof*fileSystem);
+
+		tPackAbrir * abrir = deserializeAbrir(buffer);
+		int pack_size = 0;
+		printf("La direccion es %s\n", (char *) &abrir->direccion);
+		if(!dictionary_has_key(tablaGlobal,(char *)&abrir->direccion)){
+			printf("La tabla global no tiene el path, se agrega...\n");
+
+			fileSystem->fd = globalFD;globalFD++;
+			fileSystem->cantidadOpen = 0;
+
+			dictionary_put(tablaGlobal,(char *)abrir->direccion,fileSystem->cantidadOpen);
+			file_serial = serializeFileDescriptor(fileSystem,&pack_size);
+			if((stat = send(cpu_i->cpu.fd_cpu,file_serial,pack_size,0))){
+				perror("error al enviar el paquete a la cpu");
+			};
+		}
+
 		break;
 	case BORRAR:
+
 		break;
 	case CERRAR:
+
 		break;
 	case MOVERCURSOR:
 		break;
@@ -260,6 +291,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case LEER:
+
 		break;
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): //COLA EXIT
@@ -403,7 +435,7 @@ void cons_manejador(void *conInfo){
 void consolaKernel(void){
 
 	printf("\n \n \nIngrese accion a realizar:\n");
-	printf ("1-Para obtener los procesos en todas las colas o 1 especifica: 'procesos <cola>/<todas>'\n");
+	printf ("1-Para obtener los procesos en todas las colas o 1 especifica: 'procesos <cola>/<todos>'\n");
 	printf ("2-Para ver info de un proceso determinado: 'info <PID>'\n");
 	printf ("3-Para obtener la tabla global de archivos: 'tabla'\n");
 	printf ("4-Para modificar el grado de multiprogramacion: 'nuevoGrado <GRADO>'\n");
@@ -458,7 +490,7 @@ void consolaKernel(void){
 void mostrarColaDe(char* cola){
 	printf("%s",cola);
 	puts("Mostrar estado de: ");
-	if (strncmp(cola,"todas",5)==0){
+	if (strncmp(cola,"todos",5)==0){
 		puts("Mostrar estado de todas las colas:");
 		mostrarColaNew();
 		mostrarColaReady();
@@ -487,8 +519,6 @@ void mostrarColaDe(char* cola){
 		mostrarColaBlock();
 	}
 }
-
-
 
 void mostrarColaNew(){
 	puts("Cola New: ");
@@ -535,8 +565,8 @@ void mostrarColaBlock(){
 	puts("Cola Block: ");
 	int k=0;
 	tPCB * pcbAux;
-	for(k=0;k<queue_size(Block);k++){
-		pcbAux = (tPCB*) queue_get(Block,k);
+	for(k=0;k<list_size(Block);k++){
+		pcbAux = (tPCB*) list_get(Block,k);
 		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
 	}
 }
@@ -632,3 +662,4 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 void* queue_get(t_queue *self,int posicion) {
 	return list_get(self->elements, posicion);
 }
+

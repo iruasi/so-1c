@@ -14,6 +14,8 @@ typedef struct{
 	int fd_con,pid;
 }t_consola;
 
+
+
 typedef struct {
 	t_cpu     cpu;
 	t_consola *con;
@@ -24,6 +26,7 @@ typedef struct {
 	t_RelCC *prog;
 	tPackSrcCode *src;
 } t_RelPF; // Relacion Programa <---> Codigo Fuente
+
 
 /* Crea un t_RelPF* y lo guarda en la lista global de Programas,
  * asi quedan asociados el socket de un Programa y su source code.
@@ -99,5 +102,5 @@ void mostrarCantHeapUtilizadasDe(tPCB *pcb);
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
 
 void* queue_get(t_queue *self,int posicion);
-
+char * serializeFileDescriptor(tPackFS * abrir,int *pack_size);
 #endif // AUXILIARESKERNEL_H_

@@ -470,20 +470,65 @@ void liberar (t_puntero puntero){
 	enviar(free_serial, pack_size);
 }
 
-t_descriptor_archivo abrir(t_direccion_archivo direccion, t_banderas flags){
-	printf("Se pide al kernel abrir el archivo %s\n", direccion);
+tPackFS * deserializeFileDescriptor(char * aux_serial){
+	tPackFS * aux = malloc(sizeof *aux);
 
+	int off = 0;
+
+	memcpy(&aux->fd, aux_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&aux->cantidadOpen, aux_serial + off, sizeof(int));
+	off += sizeof(int);
+
+	return aux;
+}
+
+t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
+
+	printf("Se pide al kernel abrir el archivo %s\n",direccion);
+	char * dir = eliminarWhitespace(direccion);
 	int pack_size = 0;
+	char * buffer;
+	int stat;
+	tPackHeader head;
+
+	tPackFS * fileSystem;
+	tPackAbrir * abrir = malloc(sizeof(*abrir));
+
+	abrir->direccion = dir;
+	abrir->flags     = flags;
+
 
 	char *abrir_serial;
-	if ((abrir_serial = serializeAbrir(direccion, flags, &pack_size)) == NULL){
+	if ((abrir_serial = serializeAbrir(abrir, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
 
 	enviar(abrir_serial, pack_size);
-	return 10;
+
+	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recv de puntero alojado de Kernel. error");
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
+	if ((buffer = recvGeneric(sock_kern)) == NULL){
+		err_exec = FALLO_RECV;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+
+	}
+
+	if ((fileSystem = deserializeFileDescriptor(buffer)) == NULL){
+			err_exec = FALLO_DESERIALIZAC;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+		}
+
+	return fileSystem->fd;
 }
 
 void borrar (t_descriptor_archivo direccion){

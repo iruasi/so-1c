@@ -101,7 +101,8 @@ tPackPidPag *deserializePIDPaginas(char *pidpag_serial);
 
 /****** Definiciones de [De]Serializaciones CPU ******/
 
-char *serializeAbrir(t_direccion_archivo direccion, t_banderas flags, int *pack_size);
+char *serializeAbrir(tPackAbrir * abrir, int *pack_size);
+tPackAbrir * deserializeAbrir(char *abrir_serial);
 
 char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size);
 
@@ -118,5 +119,5 @@ tPackValComp *deserializeValorYVariable(char *valor_serial);
 /* Retorna el peso en bytes de todas las listas y variables sumadas del stack
  */
 int sumarPesosStack(t_list *stack);
-
+void informarFallo(int sock, tPackHeader head);
 #endif /* FUNCIONESPAQUETES_H_ */

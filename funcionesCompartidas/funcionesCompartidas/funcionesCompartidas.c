@@ -174,30 +174,7 @@ void clearAndClose(int *fd, fd_set *setFD){
 	close(*fd);
 }
 
-void informarFallo(int sock, tPackHeader head){
 
-	char *buffer;
-	int pack_size, stat;
-
-	pack_size = 0;
-	if ((buffer = serializeHeader(head, &pack_size)) == NULL){
-		puts("No se pudo serializar el Header de Fallo");
-		return;
-	}
-
-	if ((stat = send(sock, buffer, pack_size, 0)) == -1){
-		perror("Error en envio del Informe de Fallo. error");
-		return;
-	}
-
-	if (stat != pack_size){
-		puts("No se pudo enviar el paquete completo");
-		return;
-	}
-
-	printf("Se enviaron %d bytes al socket %d\n", stat, sock);
-	free(buffer);
-}
 
 indiceStack *crearStackVacio(void){
 	indiceStack *stack = malloc(sizeof *stack);

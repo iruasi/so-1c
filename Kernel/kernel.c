@@ -32,6 +32,9 @@ int frames, frame_size; // para guardar datos a recibir de Memoria
 int sock_mem;
 tKernel *kernel;
 
+t_dictionary * tablaFS;
+t_dictionary * tablaGlobal;
+
 sem_t hayProg; // semaforo estilo productor-consumidor. Se post'ea cuando entran PCBs en New o Ready
 sem_t hayCPUs;
 
@@ -157,6 +160,10 @@ int main(int argc, char* argv[]){
 	setupHeapStructs();
 	setupVariablesGlobales();
 
+	tablaFS = dictionary_create();
+	tablaGlobal = dictionary_create();
+
+
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
 		perror("no pudo crear hilo. error");
 		return FALLO_GRAL;
@@ -236,6 +243,7 @@ int main(int argc, char* argv[]){
 				break;
 
 			} else if (fd == sock_fs){
+
 
 				printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
 				break;

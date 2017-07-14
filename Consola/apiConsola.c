@@ -261,6 +261,7 @@ void *programa_handler(void *atributos){
 				log_trace(logger,"asigno pid a la estructura");
 				//puts("Asigno pid a la estructura");
 				memcpy(&args->pidProg, &ppid->val, sizeof(int));
+				log_info(logger,"El pid asignado a la estructura es: %d",args->pidProg);
 				args->hiloProg = pthread_self();
 				freeAndNULL((void **)&ppid);
 
