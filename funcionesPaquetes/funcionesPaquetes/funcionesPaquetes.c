@@ -240,6 +240,7 @@ char *recvGeneric(int sock_in){
 		return NULL;
 	}
 
+	pack_size -= (HEAD_SIZE + sizeof(int)); // ya se recibieron estas dos cantidades
 	printf("Paquete de size: %d\n", pack_size);
 
 	if ((p_serial = malloc(pack_size)) == NULL){
@@ -546,7 +547,6 @@ void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
 
 char *serializeByteRequest(tPackByteReq *pbr, int *pack_size){
 
-	int payload_size;
 	char *byterq_serial;
 	if ((byterq_serial = malloc(sizeof(int) + sizeof(tPackByteReq))) == NULL){
 		printf("No se pudieron mallocar %d bytes para el Byte Request serializado\n",
@@ -569,8 +569,7 @@ char *serializeByteRequest(tPackByteReq *pbr, int *pack_size){
 	memcpy(byterq_serial + *pack_size, &pbr->size, sizeof(int));
 	*pack_size += sizeof(int);
 
-	payload_size = *pack_size - (HEAD_SIZE + sizeof(int));
-	memcpy(byterq_serial + HEAD_SIZE, &payload_size, sizeof(int));
+	memcpy(byterq_serial + HEAD_SIZE, pack_size, sizeof(int));
 
 	return byterq_serial;
 }
@@ -1080,3 +1079,23 @@ int sumarPesosStack(t_list *stack){
 	return sum;
 }
 
+
+void informarFallo(int sock, tPackHeader head){
+	char *buffer;
+	int pack_size, stat;
+	pack_size = 0;
+	if ((buffer = serializeHeader(head, &pack_size)) == NULL){
+		puts("No se pudo serializar el Header de Fallo");
+		return;
+	}
+	if ((stat = send(sock, buffer, pack_size, 0)) == -1){
+		perror("Error en envio del Informe de Fallo. error");
+		return;
+	}
+	if (stat != pack_size){
+		puts("No se pudo enviar el paquete completo");
+		return;
+	}
+	printf("Se enviaron %d bytes al socket %d\n", stat, sock);
+	free(buffer);
+}

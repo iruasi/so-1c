@@ -229,9 +229,9 @@ void pedirInstruccion(int instr_size, int *solics){
 
 		pack_size = 0;
 		if ((bytereq_serial = serializeByteRequest(pbrq, &pack_size)) == NULL){
-		err_exec = FALLO_SERIALIZAC;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
+			err_exec = FALLO_SERIALIZAC;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
 		}
 
 		if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
@@ -297,7 +297,6 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 		freeAndNULL((void **) &instr);
 	}
 }
-
 
 int conectarConServidores(tCPU *cpu_data){
 	int stat;

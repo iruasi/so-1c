@@ -119,4 +119,6 @@ tPackValComp *deserializeValorYVariable(char *valor_serial);
  */
 int sumarPesosStack(t_list *stack);
 
+void informarFallo(int sock, tPackHeader head);
+
 #endif /* FUNCIONESPAQUETES_H_ */

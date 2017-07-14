@@ -62,8 +62,6 @@ int handleNewListened(int sock_listen, fd_set *setFD);
  */
 void clearAndClose(int *fd, fd_set *setFD);
 
-void informarFallo(int sock, tPackHeader head);
-
 /* Crea un espacio de memoria para un indiceStack.
  * Ademas llama list_create() para args y vars.
  * El resto de las variables las inicializa con -1.
