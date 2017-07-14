@@ -126,10 +126,12 @@ void asociarProgramaACPU(t_RelCC *cpu){
 
 	cpu->con->fd_con = pf->prog->con->fd_con;
 	cpu->con->pid    = pf->prog->con->pid;
+
 	freeAndNULL((void **) &pf->src->bytes);
 	freeAndNULL((void **) &pf->src);
-	free(pf->prog->con); pf->prog->con = cpu->con;
+	free(pf->prog->con);
 
+	pf->prog->con = cpu->con;
 	pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
 	pf->prog->cpu.pid    = cpu->cpu.pid;
 }
@@ -265,15 +267,22 @@ void planificar(void){
 
 							cpu->con->fd_con = pf->prog->con->fd_con;
 							cpu->con->pid    = pf->prog->con->pid;
-//							freeAndNULL((void **) &pf->src->bytes);
-//							freeAndNULL((void **) &pf->src);
-							free(pf->prog->con); pf->prog->con = cpu->con;
+							//freeAndNULL((void **) &pf->src->bytes);
+							//freeAndNULL((void **) &pf->src);
+							//free(pf->prog->con);
 
-							pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
-							pf->prog->cpu.pid    = cpu->cpu.pid;
+
+							//esto tiene algun sentido?
+//							pf->prog->con = cpu->con;
+//							pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
+//							pf->prog->cpu.pid    = cpu->cpu.pid;
+//
+//							t_RelPF *pf2 = getProgByPID(cpu->cpu.pid);
+
+
 
 						//
-						pcbAux->proxima_rafaga = kernel->quantum;
+						//pcbAux->proxima_rafaga = kernel->quantum;
 						mandarPCBaCPU(pcbAux, cpu);
 					}
 				}
@@ -625,9 +634,11 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 			queue_push(Ready, pcbAux);
 			pthread_mutex_unlock(&mux_exit);
 
+			cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
+
 			sem_post(&eventoPlani);
 
-			cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
+
 	break;
 		case (ABORTO_PROCESO):
 

@@ -363,6 +363,13 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
 
+
+
+
+
+
+
+
 	// serializamos indice de codigo
 	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
 	off += indiceCod_size;
@@ -374,6 +381,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += *pack_size;
 
 	// serializamos indice de etiquetas
+	//if (pcb->cantidad_etiquetas || pcb->cantidad_funciones)
 	if (pcb->cantidad_etiquetas){
 		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
 		off += pcb->etiquetas_size;
@@ -485,12 +493,19 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	deserializarStack(pcb, pcb_serial, &offset);
 
-	pcb->indiceDeEtiquetas = NULL;
-	if (pcb->cantidad_etiquetas){ // si hay etiquetas, las memcpy'amos
+
+
+
+
+
+	pcb->indiceDeEtiquetas = NULL; // si hay etiquetas o funciones las memcpy'amos
+	//if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
+	if (pcb->cantidad_etiquetas){
 		pcb->indiceDeEtiquetas = malloc(pcb->etiquetas_size);
 		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetas_size);
-		offset += pcb->cantidad_etiquetas;
+		offset += pcb->etiquetas_size;
 	}
+
 
 	return pcb;
 }

@@ -150,6 +150,7 @@ int *ejecutarPrograma(void){
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
 		pedirInstruccion(instr_size, &solics);
+
 		recibirInstruccion(linea, instr_size, solics);
 
 		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
@@ -257,6 +258,9 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 	char *byte_serial;
 	tPackHeader head;
 	tPackBytes *instr;
+
+
+	//rompe el RR aca
 
 	if ((*linea = realloc(*linea, instr_size)) == NULL){
 		printf("No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
