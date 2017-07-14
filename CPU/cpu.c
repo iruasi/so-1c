@@ -168,18 +168,22 @@ int *ejecutarPrograma(void){
 	} while(!termino);
 	termino = false;
 
-	puts("Termino de ejecutar...");
 
 	if (pcb->pc == pcb->cantidad_instrucciones){
+		puts("Termino de ejecutar...");
 		header.tipo_de_mensaje = FIN_PROCESO;
 		*retval = pcb->exitCode = 0; // exit_success
 
-	} else if(fin_quantum == true) // se dealoja el PCB, faltandole ejecutar instrucciones
-		*retval = header.tipo_de_mensaje = PCB_PREEMPT;
+	} else if(fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
+		puts("Fin de quantum...");
+		header.tipo_de_mensaje = PCB_PREEMPT;
+		*retval = PCB_PREEMPT;
+	}
 
-	  else
+	else{
+		puts("Aborto proceso...");
 		*retval = header.tipo_de_mensaje = ABORTO_PROCESO;
-
+	}
 	header.tipo_de_proceso = CPU;
 
 	int pack_size = 0;

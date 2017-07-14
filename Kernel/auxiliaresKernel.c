@@ -34,6 +34,7 @@ extern sem_t sem_bytes;
 extern sem_t sem_end_exec;
 
 extern sem_t hayCPUs;
+extern sem_t eventoPlani;
 int globalPID;
 
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
@@ -271,7 +272,7 @@ void cpu_manejador(void *infoCPU){
 	case LEER:
 		break;
 
-	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): //COLA EXIT
+	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): case(PCB_PREEMPT): //COLA EXIT
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
 	break;
@@ -288,8 +289,8 @@ void cpu_manejador(void *infoCPU){
 		pthread_mutex_lock(&mux_listaDeCPU);
 		list_add(listaDeCpu, cpu_i);
 		pthread_mutex_unlock(&mux_listaDeCPU);
-		sem_post(&hayCPUs);
-
+		//sem_post(&hayCPUs);
+		sem_post(&eventoPlani);
 		puts("Fin case HSHAKE.");
 		break;
 

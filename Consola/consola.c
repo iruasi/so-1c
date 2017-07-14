@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <time.h>
 #include <signal.h>
+
 #include <commons/collections/list.h>
 #include <commons/log.h>
 
@@ -36,40 +37,39 @@ t_list *listaAtributos,*listaFinalizados;
 
 tConsola *cons_data;
 
-t_log *logger;
+t_log *logger,*logTrace;
 int sock_kern;
 
 int main(int argc, char* argv[]){
 
 
-	//CREOARCHIVOLOGGER!
 
-	logger = log_create("/home/utnso/logConsola.txt","CONSOLA",1,LOG_LEVEL_INFO);
-
+	logger = log_create("/home/utnso/logConsolaInfo.txt","CONSOLA",1,LOG_LEVEL_INFO);
+	logTrace = log_create("/home/utnso/logConsolaTrace.txt","CONSOLA",1,LOG_LEVEL_TRACE);
 
 	log_info(logger,"Inicia nueva ejecucion de CONSOLA");
 
-
+	inicializarSemaforos();
 	if(argc!=2){
 		log_error(logger,"Error en la cantidad de parametros");
-		//printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
 	//Creo lista de programas para ir agregando a medida q vayan iniciandose.
 	listaAtributos = list_create();
-
+	listaFinalizados = list_create();
 	cons_data = getConfigConsola(argv[1]);
 	mostrarConfiguracionConsola(cons_data);
 
 
 
-	printf("\n \n \nIngrese accion a realizar:\n");
+	printf("\n \n \n Ingrese accion a realizar:\n");
 	printf ("Para iniciar un programa: 'nuevo programa <ruta>'\n");
 	printf ("Para finlizar un programa: 'finalizar <PID>'\n");
 	printf ("Para desconectar consola: 'desconectar'\n");
 	printf ("Para limpiar mensajes: 'limpiar'\n");
 	int finalizar = 0;
+
 	while(finalizar !=1){
 		printf("Seleccione opcion: \n");
 		char *opcion=malloc(MAXMSJ);
@@ -77,8 +77,7 @@ int main(int argc, char* argv[]){
 		opcion[strlen(opcion) - 1] = '\0';
 		if (strncmp(opcion,"nuevo programa",14)==0)
 		{
-			log_trace(logger,"nuevo programa");
-			//printf("Iniciar un nuevo programa\n");
+			log_trace(logTrace,"nuevo programa");
 			char *ruta = opcion+15;
 
 			//TODO:Chequear error de ruta..
@@ -87,12 +86,12 @@ int main(int argc, char* argv[]){
 			atributos->path = ruta;
 
 			//printf("Ruta del programa: %s\n",atributos->path);
-			log_info(logger,ruta);
+			log_info(logger,"ruta del programa: %s",ruta);
 
 			int status = Iniciar_Programa(atributos);
 			if(status<0){
 				log_error(logger,"error al iniciar programa");
-				//puts("Error al iniciar programa");
+
 				//TODO: Crear FALLO_INICIARPROGRAMA
 				return -1000;
 			}
@@ -100,18 +99,18 @@ int main(int argc, char* argv[]){
 		}
 		if(strncmp(opcion,"finalizar",9)==0)
 		{
-			log_trace(logger,"finalizar programa");
+			log_trace(logTrace,"finalizar programa");
 			char* pidString=malloc(MAXMSJ);
 			int longitudPid = strlen(opcion) - 10;
 			strncopylast(opcion,pidString,longitudPid);
 			int pidElegido = atoi(pidString);
-			//printf("Eligio finalizar el programa %d\n",pidElegido);
-			log_info(logger,pidString);
+
+			log_info(logger,"finalizar el pid: %d",pidElegido);
 
 			int status = Finalizar_Programa(pidElegido);
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
-			log_trace(logger,"desconectar consola");
+			log_trace(logTrace,"desconectar consola");
 			Desconectar_Consola(cons_data);
 			finalizar = 1;
 
@@ -119,9 +118,8 @@ int main(int argc, char* argv[]){
 			liberarConfiguracionConsola(cons_data);
 		}
 		if(strncmp(opcion,"limpiar",7)==0){
-			log_trace(logger,"limpiar pantalla");
+			log_trace(logTrace,"limpiar pantalla");
 			Limpiar_Mensajes();
-			//printf("Eligio limpiar esta consola \n");
 		}
 
 	}
@@ -131,8 +129,7 @@ int main(int argc, char* argv[]){
 
 
 
-	log_trace(logger,"cerrando comunicacion y limpiando proceso");
-	//printf("Cerrando comunicacion y limpiando proceso...\n");
+	log_trace(logTrace,"cerrando comunicacion y limpiando proceso");
 
 
 	log_destroy(logger);
@@ -168,7 +165,7 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 	status = recv(socketCliente, package->message, message_size, 0);
 	if (!status) return 0;
 
-	log_trace(logger,"mensaje deserializacdo y recibido");
+	log_trace(logTrace,"mensaje deserializacdo y recibido");
 	log_info(logger,package->message);
 	//printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
 
