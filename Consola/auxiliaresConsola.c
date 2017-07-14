@@ -7,7 +7,7 @@
 #include <tiposRecursos/tiposPaquetes.h>
 
 #include "auxiliaresConsola.h"
-extern t_log * logger;
+extern t_log *logger,*logTrace;
 
 /* Dado un archivo, lo lee e inserta en un paquete de codigo fuente
  */
@@ -19,8 +19,8 @@ tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta){
 	src_code->head.tipo_de_mensaje = SRC_CODE;
 
 	unsigned long fileSize = fsize(file) + 1 ; // + 1 para el '\0'
-	log_info(logger,"fsize es: %lu","fileSize");
-	//printf("fsize es %lu\n", fileSize);
+	log_info(logger,"fsize es: %lu",fileSize);
+	printf("fsize es %lu\n", fileSize);
 	src_code->bytelen = fileSize;
 	src_code->bytes = malloc(src_code->bytelen);
 	fread(src_code->bytes, src_code->bytelen, 1, file);

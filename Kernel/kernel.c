@@ -37,6 +37,8 @@ t_dictionary * tablaGlobal;
 
 sem_t hayProg; // semaforo estilo productor-consumidor. Se post'ea cuando entran PCBs en New o Ready
 sem_t hayCPUs;
+sem_t eventoPlani;
+sem_t codigoEnviado;
 
 int interconectarProcesos(int *sock_fs, int *sock_lis_con, int *sock_lis_cpu, int *fd_max, fd_set *master_fd){
 
@@ -131,6 +133,14 @@ int main(int argc, char* argv[]){
 		return FALLO_GRAL;
 	}
 	if ((stat = sem_init(&hayCPUs, 0, 0)) == -1){
+		perror("No se pudo inicializar semaforo. error");
+		return FALLO_GRAL;
+	}
+	if ((stat = sem_init(&eventoPlani, 0, 0)) == -1){
+		perror("No se pudo inicializar semaforo. error");
+		return FALLO_GRAL;
+	}
+	if ((stat = sem_init(&codigoEnviado, 0, 0)) == -1){
 		perror("No se pudo inicializar semaforo. error");
 		return FALLO_GRAL;
 	}

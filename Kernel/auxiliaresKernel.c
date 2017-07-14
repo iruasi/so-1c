@@ -35,6 +35,7 @@ extern sem_t sem_bytes;
 extern sem_t sem_end_exec;
 
 extern sem_t hayCPUs;
+extern sem_t eventoPlani;
 int globalPID;
 int globalFD;
 
@@ -245,11 +246,20 @@ void cpu_manejador(void *infoCPU){
 			break;
 		}
 
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &alloc);
 		break;
 
 	case LIBERAR:
 		puts("Funcion liberar");
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		alloc = deserializeVal(buffer);
+		freeAndNULL((void **) &buffer);
+
+		liberar(cpu_i->cpu.pid, alloc->val);
+
 		break;
+
 	case ABRIR:
 
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
@@ -294,7 +304,7 @@ void cpu_manejador(void *infoCPU){
 
 		break;
 
-	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): //COLA EXIT
+	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): case(PCB_PREEMPT): //COLA EXIT
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
 	break;
@@ -311,8 +321,8 @@ void cpu_manejador(void *infoCPU){
 		pthread_mutex_lock(&mux_listaDeCPU);
 		list_add(listaDeCpu, cpu_i);
 		pthread_mutex_unlock(&mux_listaDeCPU);
-		sem_post(&hayCPUs);
-
+		//sem_post(&hayCPUs);
+		sem_post(&eventoPlani);
 		puts("Fin case HSHAKE.");
 		break;
 
@@ -332,8 +342,30 @@ void cpu_manejador(void *infoCPU){
 		return;
 	}
 
-	puts("CPU se desconecto");
+	puts("CPU se desconecto, la sacamos de la listaDeCpu..");
+	pthread_mutex_lock(&mux_listaDeCPU);
+	cpu_i = list_remove(listaDeCpu, getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu));
+	pthread_mutex_unlock(&mux_listaDeCPU);
+	liberarCC(cpu_i);
+}
 
+void liberarCC(t_RelCC *cc){
+	free(cc->con);
+	free(cc);
+}
+
+int getCPUPosByFD(int fd, t_list *list){
+
+	int i;
+	t_RelCC *cc;
+	for (i = 0; i < list_size(list); ++i){
+		cc = list_get(list, i);
+		if (cc->cpu.fd_cpu == fd)
+			return i;
+	}
+
+	printf("No se encontro el CPU de socket %d en la listaDeCpu", fd);
+	return -1;
 }
 
 void mem_manejador(void *m_sock){

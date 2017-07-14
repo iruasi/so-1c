@@ -14,7 +14,7 @@
 #endif
 
 #ifndef ES_ULTIMO_HMD
-#define ES_ULTIMO_HMD(H, D) (((D) - ((H)->size + SIZEOF_HMD) < 0)? true : false)
+#define ES_ULTIMO_HMD(H, D) (((D) - ((H)->size + SIZEOF_HMD) <= 0)? true : false)
 #endif
 
 typedef struct{
@@ -68,6 +68,7 @@ void actualizarHProcsConPagina(int pid, int heap_page);
 
 // manejo de heap 2.0
 
+
 /* Reserva un bloque de datos en Heap interactuando con memoria y administrando
  * el pedido de paginas nuevas segun se requiera.
  * Retorna el puntero absoluto. Si falla retorna 0;
@@ -75,13 +76,19 @@ void actualizarHProcsConPagina(int pid, int heap_page);
 t_puntero reservar(int pid, int size);
 t_puntero intentarReservaUnica(int pid, int pag);
 
+/* Trata de liberar el bloque de memoria apuntado por ptr.
+ * En caso de fallo, se informa a la CPU.
+ */
+int liberar(int pid, t_puntero ptr);
+void consolidar(char *heap);
+
 int escribirEnMemoria(int pid, int pag, char *heap);
 
 t_puntero reservarEnHeap(int pid, int size);
 
 /* Busca la pagina solicitada en Memoria y la trae completa;
  * es un wrapper de Solicitud de Bytes.
- * Retorna el contenido de la pagina en un buffer.
+ * Retorna el contenido de la pagina en un buffer. o NULL.
  */
 char *obtenerHeapDeMemoria(int pid, int pag);
 
@@ -100,5 +107,9 @@ int getMaxFreeBlock(char *heap);
 /* Revisa en el diccionario si un PID tiene alguna pagina de Heap
  */
 bool tieneHeap(int pid);
+
+bool paginaPerteneceAPID(char *spid, int pag, tHeapProc **hp);
+bool punteroApuntaABloque(char *heap, t_puntero ptr);
+bool punteroApuntaABloqueValido(char *heap, t_puntero ptr);
 
 #endif /* CAPAMEMORIA_H_ */

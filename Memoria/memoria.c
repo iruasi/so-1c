@@ -36,7 +36,7 @@ char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
-sem_t mem_access; // todo: cambiar por pthread_mutex
+pthread_mutex_t mux_mem_access;
 
 int main(int argc, char* argv[]){
 
@@ -47,7 +47,7 @@ int main(int argc, char* argv[]){
 
 	int stat;
 
-	sem_init(&mem_access, 0, 1);
+	pthread_mutex_init(&mux_mem_access, NULL);
 
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
@@ -166,7 +166,6 @@ void* kernel_handler(void *sock_kernel){
 
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = THREAD_INIT};
 	tPackPidPag *pp;
-	tPackVal val;
 
 	printf("Esperamos que lleguen cosas del socket Kernel: %d\n", *sock_ker);
 
@@ -181,13 +180,13 @@ void* kernel_handler(void *sock_kernel){
 
 			if ((pp = deserializePIDPaginas(buffer)) == NULL)
 				break;
-			freeAndNULL((void **) buffer);
+			freeAndNULL((void **) &buffer);
 
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 			stat = inicializarPrograma(pp->pid, pp->pageCount);
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 
-			freeAndNULL((void **) pp);
+			freeAndNULL((void **) &pp);
 			if (stat != 0)
 				puts("No se pudo inicializar el programa");
 
@@ -197,9 +196,9 @@ void* kernel_handler(void *sock_kernel){
 		case BYTES:
 			puts("Kernel quiere Solicitar Bytes");
 
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 			stat = manejarSolicitudBytes(*sock_ker);
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 
 			if (stat != 0){
 				printf("Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
@@ -214,9 +213,9 @@ void* kernel_handler(void *sock_kernel){
 		case ALMAC_BYTES:
 			puts("Kernel quiere almacenar bytes");
 
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 			stat = manejarAlmacenamientoBytes(*sock_ker);
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 
 			if (stat != 0)
 				printf("Fallo el manejo de la Almacenamiento de Bytes. status: %d\n", stat);
@@ -234,9 +233,9 @@ void* kernel_handler(void *sock_kernel){
 				break;
 			freeAndNULL((void **) &buffer);
 
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 			new_page = asignarPaginas(pp->pid, pp->pageCount);
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 
 			pp->head.tipo_de_mensaje = (new_page < 0)? FALLO_ASIGN : ASIGN_SUCCS;
 			pp->head.tipo_de_proceso = MEM;
@@ -299,34 +298,34 @@ void* cpu_handler(void *socket_cpu){
 		switch(head.tipo_de_mensaje){
 		case BYTES:
 			puts("CPU quiere Solicitar Bytes");
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
 
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 			puts("Se completo Solicitud de Bytes");
 			break;
 
 		case ALMAC_BYTES:
 			puts("CPU quiere Almacenar bytes CPU");
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 
 			if ((stat = manejarAlmacenamientoBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Almacenamiento de Byes. status: %d\n", stat);
 
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 			puts("Se completo Peticion de Almacenamiento CPU");
 			break;
 
 		case INSTR:
 			puts("Se recibio pedido de instrucciones");
-			sem_wait(&mem_access);
+			pthread_mutex_lock(&mux_mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
 				fprintf(stderr, "Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 
-			sem_post(&mem_access);
+			pthread_mutex_unlock(&mux_mem_access);
 			break;
 
 		default:

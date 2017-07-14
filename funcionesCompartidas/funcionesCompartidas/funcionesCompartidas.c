@@ -174,8 +174,6 @@ void clearAndClose(int *fd, fd_set *setFD){
 	close(*fd);
 }
 
-
-
 indiceStack *crearStackVacio(void){
 	indiceStack *stack = malloc(sizeof *stack);
 
