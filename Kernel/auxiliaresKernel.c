@@ -313,6 +313,8 @@ void cpu_manejador(void *infoCPU){
 		puts("Se recibe handshake de CPU");
 
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO;
+
+		//Si el QS cambia en tiempo de ejecucion, no habria q informarle a CPU el nuevo valor?!
 		if ((stat = contestarProcAProc(head, kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) < 0){
 			puts("No se pudo informar el quantum_sleep a CPU.");
 			return;
