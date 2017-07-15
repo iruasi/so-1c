@@ -141,11 +141,11 @@ typedef struct{
 	int longitudDireccion;
 	t_direccion_archivo direccion;
 	t_banderas flags;
-}tPackAbrir;
+}__attribute__((packed)) tPackAbrir;
 
 typedef struct{
 	t_descriptor_archivo fd;
 	int *cantidadOpen;
-}tPackFS; //Sirve para mandar el fd a la CPU
+}__attribute__((packed)) tPackFS; //Sirve para mandar el fd a la CPU
 
 #endif /* TIPOSPAQUETES_H_ */

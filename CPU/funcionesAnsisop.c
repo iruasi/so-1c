@@ -490,7 +490,7 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
 	printf("Se pide al kernel abrir el archivo %s\n",direccion);
-	char * dir = eliminarWhitespace(direccion);
+	//char * dir = eliminarWhitespace(direccion);
 	int pack_size = 0;
 	char * buffer;
 	int stat;
@@ -499,7 +499,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	tPackFS * fileSystem;
 	tPackAbrir * abrir = malloc(sizeof(*abrir));
 
-	abrir->direccion = dir;
+	abrir->direccion = direccion;
 	abrir->flags     = flags;
 
 
@@ -509,8 +509,8 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-
 	enviar(abrir_serial, pack_size);
+	freeAndNULL((void **) &abrir);
 
 	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
 		perror("Fallo recv de puntero alojado de Kernel. error");
@@ -531,6 +531,8 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 			sem_post(&sem_fallo_exec);
 			pthread_exit(&err_exec);
 		}
+
+	printf("El fd recibido es: %d \n",fileSystem->fd);
 
 	return fileSystem->fd;
 }

@@ -117,6 +117,27 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog){
 	return nuevoPCB;
 }
 
+char * serializeFileDescriptor(tPackFS * fileSystem,int *pack_size){
+
+
+	char *file_serial;
+	file_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + sizeof(int));
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ENTREGO_FD};
+	*pack_size = 0;
+	memcpy(*pack_size + file_serial,&head,HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(*pack_size + file_serial,&fileSystem->fd,sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(*pack_size + file_serial,fileSystem->cantidadOpen,sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(file_serial + HEAD_SIZE,pack_size,sizeof(int));
+
+	return file_serial;
+}
 
 void cpu_manejador(void *infoCPU){
 
@@ -263,21 +284,24 @@ void cpu_manejador(void *infoCPU){
 	case ABRIR:
 
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		tPackFS * fileSystem = malloc(sizeof*fileSystem);
+		tPackFS * fileSystem = malloc(sizeof(*fileSystem));
 
 		tPackAbrir * abrir = deserializeAbrir(buffer);
 		int pack_size = 0;
+		int valor = 0;
 		printf("La direccion es %s\n", (char *) &abrir->direccion);
 		if(!dictionary_has_key(tablaGlobal,(char *)&abrir->direccion)){
 			printf("La tabla global no tiene el path, se agrega...\n");
 
 			fileSystem->fd = globalFD;globalFD++;
-			fileSystem->cantidadOpen = 0;
-
-			dictionary_put(tablaGlobal,(char *)abrir->direccion,fileSystem->cantidadOpen);
+			fileSystem->cantidadOpen = &valor;
+			printf("El valor de cantidad open es: %d \n",*fileSystem->cantidadOpen);
+			dictionary_put(tablaGlobal,(char *)&abrir->direccion,fileSystem->cantidadOpen);
+			printf("Metimos la dirección en el diccionario \n");
 			file_serial = serializeFileDescriptor(fileSystem,&pack_size);
 			if((stat = send(cpu_i->cpu.fd_cpu,file_serial,pack_size,0))){
 				perror("error al enviar el paquete a la cpu");
+				break;
 			};
 		}
 
