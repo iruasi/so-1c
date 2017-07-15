@@ -79,12 +79,17 @@ int interconectarProcesos(int *sock_fs, int *sock_lis_con, int *sock_lis_cpu, in
 	}
 	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = KERINFO};
+	if ((stat = contestarProcAProc(head, kernel->stack_size, sock_mem)) < 0){
+		puts("No se pudo informar a Memoria acerca del stack size");
+		return FALLO_GRAL;
+	}
+
 	if((stat = recibirInfoKerMem(sock_mem, &frames, &frame_size)) == -1){
 		puts("No se recibio correctamente informacion de Memoria!");
 		return FALLO_GRAL;
 	}
-
-	//*fd_max = MAX(sock_mem, *fd_max);
+	printf("Se trabaja una Memoria con %d frames de size %d\n", frames, frame_size);
 
 	// Se trata de conectar con Filesystem
 	if ((*sock_fs = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){

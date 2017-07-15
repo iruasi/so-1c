@@ -359,6 +359,7 @@ void encolarDeNewEnReady(tPCB *pcb){
 	pcb->paginasDeCodigo        = code_pages;
 	pcb->etiquetas_size         = meta->etiquetas_size;
 	pcb->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
+	pcb->cantidad_funciones     = meta->cantidad_de_funciones;
 	pcb->cantidad_instrucciones = meta->instrucciones_size;
 
 	if ((pcb->indiceDeCodigo    = malloc(indiceCod_size)) == NULL){
@@ -366,7 +367,7 @@ void encolarDeNewEnReady(tPCB *pcb){
 		return;
 	} memcpy(pcb->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
 
-	if (pcb->cantidad_etiquetas){
+	if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
 		if ((pcb->indiceDeEtiquetas = malloc(meta->etiquetas_size)) == NULL){
 			printf("Fallo malloc de %d bytes para pcb->indiceDeEtiquetas\n", meta->etiquetas_size);
 			return;
@@ -466,45 +467,6 @@ void avisarPIDaPrograma(int pid, int sock_prog){
 	free(pid_serial);
 }
 
-void encolarEnNewPrograma(tPCB *nuevoPCB, int sock_con){
-	puts("Se encola el programa");
-	int stat;
-	int pack_size;
-
-	tPackPID *pack_pid;
-	if ((pack_pid = malloc(sizeof *pack_pid)) == NULL){
-		printf("Fallo mallocar %d bytes para pack_pid\n", sizeof *pack_pid);
-		return;
-	}
-
-	pack_pid->head.tipo_de_proceso = KER;
-	pack_pid->head.tipo_de_mensaje = PID;
-	pack_pid->val = nuevoPCB->id;
-
-	pack_size = 0;
-	char *pid_serial = serializeVal(pack_pid, &pack_size);
-	if (pid_serial == NULL){
-		puts("No se serializo bien");
-		return;
-	}
-
-	printf("Aviso al hilo_consola %d su numero de PID\n", sock_con);
-	if ((stat = send(sock_con, pid_serial, pack_size, 0)) == -1){
-		perror("Fallo envio de PID a Consola. error");
-		return;
-	}
-	printf("Se enviaron %d bytes al hilo_consola\n", stat);
-
-	t_RelCC *cpu_inex   = malloc(sizeof *cpu_inex); cpu_inex->con = malloc(sizeof *cpu_inex->con);
-	cpu_inex->con->fd_con = sock_con;
-	cpu_inex->cpu.pid     = -1;
-	list_add(listaDeCpu, cpu_inex);
-
-	queue_push(New, nuevoPCB);
-
-	freeAndNULL((void **) &pack_pid);
-}
-
 void finalizarPrograma(int pid, tPackHeader * header, int socket){
 
 
@@ -517,37 +479,6 @@ void finalizarPrograma(int pid, tPackHeader * header, int socket){
 	free(exit_pid);exit_pid = NULL;
 
 
-}
-
-
-char *recvHeader(int sock_in, tPackHeader *header){
-	puts("Se recibe el paquete serializado..");
-
-	int stat, pack_size;
-	char *p_serial;
-
-	if((stat = recv(sock_in, header, sizeof(tPackHeader),0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	printf("Paquete de size: %d\n", pack_size);
-
-	if ((p_serial = malloc(pack_size-12)) == NULL){
-		printf("No se pudieron mallocar %d bytes para paquete generico\n", pack_size);
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, p_serial, pack_size-12, 0)) <= 0){
-		perror("Fallo de recv. error");
-		return NULL;
-	}
-
-	return p_serial;
 }
 
 int obtenerCPUociosa(void){
@@ -564,7 +495,6 @@ int obtenerCPUociosa(void){
 void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
 	tPCB *pcbAux, *pcbPlanif;
 
-	int j;
 	int stat;
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 	tPackHeader * headerExitCode = malloc(sizeof headerExitCode);//lo uso para indicar a consola de la forma en q termino el proceso.
@@ -754,4 +684,74 @@ void unBlockByPID(int pid){
 	queue_push(Ready, pcb); pthread_mutex_unlock(&mux_ready);
 	sem_post(&eventoPlani);
 	//sem_post(&hayProg);
+}
+
+
+char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
+
+	int off = 0;
+	char *pcb_serial;
+
+	size_t ctesInt_size         = CTES_INT_PCB * sizeof (int);
+	size_t indiceCod_size       = pcb->cantidad_instrucciones * 2 * sizeof(int);
+	size_t indiceStack_size     = sumarPesosStack(pcb->indiceDeStack) + sizeof(int) +
+								  list_size(pcb->indiceDeStack) * 2 * sizeof(int);
+	size_t indiceEtiquetas_size = pcb->etiquetas_size;
+
+	if ((pcb_serial = malloc(HEAD_SIZE + sizeof(int) + ctesInt_size + indiceCod_size +
+			                 indiceStack_size + indiceEtiquetas_size)) == NULL){
+		fprintf(stderr, "No se pudo mallocar espacio para pcb serializado\n");
+		return NULL;
+	}
+
+	memcpy(pcb_serial + off, &head, HEAD_SIZE);
+	off += HEAD_SIZE;
+
+	// incremento para dar lugar al size_total al final del serializado
+	off += sizeof(int);
+
+	memcpy(pcb_serial + off, &pcb->id, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->pc, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->paginasDeCodigo, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->etiquetas_size, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->cantidad_etiquetas, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->cantidad_funciones, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->proxima_rafaga, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->estado_proc, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->contextoActual, sizeof (int));
+	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
+	off += sizeof (int);
+
+	// serializamos indice de codigo
+	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
+	off += indiceCod_size;
+
+	// serializamos indice de stack
+	*pack_size = 0;
+	char *stack_serial = serializarStack(pcb, indiceStack_size, pack_size);
+	memcpy(pcb_serial + off, stack_serial, *pack_size);
+	off += *pack_size;
+
+	// serializamos indice de etiquetas
+	if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
+		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
+		off += pcb->etiquetas_size;
+	}
+
+	memcpy(pcb_serial + HEAD_SIZE, &off, sizeof(int));
+	*pack_size = off;
+
+	free(stack_serial);
+	return pcb_serial;
 }

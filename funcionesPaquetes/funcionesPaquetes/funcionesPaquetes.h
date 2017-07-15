@@ -23,7 +23,7 @@ int recibirInfoKerMem(int sock_memoria, int *frames, int *frame_size);
  */
 int recibirInfoCPUMem(int sock_mem, int *frame_size);
 
-int recibirInfoCPUKernel(int sock_kern, int *q_sleep);
+int recibirInfoProcSimple(int sock, tPackHeader h_esp, int *var);
 
 char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size);
 

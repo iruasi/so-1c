@@ -47,7 +47,18 @@ void setupCPUFuncionesKernel(void){
 	kernel_functions.AnSISOP_reservar				= reservar;
 }
 
-void obtenerUltimoEnStack(t_list *stack, int *pag, int *off, int *size){
+t_puntero punteroAContexto(t_list *stack_ind, int ctxt){
+	int i, abs_size;
+	indiceStack *stack;
+
+	for (i = abs_size = 0; i < ctxt; ++i){
+		stack = list_get(stack_ind, i);
+		abs_size += sizeof(t_valor_variable) * (list_size(stack->args) + list_size(stack->vars));
+	}
+	return abs_size;
+}
+
+void obtenerUltimoEnContexto(t_list *stack, int *pag, int *off, int *size){
 
 	*pag = *off = *size = 0;
 	indiceStack* ultimoStack = list_get(stack, pcb->contextoActual);
@@ -105,17 +116,18 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	printf("definir la variable %c\n", variable);
 
 	indiceStack* ult_stack;
-	int pag, off, size;
-	obtenerUltimoEnStack(pcb->indiceDeStack, &pag, &off, &size);
-	posicionMemoriaId* var = malloc(sizeof(posicionMemoriaId));
+	int pag, off, size, stack_ptr;
+	obtenerUltimoEnContexto(pcb->indiceDeStack, &pag, &off, &size);
+	stack_ptr = punteroAContexto(pcb->indiceDeStack, pcb->contextoActual);
 
-	var->id = variable;
-	var->pos.offset= off + size; // todo: arreglar para que off y pag no se vayan del tamanio maximo de pagina (ej: off > pag_size)
-	var->pos.pag = pag;
-	var->pos.size = sizeof (t_valor_variable);
+	posicionMemoriaId* var = malloc(sizeof(posicionMemoriaId));
+	var->id         = variable;
+	var->pos.offset = (off + size) % pag_size;
+	var->pos.pag    = pag + (off + size) / pag_size;
+	var->pos.size   = sizeof (t_valor_variable);
 
 	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
-
+	printf("Contexto: %d\n", pcb->contextoActual);
 	if (list_size(pcb->indiceDeStack) == 0){
 		ult_stack = crearStackVacio();
 		list_add(ult_stack->vars, var);
@@ -126,17 +138,17 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		list_add(ult_stack->vars, var);
 	}
 
-	return (pag + pcb->paginasDeCodigo) * pag_size + var->pos.offset;
+	return stack_ptr + pcb->paginasDeCodigo * pag_size;
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable variable){
 	printf("Obtener posicion de %c\n", variable);
 
-	int i;
+	int i, stack_ptr;
 	indiceStack* stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
 	posicionMemoria pm;
-
 	posicionMemoriaId* var;
+
 	for(i = 0; i < list_size(stack->vars); i++){
 		var = list_get(stack->vars, i);
 		if(var->id == variable){
@@ -152,7 +164,9 @@ t_puntero obtenerPosicionVariable(t_nombre_variable variable){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	return pm.pag * pag_size + pm.offset;
+
+	stack_ptr = punteroAContexto(pcb->indiceDeStack, pcb->contextoActual);
+	return stack_ptr + pm.pag * pag_size + pm.offset;
 }
 
 void finalizar(void){
@@ -316,13 +330,7 @@ void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 
 void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	printf("Se llama a la funcion %s y se guarda el retorno\n", etiqueta);
-	uint32_t tamlineaStack = sizeof(uint32_t) + 2*sizeof(t_list) + sizeof(posicionMemoria);
-	//posicionMemoria* varRetorno = malloc(sizeof(posicionMemoria));
-	//varRetorno->pag=donde_retornar/tamPagina
-	//varRetorno->offset = donde_retornar%tamPagina
 	indiceStack *nuevoStack = crearStackVacio();
-	//nuevoStack->retVar = varRetorno;
-	pcb->cantidad_etiquetas = tamlineaStack; // todo: revisar correctitud de esto
 	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
 	irAlLabel(etiqueta);
@@ -497,8 +505,9 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	tPackHeader head;
 
 	tPackFS * fileSystem;
-	tPackAbrir * abrir = malloc(sizeof(*abrir));
+	tPackAbrir * abrir = malloc(sizeof *abrir);
 
+	abrir->longitudDireccion = strlen(dir) + 1;
 	abrir->direccion = dir;
 	abrir->flags     = flags;
 
