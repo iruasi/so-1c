@@ -107,5 +107,5 @@ void mostrarCantHeapUtilizadasDe(tPCB *pcb);
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
 
 void* queue_get(t_queue *self,int posicion);
-char * serializeFileDescriptor(tPackFS * abrir,int *pack_size);
+
 #endif // AUXILIARESKERNEL_H_

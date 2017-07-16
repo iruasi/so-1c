@@ -32,6 +32,7 @@
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int frames, frame_size; // para guardar datos a recibir de Memoria
 int sock_mem;
+int sock_fs;
 tKernel *kernel;
 
 t_dictionary * tablaFS;

@@ -936,9 +936,9 @@ char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informaci
 	return escr_serial;
 }
 
-tPackEscribir *deserializeEscribir(char *escr_serial){
+tPackRW *deserializeEscribir(char *escr_serial){
 
-	tPackEscribir *escr;
+	tPackRW *escr;
 	escr = malloc(sizeof *escr);
 	int off = 0;
 
@@ -954,31 +954,51 @@ tPackEscribir *deserializeEscribir(char *escr_serial){
 }
 
 
-char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size){
+//char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size){
+
+char * serializeLeer(tPackRW * read_write, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = LEER};
 
-	char *leer_serial;
-	leer_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof descriptor_archivo + sizeof tamanio + tamanio);
+	char * rw_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + sizeof(read_write->tamanio) + read_write->tamanio);
 
 	*pack_size = 0;
-	memcpy(leer_serial + *pack_size, &head, HEAD_SIZE);
+	memcpy(rw_serial + *pack_size,&head,HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 
 	*pack_size += sizeof(int);
 
-	memcpy(leer_serial + *pack_size, &descriptor_archivo, sizeof descriptor_archivo);
-	*pack_size += sizeof descriptor_archivo;
-	memcpy(leer_serial + *pack_size, &tamanio, sizeof tamanio);
-	*pack_size += sizeof tamanio;
-	memcpy(leer_serial + *pack_size, &informacion, tamanio);
-	*pack_size += tamanio;
+	memcpy(rw_serial + *pack_size,&read_write->fd,sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(rw_serial + *pack_size,&read_write->tamanio,sizeof(read_write->tamanio));
+	*pack_size += sizeof(read_write->tamanio);
+	memcpy(rw_serial + *pack_size,read_write->info,read_write->tamanio),
+	*pack_size += read_write->tamanio;
 
-	memcpy(leer_serial + HEAD_SIZE, pack_size, sizeof(int));
 
-	return leer_serial;
+	memcpy(rw_serial + HEAD_SIZE, pack_size,sizeof(int));
+
+	return rw_serial;
 }
 
+tPackRW * deserializeLeer(char * rw_serial){
+	tPackRW * read_write = malloc(sizeof (*read_write));
+
+	int off = 0;
+
+	memcpy(&read_write->fd,off + rw_serial,sizeof(int));
+	off += sizeof(int);
+	memcpy(&read_write->tamanio,off + rw_serial,sizeof(read_write->tamanio));
+	off += sizeof(read_write->tamanio);
+	read_write->info = malloc(read_write->tamanio);
+	memcpy(read_write->info,off + rw_serial,read_write->tamanio);
+	off += read_write->tamanio;
+
+
+	return read_write;
+
+
+}
 
 char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size){
 // variable ya tiene un '\0' al final
@@ -1049,6 +1069,7 @@ tPackAbrir * deserializeAbrir(char *abrir_serial){
 
 }
 
+
 char * serializeFileDescriptor(tPackFS * fileSystem,int *pack_size){
 
 
@@ -1069,6 +1090,18 @@ char * serializeFileDescriptor(tPackFS * fileSystem,int *pack_size){
 	memcpy(file_serial + HEAD_SIZE,pack_size,sizeof(int));
 
 	return file_serial;
+}
+tPackFS * deserializeFileDescriptor(char * aux_serial){
+	tPackFS * aux = malloc(sizeof *aux);
+
+	int off = 0;
+
+	memcpy(&aux->fd, aux_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&aux->cantidadOpen, aux_serial + off, sizeof(int));
+	off += sizeof(int);
+
+	return aux;
 }
 
 

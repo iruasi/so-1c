@@ -53,6 +53,59 @@ extern t_dictionary * tablaGlobal;
 extern int sock_fs;
 /* Este procedimiento inicializa las variables y listas globales.
  */
+
+typedef struct{
+	t_direccion_archivo direccion;
+	int * cantidadOpen;
+}tDatosTablaGlobal;
+t_list * listaFD;
+char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, int * pack_size){
+			int dirSize = strlen(path);
+			char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + dirSize + sizeof tamanio + tamanio);
+
+			tPackHeader head = {.tipo_de_proceso = FS,.tipo_de_mensaje = LEER};
+
+
+			*pack_size = 0;
+			memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
+			*pack_size += HEAD_SIZE;
+
+			memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
+			*pack_size += sizeof(int);
+
+			memcpy(leer_fs_serial + *pack_size, &path, dirSize);
+			*pack_size += dirSize;
+
+			memcpy(leer_fs_serial + *pack_size,&tamanio,sizeof(tamanio));
+			*pack_size += sizeof(tamanio);
+
+			memcpy(leer_fs_serial + *pack_size, info, tamanio);
+			*pack_size += tamanio;
+
+
+			memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));
+
+			return leer_fs_serial;
+		}
+
+tPackRW * deserializeLeer(char * rw_serial){
+	tPackRW * read_write = malloc(sizeof (*read_write));
+
+	int off = 0;
+
+	memcpy(&read_write->fd,off + rw_serial,sizeof(int));
+	off += sizeof(int);
+	memcpy(&read_write->tamanio,off + rw_serial,sizeof(read_write->tamanio));
+	off += sizeof(read_write->tamanio);
+	read_write->info = malloc(read_write->tamanio);
+	memcpy(read_write->info,off + rw_serial,read_write->tamanio);
+	off += read_write->tamanio;
+
+
+	return read_write;
+
+
+}
 void setupVariablesGlobales(void){
 
 	gl_Programas = list_create();
@@ -96,6 +149,7 @@ void cpu_manejador(void *infoCPU){
 	tPackVal *alloc;
 	t_puntero ptr;
 	char *file_serial;
+	char *leer_serial;
 
 
 	do {
@@ -226,22 +280,31 @@ void cpu_manejador(void *infoCPU){
 
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 		tPackFS * fileSystem = malloc(sizeof*fileSystem);
-
+		int valor = 0;
 		tPackAbrir * abrir = deserializeAbrir(buffer);
 		int pack_size = 0;
-		printf("La direccion es %s\n", (char *) &abrir->direccion);
-		if(!dictionary_has_key(tablaGlobal,(char *)&abrir->direccion)){
+		t_descriptor_archivo fd;
+		printf("La direccion es %s\n", (char *) abrir->direccion);
+		tDatosTablaGlobal * datosGlobal = malloc(sizeof(*datosGlobal));
+		if(!dictionary_has_key(tablaGlobal,(char *)abrir->direccion)){
 			printf("La tabla global no tiene el path, se agrega...\n");
 
 			fileSystem->fd = globalFD;globalFD++;
-			fileSystem->cantidadOpen = 0;
+			fileSystem->cantidadOpen = &valor;
 
-			dictionary_put(tablaGlobal,(char *)abrir->direccion,fileSystem->cantidadOpen);
+
+			datosGlobal->direccion = abrir->direccion;
+			datosGlobal->cantidadOpen = &valor;
+			dictionary_put(tablaGlobal,(char *)&fd,datosGlobal); //La key es el FD y la data es la direccion y la cantidad de opens del archivo
+
 			file_serial = serializeFileDescriptor(fileSystem,&pack_size);
 			if((stat = send(cpu_i->cpu.fd_cpu,file_serial,pack_size,0)) == -1){
 				perror("error al enviar el paquete a la cpu. error");
 				break;
 			}
+
+
+			freeAndNULL((void **) &buffer);
 		}
 
 		break;
@@ -256,7 +319,7 @@ void cpu_manejador(void *infoCPU){
 	case ESCRIBIR:
 
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		tPackEscribir *escr = deserializeEscribir(buffer);
+		tPackRW *escr = deserializeEscribir(buffer);
 
 		printf("Se escriben en fd %d, la info %s\n", escr->fd, (char*) escr->info);
 		free(escr->info); free(escr);
@@ -264,7 +327,30 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case LEER:
+		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
+		tPackRW * leer = deserializeLeer(buffer);
 
+		bool hola 	=  dictionary_has_key(tablaGlobal,(char *) &leer->fd);
+		tDatosTablaGlobal * path =  dictionary_get(tablaGlobal,(char *) &leer->fd);
+		printf("El path del direcctorio elegido es: %s\n", (char *) path->direccion);
+
+		file_serial = serializeLeerFS(path->direccion,leer->info,leer->tamanio,&pack_size);
+		if((stat = send(sock_fs,file_serial,pack_size,0)) == -1){
+			perror("error al enviar el paquete al filesystem");
+			break;
+		}
+		if((stat = recv(sock_fs, &head, sizeof head, 0)) == -1){
+			perror("error al recibir el paquete al filesystem");
+			break;
+		}
+		if(head.tipo_de_mensaje == 1){
+		buffer = recvGeneric(sock_fs);
+		//deserializeLoQueMandeElFS;
+		if((stat = send(cpu_i->cpu.fd_cpu,leer_serial,pack_size,0)) == -1){
+			perror("error al enviar el paquete al filesystem");
+			break;
+			}
+		}
 		break;
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): case(PCB_PREEMPT): //COLA EXIT

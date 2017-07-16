@@ -135,17 +135,17 @@ typedef struct {
 	t_descriptor_archivo fd;
 	void *info;
 	t_valor_variable tamanio;
-} tPackEscribir;
+} __attribute__((packed))tPackRW; //Leer y escribir tienen los mismos campos, uso las mismas estructuras
 
 typedef struct{
 	int longitudDireccion;
 	t_direccion_archivo direccion;
 	t_banderas flags;
-}tPackAbrir;
+}__attribute((packed))tPackAbrir;
 
 typedef struct{
 	t_descriptor_archivo fd;
 	int *cantidadOpen;
-}tPackFS; //Sirve para mandar el fd a la CPU
+}__attribute__((packed))tPackFS; //Sirve para mandar el fd a la CPU
 
 #endif /* TIPOSPAQUETES_H_ */

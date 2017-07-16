@@ -482,7 +482,7 @@ void liberar (t_puntero puntero){
 	enviar(free_serial, pack_size);
 }
 
-tPackFS * deserializeFileDescriptor(char * aux_serial){
+/*tPackFS * deserializeFileDescriptor(char * aux_serial){
 	tPackFS * aux = malloc(sizeof *aux);
 
 	int off = 0;
@@ -493,7 +493,10 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 	off += sizeof(int);
 
 	return aux;
-}
+}*/ //Lo pase a funcionesPaquetes pero lo dejo comentado si tengo que debuggearlo en algun futuro no muy lejano
+
+
+
 
 t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
@@ -540,6 +543,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 			sem_post(&sem_fallo_exec);
 			pthread_exit(&err_exec);
 		}
+
 
 	return fileSystem->fd;
 }
@@ -611,9 +615,12 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_val
 	printf("Se pide al kernel leer el archivo %d, se guardara en %d, cantidad de bytes: %d\n", descriptor_archivo, informacion, tamanio);
 
 	int pack_size = 0;
-
+	tPackRW * read = malloc(sizeof(*read));
+	read->fd = descriptor_archivo;
+	read->info = &informacion;
+	read->tamanio = tamanio;
 	char *leer_serial;
-	if ((leer_serial = serializeLeer(descriptor_archivo, informacion, tamanio, &pack_size)) == NULL){
+	if ((leer_serial = serializeLeer(read, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
