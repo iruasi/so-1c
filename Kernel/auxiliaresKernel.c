@@ -58,55 +58,11 @@ extern int sock_fs;
 typedef struct{
 	t_direccion_archivo direccion;
 	int * cantidadOpen;
-}tDatosTablaGlobal;
-t_list * listaFD;
-char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, int * pack_size){
-			int dirSize = strlen(path);
-			char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + dirSize + sizeof tamanio + tamanio);
-
-			tPackHeader head = {.tipo_de_proceso = FS,.tipo_de_mensaje = LEER};
+}tDatosTablaGlobal; //Estructura auxiliar para guardar en diccionario tablaGlobal
 
 
-			*pack_size = 0;
-			memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
-			*pack_size += HEAD_SIZE;
-
-			memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
-			*pack_size += sizeof(int);
-
-			memcpy(leer_fs_serial + *pack_size, &path, dirSize);
-			*pack_size += dirSize;
-
-			memcpy(leer_fs_serial + *pack_size,&tamanio,sizeof(tamanio));
-			*pack_size += sizeof(tamanio);
-
-			memcpy(leer_fs_serial + *pack_size, info, tamanio);
-			*pack_size += tamanio;
 
 
-			memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));
-
-			return leer_fs_serial;
-		}
-
-tPackRW * deserializeLeer(char * rw_serial){
-	tPackRW * read_write = malloc(sizeof (*read_write));
-
-	int off = 0;
-
-	memcpy(&read_write->fd,off + rw_serial,sizeof(int));
-	off += sizeof(int);
-	memcpy(&read_write->tamanio,off + rw_serial,sizeof(read_write->tamanio));
-	off += sizeof(read_write->tamanio);
-	read_write->info = malloc(read_write->tamanio);
-	memcpy(read_write->info,off + rw_serial,read_write->tamanio);
-	off += read_write->tamanio;
-
-
-	return read_write;
-
-
-}
 void setupVariablesGlobales(void){
 
 	gl_Programas = list_create();

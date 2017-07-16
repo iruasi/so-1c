@@ -1104,7 +1104,34 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 	return aux;
 }
 
+char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, int * pack_size){
+	int dirSize = strlen(path);
+	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + dirSize + sizeof tamanio + tamanio);
 
+	tPackHeader head = {.tipo_de_proceso = FS,.tipo_de_mensaje = LEER};
+
+
+	*pack_size = 0;
+	memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
+			*pack_size += sizeof(int);
+
+	memcpy(leer_fs_serial + *pack_size, &path, dirSize);
+	*pack_size += dirSize;
+
+	memcpy(leer_fs_serial + *pack_size,&tamanio,sizeof(tamanio));
+	*pack_size += sizeof(tamanio);
+
+	memcpy(leer_fs_serial + *pack_size, info, tamanio);
+	*pack_size += tamanio;
+
+
+	memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));
+
+	return leer_fs_serial;
+}
 
 /*
  * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?

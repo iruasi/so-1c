@@ -123,6 +123,9 @@ int sumarPesosStack(t_list *stack);
 char * serializeFileDescriptor(tPackFS * fileSystem,int *pack_size);
 tPackFS * deserializeFileDescriptor(char * aux_serial);
 tPackAbrir * deserializeAbrir(char *abrir_serial);
+
+//serializeLeerFS, guarda el paquete que hay que mandarle al fs para leer
+char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, int * pack_size);
 void informarFallo(int sock, tPackHeader head);
 
 
