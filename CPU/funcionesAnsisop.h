@@ -34,6 +34,14 @@ AnSISOP_kernel kernel_functions;
  */
 void enviar(char *op_kern_serial, int pack_size);
 
+/* Retorna el puntero (relativo al primer stack) hasta el comienzo del ctxt */
+t_puntero punteroAContexto(t_list *stack_ind, int ctxt);
+
+/* Retorna la posicion de la ultima variable guardada en Stack*/
+void obtenerUltimoEnContexto(t_list *stack, int *pag, int *off, int *size);
+
+/* Retorna la posicion de una variable, en el contexto actual*/
+void obtenerVariable(t_nombre_variable variable, posicionMemoria* pm, indiceStack* stack);
 
 void setupCPUFunciones(void);
 void setupCPUFuncionesKernel(void);

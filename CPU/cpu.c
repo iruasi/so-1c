@@ -269,7 +269,7 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 		pthread_exit(&err_exec);
 	}
 
-	for (offset = i = 0; i < solics; ++i){ // todo: recibir 2 pedidos acumulados se desvirtua
+	for (offset = i = 0; i < solics; ++i){
 
 		if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
 			perror("Fallo recepcion de header. error");
@@ -307,7 +307,9 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 }
 
 int conectarConServidores(tCPU *cpu_data){
+
 	int stat;
+	tPackHeader h_esp;
 
 	printf("Conectando con memoria...\n");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
@@ -323,8 +325,9 @@ int conectarConServidores(tCPU *cpu_data){
 	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 	puts("Me conecte a memoria!");
 
-	if ((stat = recibirInfoCPUMem(sock_mem, &pag_size)) != 0){
-		puts("No se pudo recibir el tamanio de pagina de Memoria!");
+	h_esp.tipo_de_proceso = MEM; h_esp.tipo_de_mensaje = MEMINFO;
+	if ((stat = recibirInfoProcSimple(sock_mem, h_esp, &pag_size)) != 0){
+		puts("No se pudo recibir size de frame de Memoria!");
 		return ABORTO_CPU;
 	}
 	printf("Se trabaja con un tamanio de pagina de %d bytes!\n", pag_size);
@@ -343,7 +346,8 @@ int conectarConServidores(tCPU *cpu_data){
 	}
 	printf("Se enviaron: %d bytes a KERNEL\n", stat);
 
-	if ((stat = recibirInfoCPUKernel(sock_kern, &q_sleep)) != 0){
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = KERINFO;
+	if ((stat = recibirInfoProcSimple(sock_kern, h_esp, &q_sleep)) != 0){
 		puts("No se pudo recibir el quantum sleep de Kernel!");
 		return ABORTO_CPU;
 	}

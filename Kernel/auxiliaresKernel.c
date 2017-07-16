@@ -82,44 +82,6 @@ tPCB *crearPCBInicial(void){
 	return pcb;
 }
 
-tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog){
-
-	t_metadata_program *meta = metadata_desde_literal(src_code->bytes);
-	t_size indiceCod_size = meta->instrucciones_size * 2 * sizeof(int);
-
-	tPCB *nuevoPCB              = malloc(sizeof *nuevoPCB);
-	nuevoPCB->indiceDeCodigo    = malloc(indiceCod_size);
-	nuevoPCB->indiceDeStack     = list_create();
-	nuevoPCB->indiceDeEtiquetas = malloc(meta->etiquetas_size);
-
-	nuevoPCB->id = globalPID;
-	globalPID++;
-	nuevoPCB->pc = meta->instruccion_inicio;
-	nuevoPCB->paginasDeCodigo = cant_pags;
-	nuevoPCB->etiquetas_size         = meta->etiquetas_size;
-	nuevoPCB->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
-	nuevoPCB->proxima_rafaga = 0;
-	nuevoPCB->cantidad_instrucciones = meta->instrucciones_size;
-	nuevoPCB->estado_proc    = 0;
-	nuevoPCB->contextoActual = 0;
-	nuevoPCB->exitCode       = 0;
-
-	memcpy(nuevoPCB->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
-
-	if (nuevoPCB->cantidad_etiquetas)
-		memcpy(nuevoPCB->indiceDeEtiquetas, meta->etiquetas, nuevoPCB->etiquetas_size);
-
-	prog->con->pid = nuevoPCB->id; // asociamos este PCB al programa
-/*	dataHiloProg hp;
-	hp.pid = globalPID;
-	hp.sock = sock_hilo;
-	list_add(listaProgramas, &hp);
-	//almacenar(nuevoPCB->id, meta);
-*/
-	return nuevoPCB;
-}
-
-
 void cpu_manejador(void *infoCPU){
 
 	t_RelCC *cpu_i = (t_RelCC *) infoCPU;
@@ -278,9 +240,10 @@ void cpu_manejador(void *infoCPU){
 
 			dictionary_put(tablaGlobal,(char *)abrir->direccion,fileSystem->cantidadOpen);
 			file_serial = serializeFileDescriptor(fileSystem,&pack_size);
-			if((stat = send(cpu_i->cpu.fd_cpu,file_serial,pack_size,0))){
-				perror("error al enviar el paquete a la cpu");
-			};
+			if((stat = send(cpu_i->cpu.fd_cpu,file_serial,pack_size,0)) == -1){
+				perror("error al enviar el paquete a la cpu. error");
+				break;
+			}
 		}
 
 		break;
@@ -317,6 +280,7 @@ void cpu_manejador(void *infoCPU){
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO;
 
 		//Si el QS cambia en tiempo de ejecucion, no habria q informarle a CPU el nuevo valor?!
+		// todo: habiamos quedado en que no lo actualizabamos, porque no era parte de los minimos, pero estaria bueno hacerlo
 		if ((stat = contestarProcAProc(head, kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) < 0){
 			puts("No se pudo informar el quantum_sleep a CPU.");
 			return;
@@ -325,7 +289,6 @@ void cpu_manejador(void *infoCPU){
 		pthread_mutex_lock(&mux_listaDeCPU);
 		list_add(listaDeCpu, cpu_i);
 		pthread_mutex_unlock(&mux_listaDeCPU);
-		//sem_post(&hayCPUs);
 		sem_post(&eventoPlani);
 		puts("Fin case HSHAKE.");
 		break;
@@ -380,7 +343,7 @@ void mem_manejador(void *m_sock){
 	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = THREAD_INIT};
 
 	do {
-	switch(head.tipo_de_mensaje){
+	switch((int) head.tipo_de_mensaje){
 	printf("(MEM) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 	case ASIGN_SUCCS : case FALLO_ASIGN:

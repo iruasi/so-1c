@@ -58,12 +58,12 @@ int contestarProcAProc(tPackHeader head, int val, int sock){
 
 	pack_size = 0;
 	if ((hs_serial = serializeProcAProc(&h_shake, &pack_size)) == NULL){
-		puts("No se pudo serializar el handshake de Memoria a CPU");
+		puts("No se pudo serializar el handshake proceso a proceso");
 		return FALLO_SERIALIZAC;
 	}
 
 	if((stat = send(sock, hs_serial, pack_size, 0)) == -1)
-		perror("Error de envio informacion Memoria a CPU. error");
+		perror("Error de envio informacion de proceso a proceso. error");
 
 	free(hs_serial);
 	return stat;
@@ -121,60 +121,33 @@ int recibirInfoKerMem(int sock_mem, int *frames, int *frame_size){
 	return 0;
 }
 
-int recibirInfoCPUMem(int sock_mem, int *frame_size){
+int recibirInfoProcSimple(int sock, tPackHeader h_esp, int *var){
 
 	int stat;
 	char *info_serial;
 	tPackHeader head;
 
-	if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
-		perror("Fallo recepcion de info de Memoria. error");
+	if ((stat = recv(sock, &head, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recepcion de info de Proceso. error");
 		return FALLO_RECV;
 	}
 
-	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != MEMINFO){
+	if (head.tipo_de_proceso != h_esp.tipo_de_proceso || head.tipo_de_mensaje != h_esp.tipo_de_mensaje){
 		printf("El paquete recibido no era el esperado! Proceso: %d, Mensaje: %d\n",
 				head.tipo_de_proceso, head.tipo_de_mensaje);
 		return FALLO_GRAL;
 	}
 
-	if ((info_serial = recvGeneric(sock_mem)) == NULL){
-		puts("Fallo la creacion de info serializada desde Memoria");
+	if ((info_serial = recvGeneric(sock)) == NULL){
+		puts("Fallo recepcion generica");
 		return FALLO_GRAL;
 	}
 
-	memcpy(frame_size, info_serial, sizeof(int));
+	memcpy(var, info_serial, sizeof(int));
 	free(info_serial);
 	return 0;
+
 }
-
-int recibirInfoCPUKernel(int sock_kern, int *q_sleep){
-
-	int stat;
-	char *info_serial;
-	tPackHeader head;
-
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
-		perror("Fallo recepcion de info de Memoria. error");
-		return FALLO_RECV;
-	}
-
-	if (head.tipo_de_proceso != KER || head.tipo_de_mensaje != KERINFO){
-		printf("El paquete recibido no era el esperado! Proceso: %d, Mensaje: %d\n",
-				head.tipo_de_proceso, head.tipo_de_mensaje);
-		return FALLO_GRAL;
-	}
-
-	if ((info_serial = recvGeneric(sock_kern)) == NULL){
-		puts("Fallo la creacion de info serializada desde Memoria");
-		return FALLO_GRAL;
-	}
-
-	memcpy(q_sleep, info_serial, sizeof(int));
-	free(info_serial);
-	return 0;
-}
-
 
 /****** Definiciones de [De]Serializaciones Handshakes especiales ******/
 
@@ -352,6 +325,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_etiquetas, sizeof (int));
 	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->cantidad_funciones, sizeof (int));
+	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->proxima_rafaga, sizeof (int));
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->cantidad_instrucciones, sizeof (int));
@@ -362,13 +337,6 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
-
-
-
-
-
-
-
 
 	// serializamos indice de codigo
 	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
@@ -381,8 +349,7 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += *pack_size;
 
 	// serializamos indice de etiquetas
-	//if (pcb->cantidad_etiquetas || pcb->cantidad_funciones)
-	if (pcb->cantidad_etiquetas){
+	if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
 		memcpy(pcb_serial + off, pcb->indiceDeEtiquetas, pcb->etiquetas_size);
 		off += pcb->etiquetas_size;
 	}
@@ -471,6 +438,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_etiquetas, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
+	memcpy(&pcb->cantidad_funciones, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
 	memcpy(&pcb->proxima_rafaga, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->cantidad_instrucciones, pcb_serial + offset, sizeof(int));
@@ -493,14 +462,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 
 	deserializarStack(pcb, pcb_serial, &offset);
 
-
-
-
-
-
 	pcb->indiceDeEtiquetas = NULL; // si hay etiquetas o funciones las memcpy'amos
-	//if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
-	if (pcb->cantidad_etiquetas){
+	if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
 		pcb->indiceDeEtiquetas = malloc(pcb->etiquetas_size);
 		memcpy(pcb->indiceDeEtiquetas, pcb_serial + offset, pcb->etiquetas_size);
 		offset += pcb->etiquetas_size;
@@ -903,7 +866,6 @@ tPackPidPag *deserializePIDPaginas(char *pidpag_serial){
 char *serializeAbrir(tPackAbrir *abrir, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABRIR};
-	abrir->longitudDireccion = strlen(abrir->direccion);
 
 	char *abrir_serial;
 	abrir_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + abrir->longitudDireccion + sizeof abrir->flags);
@@ -914,9 +876,9 @@ char *serializeAbrir(tPackAbrir *abrir, int *pack_size){
 
 	*pack_size += sizeof(int);
 
-	memcpy(abrir_serial + *pack_size,&abrir->longitudDireccion,  sizeof(int));
+	memcpy(abrir_serial + *pack_size, &abrir->longitudDireccion,  sizeof(int));
 	*pack_size += sizeof(int);
-	memcpy(abrir_serial + *pack_size,&abrir->direccion,  abrir->longitudDireccion);
+	memcpy(abrir_serial + *pack_size, abrir->direccion, abrir->longitudDireccion);
 	*pack_size += abrir->longitudDireccion;
 	memcpy(abrir_serial + *pack_size, &abrir->flags, sizeof (abrir->flags));
 	*pack_size += sizeof (abrir->flags);
@@ -1078,7 +1040,7 @@ tPackAbrir * deserializeAbrir(char *abrir_serial){
 	memcpy(&abrir->longitudDireccion, abrir_serial + off, sizeof(int));
 	off += sizeof(int);
 	abrir->direccion = malloc(abrir->longitudDireccion);
-	memcpy(&abrir->direccion,abrir_serial + off, abrir->longitudDireccion);
+	memcpy(abrir->direccion,abrir_serial + off, abrir->longitudDireccion);
 	off += abrir->longitudDireccion;
 	memcpy(&abrir->flags, abrir_serial + off, sizeof abrir->flags);
 	off += sizeof abrir->flags;
