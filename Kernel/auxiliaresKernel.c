@@ -41,6 +41,7 @@ int globalFD;
 
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
+t_list *finalizadosPorConsolas;
 
 extern t_queue *New, *Exit,*Ready;
 extern t_list	*Exec,*listaProgramas, *Block;
@@ -56,6 +57,7 @@ extern int sock_fs;
 void setupVariablesGlobales(void){
 
 	gl_Programas = list_create();
+	finalizadosPorConsolas = list_create();
 
 }
 
@@ -418,6 +420,8 @@ void cons_manejador(void *conInfo){
 	char *buffer;
 	tPackBytes *pbytes;
 	tPackSrcCode *entradaPrograma;
+	tPackPID *ppid;
+	int pidAFinalizar;
 
 	do {
 	switch(head.tipo_de_mensaje){
@@ -447,6 +451,8 @@ void cons_manejador(void *conInfo){
 		freeAndNULL((void **) &pbytes);
 		freeAndNULL((void **) &buffer);
 		puts("Fin case SRC_CODE.");
+		//hardcode
+		head.tipo_de_mensaje=HSHAKE;
 		break;
 
 	case THREAD_INIT:
@@ -456,6 +462,38 @@ void cons_manejador(void *conInfo){
 
 	case HSHAKE:
 		puts("Es solo un handshake");
+		break;
+	case KILL_PID:
+
+
+					if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
+						//log_error(logger,"error al recibir el pid");
+						puts("error al recibir el pid");
+						return;
+					}
+
+					if ((ppid = deserializeVal(buffer)) == NULL){
+						//log_error(logger,"error al deserializar el packPID");
+						puts("Error al deserializar el PACKPID");
+						return;
+					}
+
+					//log_trace(logTrace,"asigno pid a la estructura");
+					pidAFinalizar = ppid->val;
+					freeAndNULL((void **)&ppid);
+					printf("Pid a finalizar: %d\n",pidAFinalizar);
+					t_finConsola *fc=malloc(sizeof(fc));
+					fc->pid = pidAFinalizar ;
+					fc->ecode = CONS_DISCONNECT;
+
+					pthread_mutex_lock(&mux_listaFinalizados);
+					list_add(finalizadosPorConsolas,fc);
+					pthread_mutex_unlock(&mux_listaFinalizados);
+
+
+					//todo:free fc?!
+
+
 		break;
 
 	default:
@@ -667,6 +705,15 @@ void cambiarGradoMultiprogramacion(int nuevoGrado){
 }
 void finalizarProceso(int pidAFinalizar){
 	printf("vamos a finalizar el proceso %d\n",pidAFinalizar);
+
+
+	t_finConsola *fc = malloc (sizeof(fc));
+	fc->pid=pidAFinalizar ;
+	fc->ecode = CONS_PROG_EXIT;
+
+	pthread_mutex_lock(&mux_listaFinalizados);
+	list_add(finalizadosPorConsolas,fc);
+	pthread_mutex_unlock(&mux_listaFinalizados);
 
 
 

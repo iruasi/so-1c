@@ -11,8 +11,8 @@ typedef enum {
 , NOREAD_PERM=          -3
 , NOWRITE_PERM=         -4
 , MEM_EXCEPTION=        -5
-, KERN_CONS_EXIT=       -6
-, CONS_PROG_EXIT=       -7
+, CONS_DISCONNECT=      -6
+, CONS_FIN_PROG=        -7
 , MEM_OVERALLOC=        -8
 , MEM_TOP_PAGES=        -9
 

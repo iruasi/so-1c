@@ -48,6 +48,9 @@ t_list *listaDeCpu; // el cpu_manejador deberia crear el entry para esta lista.
 t_queue *New, *Exit, *Ready;
 t_list	*cpu_exec, *Exec, *Block;
 t_list *listaProgramas;
+extern t_list *finalizadosPorConsolas;
+
+
 char *recvHeader(int sock_in, tPackHeader *header);
 
 int grado_mult;
@@ -63,6 +66,8 @@ void setupSemaforosColas(void){
 	pthread_mutex_init(&mux_ready, NULL);
 	pthread_mutex_init(&mux_exec,  NULL);
 	pthread_mutex_init(&mux_block, NULL);
+	pthread_mutex_init(&mux_listaFinalizados,NULL);
+
 
 	//pthread_mutex_init(&mux_exec,  NULL);
 }
@@ -586,7 +591,30 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
 		pthread_mutex_unlock(&mux_exec);
 
-		pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+		//chequeamos q alguna consola no lo haya finalizado previamente
+		if(list_size(finalizadosPorConsolas)>0){
+			for(int k=0;k<list_size(finalizadosPorConsolas);k++){
+				t_finConsola fcAux = list_get(finalizadosPorConsolas,k);
+				if(fcAux.pid == pcbAux.id){
+					pcbPlanif->exitCode = fcAux.ecode;
+					k=list_size(finalizadosPorConsolas)+1;
+				}
+				else
+				{
+					pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+					k=list_size(finalizadosPorConsolas)+1;
+				}
+			}
+		}
+		else
+		{
+			pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+		}
+
+
+		//perdon por esta cosa de aca arriba jajaja, pero tengo miedo q rompa si la lista esta vacia :)
+
+
 
 		pthread_mutex_lock(&mux_exit);
 		queue_push(Exit, pcbPlanif); //yo agregaria pcbAux ya q CPU lo modifico y seria mejor guardarse ese.. lo mismo mas adelante en pcbpreempt
@@ -601,15 +629,19 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 			break;
 		}
 
+
+
 		if(pcbPlanif->exitCode == 0){
 			puts("el programa finalizo correctamente");
-			//le avisamos a consola
-			headerExitCode->tipo_de_mensaje = pcbPlanif->exitCode;
-			if((stat = send(cpu->con->fd_con,headerExitCode,sizeof (tPackHeader),0))<0){
-				perror("error al enviar a la consola el exitCode");
-				break;
-			}
 		}
+
+		//le avisamos a consola
+		headerExitCode->tipo_de_mensaje = pcbPlanif->exitCode;
+		if((stat = send(cpu->con->fd_con,headerExitCode,sizeof (tPackHeader),0))<0){
+			perror("error al enviar a la consola el exitCode");
+			break;
+		}
+
 
 
 
