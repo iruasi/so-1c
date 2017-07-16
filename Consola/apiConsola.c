@@ -91,57 +91,84 @@ int Iniciar_Programa(tAtributosProg *atributos){
 
 int Finalizar_Programa(int pid){
 
-	tPackHeader send_head, recv_head;
-	send_head.tipo_de_mensaje = KILL_PID;
-	send_head.tipo_de_proceso = CON;
-	tPackPID *ppid = malloc(sizeof *ppid);
-	ppid->head = send_head;
-	ppid->val=pid;
-
+	tPackHeader recv_head;
 	int stat;
-	if((stat = send(sock_kern, ppid, sizeof ppid, 0)) == -1){
-		log_error(logger,"Fallo el envio de pid a matar a Kernel.");
+	int pack_size;
+	char *pid_serial;
+	tPackPID pack_pid;
+
+	pack_pid.head.tipo_de_proceso = CON; pack_pid.head.tipo_de_mensaje = KILL_PID;
+	pack_pid.val = pid;
+
+	pack_size = 0;
+
+	if ((pid_serial = serializeVal(&pack_pid, &pack_size)) == NULL){
+		puts("No se serializo bien");
+		return FALLO_SERIALIZAC;
+	}
+
+	if ((stat = send(sock_kern, pid_serial, pack_size, 0)) == -1){
+		perror("Fallo envio de PID a Consola. error");
 		return FALLO_SEND;
 	}
+	printf("Se enviaron %d bytes al kernel\n", stat);
+
+	free(pid_serial);
 
 
-	if((stat = recv(sock_kern, &recv_head, sizeof recv_head, 0)) == -1){
-		log_error(logger,"Fallo de recepcion respuesta Kernel");
-		return FALLO_RECV;
+	//habria q  ver si importa que el kernel conteste o matarlo de una y fue..
+	accionesFinalizacion(pid);
 
-	} else if (stat == 0){
-		log_trace(logTrace,"Kernel cerro la conexion, antes de dar una respuesta...");
-		return FALLO_GRAL;
-	}
-
-
-	if (recv_head.tipo_de_mensaje == KER_KILLED){
-		log_info(logger,"Tenemos la confirmacion de kernel, termino con el proceso");
-		accionesFinalizacion(pid);
-		return FALLO_MATAR;
-	}
-
-	if (recv_head.tipo_de_mensaje != KER_KILLED){
-		log_info(logger,"No se pudo matar (o no se recibio la confirmacion)");
-		return FALLO_MATAR;
-	}
-
-
-
+//	if((stat = recv(sock_kern, &recv_head, sizeof recv_head, 0)) == -1){
+//		log_error(logger,"Fallo de recepcion respuesta Kernel");
+//		return FALLO_RECV;
+//
+//	} else if (stat == 0){
+//		log_trace(logTrace,"Kernel cerro la conexion, antes de dar una respuesta...");
+//		return FALLO_GRAL;
+//	}
+//
+//
+//	if (recv_head.tipo_de_mensaje == KER_KILLED){
+//		log_info(logger,"Tenemos la confirmacion de kernel, termino con el proceso");
+//		accionesFinalizacion(pid);
+//		return FALLO_MATAR;
+//	}
+//
+//	if (recv_head.tipo_de_mensaje != KER_KILLED){
+//		log_info(logger,"No se pudo matar (o no se recibio la confirmacion)");
+//		return FALLO_MATAR;
+//	}
 
 
 	return 0;
 }
 void accionesFinalizacion(int pid ){
 	int i;
+	char buffInicio[100];
+    char buffFin[100];
 	for(i = 0; i < list_size(listaAtributos); i++){
 		tAtributosProg *aux = list_get(listaAtributos, i);
 		if(aux->pidProg==pid){
 
 			time(&aux->horaFin);
 			double diferencia = difftime(aux->horaFin, aux->horaInicio);
+
+			strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaInicio));
+			strftime (buffFin, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaFin));
+
+			printf("\n\n\n FIN DE LA EJECUCION DEL PROCESO %d \n INFO DE EJECUCION: \n",pid);
+
+			printf ("HORA DE INICIO: %s\n", buffInicio);
+			printf ("HORA DE FIN: %s\n", buffFin);
 			printf("SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
+			printf("Cantidad de impresiones por pantalla: XXXXXXX\n");
+
+
+
 			log_info(logger,"SEGUNDOS DE EJECUCION: %.f",diferencia);
+
+
 
 			//Lo sacamos de la lista de programas en ejecucion
 			pthread_mutex_lock(&mux_listaAtributos);
@@ -154,6 +181,7 @@ void accionesFinalizacion(int pid ){
 			pthread_mutex_unlock(&mux_listaFinalizados);
 
 			pthread_cancel(aux->hiloProg);
+
 			log_trace(logTrace,"hilo del programa %d finalizado",pid);
 		}
 	}
@@ -181,8 +209,17 @@ void Limpiar_Mensajes(){
 
 void *programa_handler(void *atributos){
 
-	log_trace(logTrace,"conectando con kernel");
+
+	char *buffer;
+	char buffInicio[100];
+	int pack_size;
 	int motivoFin=1;
+	int stat;
+	int fin = 0;
+
+
+	log_trace(logTrace,"conectando con kernel");
+
 
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0){
@@ -191,12 +228,12 @@ void *programa_handler(void *atributos){
 		return NULL;
 	}
 
-	char *buffer;
-	int pack_size;
+
 	tAtributosProg *args = (tAtributosProg *) atributos;
 	time(&args->horaInicio);
 	log_info(logger,"<-- hora inicio");
-	int stat;
+	strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&args->horaInicio));
+	printf ("Hora de inicio: %s\n", buffInicio);
 
 	handshakeCon(sock_kern, CON);
 	log_trace(logTrace,"handshake realizado");
@@ -229,7 +266,6 @@ void *programa_handler(void *atributos){
 	tPackPID *ppid;
 
 	log_trace(logTrace,"esperando a recibir el PID");
-	int fin = 0;
 
 	while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
 

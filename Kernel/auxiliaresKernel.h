@@ -27,6 +27,11 @@ typedef struct {
 	tPackSrcCode *src;
 } t_RelPF; // Relacion Programa <---> Codigo Fuente
 
+typedef struct {
+	int pid,ecode;
+}t_finConsola;
+
+
 
 void liberarCC(t_RelCC *cc);
 
