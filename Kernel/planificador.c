@@ -161,10 +161,12 @@ void planificar(void){
 				if(list_size(Exec) < grado_mult)
 					encolarDeNewEnReady(pcbAux);
 				}
-				if(!queue_is_empty(Ready)){
+				if(!queue_is_empty(Ready) && obtenerCPUociosa()!=-1){
 					if(list_size(listaDeCpu) > 0) { // todo: actualizar esta lista...
 						pcbAux = (tPCB*) queue_peek(Ready);
+
 						cpu = (t_RelCC *) list_get(listaDeCpu, obtenerCPUociosa());
+
 						cpu->cpu.pid = pcbAux->id;
 
 						pthread_mutex_lock(&mux_ready);
@@ -177,6 +179,7 @@ void planificar(void){
 						asociarProgramaACPU(cpu);
 						mandarPCBaCPU(pcbAux, cpu);
 					}
+
 				}
 
 				break;
@@ -253,8 +256,9 @@ void planificar(void){
 						encolarDeNewEnReady(pcbAux);
 				}
 				if(!queue_is_empty(Ready)){
-					if(list_size(listaDeCpu) > 0) { // todo: actualizar esta lista...
+					if(list_size(listaDeCpu) > 0 && obtenerCPUociosa()!= -1) { // todo: actualizar esta lista...
 						pcbAux = (tPCB*) queue_peek(Ready);
+
 						cpu = (t_RelCC *) list_get(listaDeCpu, obtenerCPUociosa());
 
 						cpu->cpu.pid = pcbAux->id;
@@ -270,19 +274,18 @@ void planificar(void){
 						//
 						t_RelPF *pf = getProgByPID(cpu->cpu.pid);
 
-							cpu->con->fd_con = pf->prog->con->fd_con;
-							cpu->con->pid    = pf->prog->con->pid;
-							//freeAndNULL((void **) &pf->src->bytes);
-							//freeAndNULL((void **) &pf->src);
-							//free(pf->prog->con);
+						cpu->con->fd_con = pf->prog->con->fd_con;
+						cpu->con->pid    = pf->prog->con->pid;
+						//freeAndNULL((void **) &pf->src->bytes);
+						//freeAndNULL((void **) &pf->src);
+						//free(pf->prog->con);
 
 
-							//esto tiene algun sentido?
-//							pf->prog->con = cpu->con;
-//							pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
-//							pf->prog->cpu.pid    = cpu->cpu.pid;
-//
-//							t_RelPF *pf2 = getProgByPID(cpu->cpu.pid);
+						//esto tiene algun sentido?
+						//pf->prog->con = cpu->con;
+						//pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
+						//pf->prog->cpu.pid    = cpu->cpu.pid;
+						//t_RelPF *pf2 = getProgByPID(cpu->cpu.pid);
 
 
 
@@ -500,10 +503,10 @@ int obtenerCPUociosa(void){
 void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
 	tPCB *pcbAux, *pcbPlanif;
 
-	int stat;
+	int stat,k,q;
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 	tPackHeader * headerExitCode = malloc(sizeof headerExitCode);//lo uso para indicar a consola de la forma en q termino el proceso.
-
+	t_finConsola * fcAux = malloc(sizeof fcAux);
 
 	headerExitCode->tipo_de_proceso = KER;
 
@@ -517,67 +520,114 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 		pcbAux = deserializarPCB(buffer);
 
+
+		//lo sacamos de la lista de EXEC
 		pthread_mutex_lock(&mux_exec);
-		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+		//pcbPlanif=list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+		list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
 		pthread_mutex_unlock(&mux_exec);
 
-		//chequeamos q alguna consola no lo haya finalizado previamente
+
+
+		//Aviso a memoria
+		//finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
+		//finalizarPrograma(cpu->cpu.pid, headerMemoria, sock_mem); //todo: a sock_mem es que le aviso no? esto de arriba no se pq estsa asi
+
+
+		//chequeamos q no haya sido finalizado por alguna consoa previamente y en ese caso asignamos excde
+
 		if(list_size(finalizadosPorConsolas)>0){
-			for(int k=0;k<list_size(finalizadosPorConsolas);k++){
-				t_finConsola fcAux = list_get(finalizadosPorConsolas,k);
-				if(fcAux.pid == pcbAux.id){
-					pcbPlanif->exitCode = fcAux.ecode;
-					k=list_size(finalizadosPorConsolas)+1;
-				}
-				else
-				{
-					pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
-					k=list_size(finalizadosPorConsolas)+1;
+			for(k=0;k<list_size(finalizadosPorConsolas);k++){
+				fcAux = list_get(finalizadosPorConsolas,k);
+				if(fcAux->pid == pcbAux->id){
+					pcbAux->exitCode = fcAux->ecode;
+					break;
 				}
 			}
 		}
-		else
-		{
-			pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+
+
+		//avisamos a consola el fin siempre y cuando no haya finalizado antes
+
+		printf("Exit code del proceso %d: %d\n",pcbAux->id,pcbAux->exitCode);
+
+		if(pcbAux->exitCode != CONS_DISCONNECT){
+
+
+			char *ecode_serial;
+			int pack_size;
+				tPackExitCode pack_ec;
+
+				pack_ec.head.tipo_de_proceso = KER;
+				pack_ec.head.tipo_de_mensaje = FIN_PROG;
+				pack_ec.val = pcbAux->exitCode;
+
+				pack_size = 0;
+				if ((ecode_serial = serializeVal(&pack_ec, &pack_size)) == NULL){
+					puts("No se serializo bien");
+					return;
+				}
+
+				printf("aviso a %d que el proceso %d termino con un exitcode: %d.\n ",cpu->con->fd_con,pcbAux->id,pcbAux->exitCode);
+				if ((stat = send(cpu->con->fd_con, ecode_serial, pack_size, 0)) == -1){
+					perror("Fallo envio de a Consola. error");
+					return;
+				}
+				printf("Se enviaron %d bytes al hilo_consola\n", stat);
+
+				free(ecode_serial);
 		}
 
+	/*			headerMemoria->tipo_de_mensaje = FIN_PROG;
+							headerMemoria->tipo_de_proceso = KER;
 
-		//perdon por esta cosa de aca arriba jajaja, pero tengo miedo q rompa si la lista esta vacia :)
+			//le avisamos a consola q el programa termino.
+			printf("aviso a %d que el proceso %d termino.\n ",cpu->con->fd_con,pcbAux->id);
+			if((stat = send(cpu->con->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
+				perror("error al enviar a la consola");
+				//break;
+			}
+
+			//le avisamos a consola el exit code
+			headerExitCode->tipo_de_mensaje = pcbAux->exitCode;
+			if ((stat = send(cpu->con->fd_con,headerExitCode,sizeof (tPackHeader),0)) == -1){
+					perror("error al enviar a la consola el exitCode");
+					return;
+				}
+
+			puts("exit code enviado");
+
+		}*/
 
 
 
+
+		//Agregamos el PCB Devuelto por cpu + el excode corresp a la cola de EXIT
 		pthread_mutex_lock(&mux_exit);
-		queue_push(Exit, pcbPlanif); //yo agregaria pcbAux ya q CPU lo modifico y seria mejor guardarse ese.. lo mismo mas adelante en pcbpreempt
+		//queue_push(Exit, pcbPlanif); //yo agregaria pcbAux ya q CPU lo modifico y seria mejor guardarse ese.. lo mismo mas adelante en pcbpreempt
+		queue_push(Exit,pcbAux);
 		pthread_mutex_unlock(&mux_exit);
 
 
-		headerMemoria->tipo_de_mensaje = FIN_PROG;
-		headerMemoria->tipo_de_proceso = KER;
 
-		if((stat = send(cpu->con->fd_con,headerMemoria,sizeof (tPackHeader),0))<0){
-			perror("error al enviar a la consola");
-			break;
+		//lo sacamos de la lista gl_prog:
+
+		t_RelPF *pf;
+		for(q=0;q<list_size(gl_Programas);q++){
+			pf=list_get(gl_Programas,q);
+			if(pf->prog->con->pid == pcbAux->id){
+				list_remove(gl_Programas,q);
+			}
 		}
 
 
 
-		if(pcbPlanif->exitCode == 0){
-			puts("el programa finalizo correctamente");
-		}
-
-		//le avisamos a consola
-		headerExitCode->tipo_de_mensaje = pcbPlanif->exitCode;
-		if((stat = send(cpu->con->fd_con,headerExitCode,sizeof (tPackHeader),0))<0){
-			perror("error al enviar a la consola el exitCode");
-			break;
-		}
-
-
-
-
+		//ponemos la cpu como libre
 		cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
-		puts("sem post hay cpu");
+		puts("eventoPlani (cpudispo)");
 		sem_post(&eventoPlani);
+
+
 		break;
 
 
@@ -589,7 +639,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 			pcbAux = deserializarPCB(buffer);
 
 			pthread_mutex_lock(&mux_exec);
-			pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+			//pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+			list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
 			pthread_mutex_unlock(&mux_exec);
 
 			pthread_mutex_lock(&mux_exit);
@@ -621,8 +672,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		pthread_mutex_unlock(&mux_exit);
 
 		//Aviso a memoria
-		finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
-
+		//finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
+		finalizarPrograma(cpu->cpu.pid, headerMemoria, sock_mem); //todo: a sock_mem es que le aviso no? esto de arriba no se pq estsa asi
 
 
 		headerMemoria->tipo_de_proceso=KER;

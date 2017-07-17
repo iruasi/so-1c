@@ -113,4 +113,5 @@ void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
 
 void* queue_get(t_queue *self,int posicion);
 
+
 #endif // AUXILIARESKERNEL_H_
