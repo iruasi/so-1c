@@ -4,11 +4,13 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/mman.h>
 
 #include <commons/config.h>
 #include <commons/string.h>
 #include <commons/log.h>
 #include <commons/collections/list.h>
+#include <commons/bitarray.h>
 
 #include <fuse.h>
 
@@ -25,6 +27,19 @@
 
 #define bitMap "/Metadata/Bitmap.bin"
 #define metadata "/Metadata/Metadata.bin"
+
+typedef struct{
+	int size;
+	char** bloques;
+}tArchivos;
+
+typedef struct{
+	int cantidad_bloques,
+		tamanio_bloques;
+}tMetadata;
+
+tMetadata* meta;
+t_bitarray* bitArray;
 
 void crearArchivo(char* ruta); //todo: sacar a auxiliares
 void crearBloques(void);
@@ -66,7 +81,7 @@ int main(int argc, char* argv[]){
 
 	setupFuseOperations();
 
-	char* argumentos[] = {"", fileSystem->punto_montaje, "f"};
+	char* argumentos[] = {"", fileSystem->punto_montaje, "f"}; // todo: el primer arg esta hardcodeado, a revisar
 	struct fuse_args args = FUSE_ARGS_INIT(3, argumentos);
 
 	// Limpio la estructura que va a contener los parametros
@@ -79,10 +94,6 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	// Esta es la funcion principal de FUSE, es la que se encarga
-	// de realizar el montaje, comuniscarse con el kernel, delegar todo
-	// en varios threads
-
 	//bitmap
 	crearDirMetadata();
 	crearDirArchivos();
@@ -94,8 +105,10 @@ int main(int argc, char* argv[]){
 	FILE* bitmap = fopen(rutaBitMap, "wb");
 	printf("Ruta del bitmap: %s\n", rutaBitMap);
 	free(rutaBitMap);
+
+	//metadata
 	puts("Creando metadata...");
-	printf("Ruta donde se crea la carpeta: %s\n", argumentos[0]);
+	printf("Ruta donde se crea la carpeta: %s\n", argumentos[1]);
 	int ret= fuse_main(args.argc, args.argv, &oper, NULL);
 
 	int sock_lis_kern, sock_kern;
@@ -130,7 +143,7 @@ int main(int argc, char* argv[]){
 	close(sock_kern);
 	liberarConfiguracionFileSystem(fileSystem);
 //	return EXIT_SUCCESS;
-	return ret;
+	return ret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
 }
 
 void crearArchivo(char* ruta){
@@ -207,4 +220,42 @@ void crearDirBloques(){
 	mkdir(rutaBloques, S_IWUSR); //para que el usuario pueda escribir
 	printf("Directorio %s creado!\n", rutaBloques);
 	free(rutaBloques);
+}
+
+void escribirInfoEnArchivo(char* path, tArchivos* info){
+	t_config* conf = config_create(path); // se trata como configs para sacar el tamanio y  bloque
+	config_set_value(conf, "TAMANIO", (void*)info->size);
+	config_set_value(conf, "BLOQUES", (void*)info->bloques);
+	config_destroy(conf);
+}
+
+tArchivos* getInfoDeArchivo(char* path){
+	t_config* conf = config_create(path);
+	tArchivos* ret = malloc(sizeof(tArchivos));
+	ret->size = config_get_int_value(conf, "TAMANIO");
+	ret->bloques = config_get_array_value(conf, "BLOQUES");
+	config_destroy(conf);
+	return ret;
+}
+
+void marcarBloquesOcupados(char* bloques[]){
+	int i=0;
+	while(i<sizeof(bloques)/sizeof(bloques[0])){
+		bitarray_set_bit(bitArray, atoi(bloques[i])); //esto no me quedo claro si lo marca ocupado o libre, despues se cambia si no
+		msync(bitArray, sizeof(t_bitarray), MS_SYNC);
+	}
+}
+
+t_bitarray* mapearBitArray(char* path){
+	int fd = open(path, O_RDWR);
+	struct stat mystat;
+
+	/*if (fstat(fd, &mystat) < 0) {
+	    printf("Error al establecer fstat\n");
+	    close(fd);
+	    return EXIT_FAILURE;
+	}*/
+	char* mapeado = mmap(NULL, mystat.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+	t_bitarray* bitmap = bitarray_create(mapeado, sizeof(mapeado));
+	return bitmap;
 }
