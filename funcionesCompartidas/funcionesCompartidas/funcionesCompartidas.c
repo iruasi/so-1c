@@ -26,6 +26,27 @@ bool assertEq(int expected, int actual, const char* errmsg){
 	return true;
 }
 
+int validarRespuesta(int sock, tPackHeader h_esp, tPackHeader *h_obt){
+
+	if ((recv(sock, h_obt, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recv de Header. error");
+		return FALLO_RECV;
+	}
+
+	if (h_esp.tipo_de_proceso != h_obt->tipo_de_proceso){
+		printf("Fallo de comunicacion. Se espera un mensaje de %d, se recibio de %d\n",
+				h_esp.tipo_de_proceso, h_obt->tipo_de_proceso);
+		return FALLO_GRAL;
+	}
+
+	if (h_esp.tipo_de_mensaje != h_obt->tipo_de_mensaje){
+		printf("Fallo ejecucion de funcion con valor %d\n", h_obt->tipo_de_mensaje);
+		return FALLO_GRAL;
+	}
+
+	return 0;
+}
+
 void freeAndNULL(void **ptr){
 	free(*ptr);
 	*ptr = NULL;

@@ -34,7 +34,6 @@ extern sem_t sem_heapDict;
 extern sem_t sem_bytes;
 extern sem_t sem_end_exec;
 
-extern sem_t hayCPUs;
 extern sem_t eventoPlani;
 int globalPID;
 int globalFD;
@@ -60,8 +59,11 @@ typedef struct{
 	int * cantidadOpen;
 }tDatosTablaGlobal; //Estructura auxiliar para guardar en diccionario tablaGlobal
 
-
-
+/* Mutexes de cosas varias*/
+void setupMutexes(){
+	pthread_mutex_init(&mux_listaDeCPU,    NULL);
+	pthread_mutex_init(&mux_gl_Programas,  NULL);
+}
 
 void setupVariablesGlobales(void){
 
@@ -100,25 +102,35 @@ void cpu_manejador(void *infoCPU){
 
 	tMensaje rta;
 	bool found;
-	char *buffer;
-	char *var;
+	char *buffer, *var;
+	char *file_serial, leer_serial;
 	int stat, pack_size;
 	tPackBytes *sem_bytes;
 	tPackVal *alloc;
 	t_puntero ptr;
-	char *file_serial;
-	char *leer_serial;
-
 
 	do {
 	printf("(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
-	switch(head.tipo_de_mensaje){
+	switch((int) head.tipo_de_mensaje){
 	case S_WAIT:
 		puts("Signal wait a semaforo");
-		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		sem_bytes = deserializeBytes(buffer);
-		waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid);
+
+		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+
+		if ((sem_bytes = deserializeBytes(buffer)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+
+		head.tipo_de_mensaje = (waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid) == -1)?
+				VAR_NOT_FOUND : S_WAIT;
+		informarResultado(cpu_i->cpu.fd_cpu, head);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &sem_bytes);
@@ -126,9 +138,22 @@ void cpu_manejador(void *infoCPU){
 
 	case S_SIGNAL:
 		puts("Signal continuar a semaforo");
-		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		sem_bytes = deserializeBytes(buffer);
-		signalSyscall(sem_bytes->bytes, cpu_i->cpu.pid);
+
+		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+
+		if ((sem_bytes = deserializeBytes(buffer)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+
+		head.tipo_de_mensaje = (signalSyscall(sem_bytes->bytes, cpu_i->cpu.pid) == -1)?
+				VAR_NOT_FOUND : S_SIGNAL;
+		informarResultado(cpu_i->cpu.fd_cpu, head);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &sem_bytes);
@@ -138,24 +163,21 @@ void cpu_manejador(void *infoCPU){
 		puts("Se reasigna una variable global");
 
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
-			puts("Fallo recepcion generica");
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
 		}
 
 		tPackValComp *val_comp;
 		if ((val_comp = deserializeValorYVariable(buffer)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
-			//informarFallo(cpu_i->cpu.fd_cpu, head);
-			//finalizarProceso(pid) // todo: funcion finalizar proceso
-			break;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;			break;
 		}
 
-		if ((stat = setGlobalSyscall(val_comp)) != 0){
-			head.tipo_de_proceso = KER; head.tipo_de_mensaje = stat;
-			//informarFallo(cpu_i->cpu.fd_cpu, head);
-			//finalizarProceso(pid) // todo: funcion finalizar proceso
-			break;
-		}
+		head.tipo_de_mensaje = ((stat = setGlobalSyscall(val_comp)) != 0)?
+				stat : SET_GLOBAL;
+		informarResultado(cpu_i->cpu.fd_cpu, head);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &val_comp);
@@ -167,28 +189,44 @@ void cpu_manejador(void *infoCPU){
 		tPackBytes *var_name;
 
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
-			puts("Fallo recepcion generica");
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
 		}
 
-		var_name = deserializeBytes(buffer);
+		if ((var_name = deserializeBytes(buffer)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
 		freeAndNULL((void **) &buffer);
 
-		var = malloc(var_name->bytelen);
+		if ((var = malloc(var_name->bytelen)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
 		memcpy(var, var_name->bytes, var_name->bytelen);
 
 		val = getGlobalSyscall(var, &found);
-		rta = (found)? GET_GLOBAL : GLOBAL_NOT_FOUND;
-		head.tipo_de_proceso = KER; head.tipo_de_mensaje = rta;
+		if (!found){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = GLOBAL_NOT_FOUND;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+		head.tipo_de_proceso = KER; head.tipo_de_mensaje = GET_GLOBAL;
 
 		if ((buffer = serializeValorYVariable(head, val, var, &pack_size)) == NULL){
-			puts("No se pudo serializar Valor Y Variable");
-			return;
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
 		}
 
 		if ((stat = send(cpu_i->cpu.fd_cpu, buffer, pack_size, 0)) == -1){
-			perror("Fallo send de Valor y Variable. error");
-			return;
+			perror("Fallo send variable global a CPU. error");
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
 		}
 
 		freeAndNULL((void **) &buffer);
@@ -199,24 +237,38 @@ void cpu_manejador(void *infoCPU){
 	case RESERVAR:
 		puts("Funcion reservar");
 
-		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		alloc = deserializeVal(buffer);
+		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+
+		if ((alloc = deserializeVal(buffer)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
 		freeAndNULL((void **) &buffer);
 
 		if ((ptr = reservar(cpu_i->cpu.pid, alloc->val)) == 0){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_HEAP;
-		//	informarFallo(cpu_i->cpu.fd_cpu, head);
-			//finalizarProceso(pid) // todo: funcion finalizar proceso
+			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
 		}
 
 		alloc->head.tipo_de_proceso = KER; alloc->head.tipo_de_mensaje = RESERVAR;
 		alloc->val = ptr;
 		pack_size = 0;
-		buffer = serializeVal(alloc, &pack_size);
+		if ((buffer = serializeVal(alloc, &pack_size)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
 
 		if ((stat = send(cpu_i->cpu.fd_cpu, buffer, pack_size, 0)) == -1){
 			perror("Fallo send de puntero alojado a CPU. error");
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
 		}
 
@@ -226,12 +278,24 @@ void cpu_manejador(void *infoCPU){
 
 	case LIBERAR:
 		puts("Funcion liberar");
-		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		alloc = deserializeVal(buffer);
+		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
+
+		if ((alloc = deserializeVal(buffer)) == NULL){
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_DESERIALIZAC;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+			break;
+		}
 		freeAndNULL((void **) &buffer);
 
-		liberar(cpu_i->cpu.pid, alloc->val);
+		head.tipo_de_mensaje = ((stat = liberar(cpu_i->cpu.pid, alloc->val)) < 0)?
+				stat : LIBERAR;
+		informarResultado(cpu_i->cpu.fd_cpu, head);
 
+		puts("Fin case LIBERAR");
 		break;
 
 	case ABRIR:
@@ -288,7 +352,6 @@ void cpu_manejador(void *infoCPU){
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 		tPackRW * leer = deserializeLeer(buffer);
 
-		bool hola 	=  dictionary_has_key(tablaGlobal,(char *) &leer->fd);
 		tDatosTablaGlobal * path =  dictionary_get(tablaGlobal,(char *) &leer->fd);
 		printf("El path del direcctorio elegido es: %s\n", (char *) path->direccion);
 
@@ -363,6 +426,20 @@ void liberarCC(t_RelCC *cc){
 	free(cc);
 }
 
+int getConPosByFD(int fd, t_list *list){
+
+	int i;
+	t_RelPF *pf;
+	for (i = 0; i < list_size(list); ++i){
+		pf = list_get(list, i);
+		if (pf->prog->con->fd_con == fd)
+			return i;
+	}
+
+	printf("No se encontro el programa de socket %d en la gl_Programas\n", fd);
+	return -1;
+}
+
 int getCPUPosByFD(int fd, t_list *list){
 
 	int i;
@@ -373,7 +450,7 @@ int getCPUPosByFD(int fd, t_list *list){
 			return i;
 	}
 
-	printf("No se encontro el CPU de socket %d en la listaDeCpu", fd);
+	printf("No se encontro el CPU de socket %d en la listaDeCpu\n", fd);
 	return -1;
 }
 
@@ -456,8 +533,6 @@ void cons_manejador(void *conInfo){
 		freeAndNULL((void **) &pbytes);
 		freeAndNULL((void **) &buffer);
 		puts("Fin case SRC_CODE.");
-		//hardcode
-		head.tipo_de_mensaje=HSHAKE;
 		break;
 
 	case THREAD_INIT:
@@ -506,7 +581,17 @@ void cons_manejador(void *conInfo){
 
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
 
-
+	puts("Programa se desconecto, lo limpiamos de la lista de Programas..");
+	// todo: en realidad primero matamos su PCB, si es que tiene
+	int pos; t_RelPF *pf;
+	pthread_mutex_lock(&mux_gl_Programas);
+	if ((pos = getConPosByFD(con_i->con->fd_con, gl_Programas))){
+		pf = list_remove(gl_Programas, pos);
+		pthread_mutex_unlock(&mux_gl_Programas);
+		free(pf->src->bytes); free(pf->src);
+		liberarCC(con_i);
+	} else
+		pthread_mutex_unlock(&mux_gl_Programas);
 }
 
 void consolaKernel(void){
@@ -714,7 +799,7 @@ void finalizarProceso(int pidAFinalizar){
 
 	t_finConsola *fc = malloc (sizeof(fc));
 	fc->pid=pidAFinalizar ;
-	fc->ecode = CONS_PROG_EXIT;
+	fc->ecode = KILL_PID;
 
 	pthread_mutex_lock(&mux_listaFinalizados);
 	list_add(finalizadosPorConsolas,fc);
@@ -748,4 +833,3 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 void* queue_get(t_queue *self,int posicion) {
 	return list_get(self->elements, posicion);
 }
-

@@ -13,6 +13,12 @@
  */
 bool assertEq(int expected, int actual, const char* errmsg);
 
+/* Recibe un header y verifica que es del proceso correcto,
+ * Y mas importantemente, verifica que reciba la respuesta requerida.
+ * Retora 0 si no falla. h_obt se puede usar como una variable de salida.
+ */
+int validarRespuesta(int sock, tPackHeader h_esp, tPackHeader *h_obt);
+
 /* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL,
  * de esta manera, si se usare accidentalmente a futuro, es mas seguro que no toque nada critico
  */

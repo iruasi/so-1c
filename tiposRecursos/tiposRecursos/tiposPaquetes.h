@@ -68,7 +68,7 @@ typedef enum {
 
 	SYSCALL = 70, //cpu-kernel
 
-	FIN         = 11
+	FIN         = 71
 } tMensaje;
 
 typedef struct {

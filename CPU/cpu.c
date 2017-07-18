@@ -25,9 +25,12 @@
 
 void pedirInstruccion(int instr_size, int *solics);
 void recibirInstruccion(char **linea, int instr_size, int solics);
-
 int *ejecutarPrograma(void);
+
 void set_quantum_sleep(void);
+void liberarPCB(void);
+void liberarStack(t_list *stack_ind);
+
 int conectarConServidores(tCPU *cpu_data);
 
 int pag_size;
@@ -40,23 +43,37 @@ void set_quantum_sleep(void){
 }
 
 
-int err_exec;         // esta variable global va a retener el codigo de error con el que se rompio una primitiva
-sem_t sem_fallo_exec; // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
+int err_exec;            // esta variable global va a retener el codigo de error con el que se rompio una primitiva
+sem_t sem_fallo_exec;    // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
+pthread_mutex_t mux_pcb; // sincroniza sobre el PCB global, para enviar un PCB roto antes de obtener uno nuevo
 
 void err_handler(void){
-while(1){
-	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_PCB};
+	int pack_size;
+	char *pcb_serial;
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_PROCESO};
+
+	while(1){
+	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
+	pthread_mutex_lock(&mux_pcb);
 	pcb->exitCode = err_exec;
 	printf("Fallo ejecucion del PID %d con el error numero %d\n", pcb->id, pcb->exitCode);
 
+	if ((pcb_serial = serializePCB(pcb, head, &pack_size)) == NULL){
+		pthread_mutex_unlock(&mux_pcb); break;
+	}
 
-	puts("Creo el paquete de comunicacion de error para cpu_manejador del Kernel");
-	puts("Envio el paquete (podria ser un pcb limpio y ligero, solo nos importa el pid y el exit_code)");
-	puts("Podria limpiar el PCB y algunas variables globales que controlaban ejecucion?");
-	puts("El CPU vuelve a un estado consistente, listo para recibir un pcb nuevo");
+	if (send(sock_kern, pcb_serial, pack_size, 0) == -1){
+		perror("Fallo envio de PCB a Kernel. error");
+		pthread_mutex_unlock(&mux_pcb); break;
+	}
+	puts("Se envio el PCB abortado a Kernel");
 
+	freeAndNULL((void **) &pcb_serial);
+	liberarPCB();
+	puts(" *** El CPU vuelve a un estado consistente y listo para recibir un pcb nuevo ***\n");
+
+	pthread_mutex_unlock(&mux_pcb);
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 
 int main(int argc, char* argv[]){
@@ -75,6 +92,8 @@ int main(int argc, char* argv[]){
 	setupCPUFunciones();
 	setupCPUFuncionesKernel();
 
+	sem_init(&sem_fallo_exec,  0, 0);
+	pthread_mutex_init(&mux_pcb, NULL);
 	pthread_t pcb_th;
 	pthread_t errores_th;
 	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
@@ -103,7 +122,9 @@ int main(int argc, char* argv[]){
 				return FALLO_RECV;
 			}
 
+			pthread_mutex_lock(&mux_pcb);
 			pcb = deserializarPCB(pcb_serial);
+			pthread_mutex_unlock(&mux_pcb);
 
 			puts("Recibimos un PCB para ejecutar...");
 			pthread_create(&pcb_th, NULL, (void *) ejecutarPrograma, NULL);
@@ -126,13 +147,13 @@ int main(int argc, char* argv[]){
 	close(sock_kern);
 	close(sock_mem);
 	free(pcb);
+	free(head);
 	liberarConfiguracionCPU(cpu_data);
 	return 0;
 }
 
 
-int *ejecutarPrograma(void){
-	sleep(2); // todo: esto esta por race condition vs Kernel para escribir/leer a Memoria las instrucciones
+int *ejecutarPrograma(void){ sleep(1);
 
 	tPackHeader header;
 	int *retval = malloc(sizeof(int));
@@ -188,7 +209,7 @@ int *ejecutarPrograma(void){
 	header.tipo_de_proceso = CPU;
 
 	int pack_size = 0;
-	char * pcb_serial = serializePCB(pcb, header, &pack_size); // todo: Necesitamos retornar el PCB completo siempre?
+	char *pcb_serial = serializePCB(pcb, header, &pack_size);
 	printf("Se serializo bien el pcb con tamanio: %d\n", pack_size);
 	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a Kernel. error");
@@ -357,4 +378,30 @@ int conectarConServidores(tCPU *cpu_data){
 	return 0;
 }
 
+void liberarStack(t_list *stack_ind){
 
+	int i, j;
+	indiceStack *stack;
+
+	for (i = 0; i < list_size(stack_ind); ++i){
+		stack = list_remove(stack_ind, i);
+
+		for (j = 0; j < list_size(stack->args); ++j)
+			list_remove(stack->args, j);
+		list_destroy(stack->args);
+
+		for (j = 0; j < list_size(stack->vars); ++j)
+			list_remove(stack->vars, j);
+		list_destroy(stack->vars);
+	}
+	list_destroy(stack_ind);
+}
+
+void liberarPCB(void){
+
+	free(pcb->indiceDeCodigo);
+	if (pcb->indiceDeEtiquetas) // non-NULL
+		free(pcb->indiceDeEtiquetas);
+	liberarStack(pcb->indiceDeStack);
+	freeAndNULL((void **) &pcb);
+}

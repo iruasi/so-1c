@@ -14,8 +14,6 @@ typedef struct{
 	int fd_con,pid;
 }t_consola;
 
-
-
 typedef struct {
 	t_cpu     cpu;
 	t_consola *con;
@@ -30,7 +28,6 @@ typedef struct {
 typedef struct {
 	int pid,ecode;
 }t_finConsola;
-
 
 
 void liberarCC(t_RelCC *cc);
@@ -59,20 +56,6 @@ tPCB *crearPCBInicial(void);
 /* Crea un puntero a un PCB nuevo, con un PID unico.
  */
 tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog);
-
-/* Es un recv() constante al socket del hilo CPU.
- * Gestiona los mensaje recibidos del hilo.
- * Tiene que redireccionar a Planificador lo que corresponda.
- * El resto son en su mayoria Syscalls.
- */
-void cpu_manejador(void *cpuInfo);
-
-void mem_manejador(void *m_sock);
-
-/* Es un recv() constante al socket del hilo Programa.
- * Gestiona los mensaje recibidos del hilo.
- */
-void cons_manejador(void *conInfo);
 
 int setGlobal(tPackValComp *val_comp);
 t_valor_variable getGlobal(t_nombre_variable *var, bool *found);

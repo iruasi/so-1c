@@ -19,28 +19,38 @@ int getSemPosByID(const char *sem){
 		if (strcmp(kernel->sem_ids[i], sem) == 0)
 			return i;
 
-	return -1; // todo: retorne error
+	printf("No se encontro el semaforo %s en la config del Kernel\n", sem);
+	return -1;
 }
 
-void waitSyscall(const char *sem, int pid){
+int waitSyscall(const char *sem, int pid){
 
-	int p = getSemPosByID(sem);
+	int p;
+	if ((p = getSemPosByID(sem)) == -1)
+		return p;
+
 	kernel->sem_vals[p]--;
 	if (kernel->sem_vals[p] < 0){
 		puts("Ejecucion espera semaforo");
 		blockByPID(pid);
 	}
+
+	return 0;
 }
 
-void signalSyscall(const char *sem, int pid){
+int signalSyscall(const char *sem, int pid){
 
-	int p = getSemPosByID(sem);
+	int p;
+	if ((p = getSemPosByID(sem)) == -1)
+		return p;
 
 	kernel->sem_vals[p]++;
 	if (kernel->sem_vals[p] >= 0){
 		unBlockByPID(pid);
 		puts("Ejecucion continua por semaforo");
 	}
+
+	return 0;
 }
 
 int setGlobalSyscall(tPackValComp *val_comp){
@@ -77,5 +87,6 @@ t_valor_variable getGlobalSyscall(t_nombre_variable *var, bool* found){
 	}
 	free(aux);
 	*found = false;
+	printf("No se encontro la global %s en la config del Kernel\n", var);
 	return GLOBAL_NOT_FOUND;
 }

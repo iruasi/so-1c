@@ -1154,7 +1154,7 @@ int sumarPesosStack(t_list *stack){
 }
 
 
-void informarFallo(int sock, tPackHeader head){
+void informarResultado(int sock, tPackHeader head){
 	char *buffer;
 	int pack_size, stat;
 	pack_size = 0;
