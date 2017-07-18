@@ -51,15 +51,10 @@ t_list *listaProgramas;
 extern t_list *finalizadosPorConsolas;
 
 
-char *recvHeader(int sock_in, tPackHeader *header);
-
 int grado_mult;
 extern tKernel *kernel;
 
-extern sem_t hayProg;
 extern sem_t eventoPlani;
-extern sem_t hayCPUs;
-extern sem_t codigoEnviado;
 
 void setupSemaforosColas(void){
 	pthread_mutex_init(&mux_new,   NULL);
@@ -523,25 +518,23 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 		//lo sacamos de la lista de EXEC
 		pthread_mutex_lock(&mux_exec);
-		//pcbPlanif=list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
+		pcbPlanif=list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
 		list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
 		pthread_mutex_unlock(&mux_exec);
 
-
-
-		//Aviso a memoria
-		//finalizarPrograma(cpu->cpu.pid, headerMemoria, cpu->con->fd_con);
-		//finalizarPrograma(cpu->cpu.pid, headerMemoria, sock_mem); //todo: a sock_mem es que le aviso no? esto de arriba no se pq estsa asi
-
-
-		//chequeamos q no haya sido finalizado por alguna consoa previamente y en ese caso asignamos excde
-
+		//chequeamos q alguna consola no lo haya finalizado previamente
+		int k;
 		if(list_size(finalizadosPorConsolas)>0){
 			for(k=0;k<list_size(finalizadosPorConsolas);k++){
-				fcAux = list_get(finalizadosPorConsolas,k);
+				t_finConsola *fcAux = list_get(finalizadosPorConsolas,k);
 				if(fcAux->pid == pcbAux->id){
-					pcbAux->exitCode = fcAux->ecode;
-					break;
+					pcbPlanif->exitCode = fcAux->ecode;
+					k=list_size(finalizadosPorConsolas)+1;
+				}
+				else
+				{
+					pcbPlanif->exitCode = pcbAux->exitCode; // todo: que valores nos importan retener?
+					k=list_size(finalizadosPorConsolas)+1;
 				}
 			}
 		}

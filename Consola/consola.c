@@ -18,7 +18,7 @@
 #include "consolaConfigurators.h"
 #include "apiConsola.h"
 
-#define MAXMSJ 100
+#define MAXMSJ 200
 
 
 

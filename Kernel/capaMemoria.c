@@ -55,26 +55,23 @@ void crearNuevoHMD(tHeapMeta *dir_mem, int size){
 t_puntero reservarBytes(char* heap_page, int sizeReserva){
 	printf("Se tratan de reservar %d bytes en pagina de Heap\n", sizeReserva);
 
-	int sizeLibre = MAX_ALLOC_SIZE;
 	int dist      = MAX_ALLOC_SIZE + SIZEOF_HMD;
 	tHeapMeta *hmd, *hmd_next;
 
 	hmd = (tHeapMeta *) heap_page;
-	while(sizeLibre >= sizeReserva){
+	while(dist >= sizeReserva){
 
 		if (esReservable(sizeReserva, hmd)){
 
 			hmd->size = sizeReserva;
 			hmd->isFree = false;
 
-			sizeLibre -= sizeReserva;
 			hmd_next = nextBlock(hmd, &dist);
 
-			crearNuevoHMD(hmd_next, sizeLibre);
+			crearNuevoHMD(hmd_next, dist);
 			return ((char *) hmd - heap_page) + SIZEOF_HMD; // posicion relativa
 		}
 
-		sizeLibre -= hmd->size;
 		hmd = nextBlock(hmd, &dist);
 	}
 
@@ -327,6 +324,7 @@ int crearNuevoHeap(int pid){
 }
 
 int liberar(int pid, t_puntero ptr){
+	printf("Se liberara el puntero %d para el PID %d\n", ptr, pid);
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 
@@ -375,7 +373,7 @@ bool punteroApuntaABloqueValido(char *heap, t_puntero ptr){
 
 	tHeapMeta *hmd;
 	// off apuntaria 5 bytes despues del comienzo del HMD, corregimos eso...
-	int off = ptr % frame_size - 5;
+	int off = ptr % frame_size - SIZEOF_HMD;
 
 	if (!punteroApuntaABloque(heap, ptr))
 		return false;
@@ -430,12 +428,11 @@ void consolidar(char *heap){
 
 		} else{ // son contiguos, cosolidamos y `limpiamos' hmd_n
 			printf("Encontro bloques consolidables size %d y %d, size final: %d\n",
-					hmd->size, hmd_n->size, hmd->size + hmd_n->size);
-			hmd->size += hmd_n->size;
+					hmd->size, hmd_n->size, hmd->size + hmd_n->size + SIZEOF_HMD);
+			hmd->size += hmd_n->size + SIZEOF_HMD;
 			hmd_n = nextFreeBlock(hmd_n, &dist_n);
 		}
 	}
-	hmd_n->size = 0; hmd_n->isFree = 0;
 }
 
 void agregarHeapAPID(int pid, int pag){

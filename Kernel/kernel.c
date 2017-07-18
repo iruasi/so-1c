@@ -27,7 +27,7 @@
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
-
+#include "manejadores.h"
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int frames, frame_size; // para guardar datos a recibir de Memoria
