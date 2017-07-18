@@ -497,7 +497,7 @@ void cons_manejador(void *conInfo){
 	t_RelCC *con_i = (t_RelCC*) conInfo;
 	printf("cons_manejador socket %d\n", con_i->con->fd_con);
 
-	int stat;
+	int stat,k;
 	tPackHeader head = {.tipo_de_proceso = CON, .tipo_de_mensaje = THREAD_INIT};
 	char *buffer;
 	tPackBytes *pbytes;
@@ -530,8 +530,13 @@ void cons_manejador(void *conInfo){
 
 		encolarEnNew(new_pcb);
 
-		freeAndNULL((void **) &pbytes);
-		freeAndNULL((void **) &buffer);
+		puts("debug 1");
+
+		//freeAndNULL((void **) &pbytes);
+		//freeAndNULL((void **) &buffer);
+		//todo: me esta tirando munmap_chunk() aca... por las dudas haria este free and null al final
+
+		puts("debug 2");
 		puts("Fin case SRC_CODE.");
 		break;
 
@@ -560,19 +565,15 @@ void cons_manejador(void *conInfo){
 
 					//log_trace(logTrace,"asigno pid a la estructura");
 					pidAFinalizar = ppid->val;
-					freeAndNULL((void **)&ppid);
+					//freeAndNULL((void **)&ppid);
 					printf("Pid a finalizar: %d\n",pidAFinalizar);
 					t_finConsola *fc=malloc(sizeof(fc));
 					fc->pid = pidAFinalizar ;
-					fc->ecode = CONS_DISCONNECT;
+					fc->ecode = CONS_FIN_PROG;
 
 					pthread_mutex_lock(&mux_listaFinalizados);
 					list_add(finalizadosPorConsolas,fc);
 					pthread_mutex_unlock(&mux_listaFinalizados);
-
-
-					//todo:free fc?!
-
 
 		break;
 
@@ -581,17 +582,21 @@ void cons_manejador(void *conInfo){
 
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
 
-	puts("Programa se desconecto, lo limpiamos de la lista de Programas..");
-	// todo: en realidad primero matamos su PCB, si es que tiene
-	int pos; t_RelPF *pf;
-	pthread_mutex_lock(&mux_gl_Programas);
-	if ((pos = getConPosByFD(con_i->con->fd_con, gl_Programas))){
-		pf = list_remove(gl_Programas, pos);
-		pthread_mutex_unlock(&mux_gl_Programas);
-		free(pf->src->bytes); free(pf->src);
-		liberarCC(con_i);
-	} else
-		pthread_mutex_unlock(&mux_gl_Programas);
+	if(con_i->con->fd_con != -1){
+		printf("La consola %d asociada al PID: se desconectó.\n", con_i->con->fd_con,con_i->con->pid);
+
+		t_finConsola *fc=malloc(sizeof(fc));
+		fc->pid = pidAFinalizar ;
+		fc->ecode = CONS_DISCONNECT;
+
+		pthread_mutex_lock(&mux_listaFinalizados);
+		list_add(finalizadosPorConsolas,fc);
+		pthread_mutex_unlock(&mux_listaFinalizados);
+
+	}
+	else{
+		printf("cierro thread de consola\n");
+	}
 }
 
 void consolaKernel(void){
@@ -752,7 +757,6 @@ void mostrarInfoDe(int pidElegido){
 	mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
 
 
-	//todo: se hace free de pcbaux,no?
 
 }
 
@@ -799,15 +803,13 @@ void finalizarProceso(int pidAFinalizar){
 
 	t_finConsola *fc = malloc (sizeof(fc));
 	fc->pid=pidAFinalizar ;
-	fc->ecode = KILL_PID;
+	fc->ecode=CONS_FIN_PROG;
 
 	pthread_mutex_lock(&mux_listaFinalizados);
 	list_add(finalizadosPorConsolas,fc);
 	pthread_mutex_unlock(&mux_listaFinalizados);
-
-
-
 }
+
 void mostrarTablaGlobal(){
 	puts("Mostrar tabla global");
 }

@@ -23,7 +23,7 @@ typedef struct {
 
 /* SEMAFOROS */
 pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit;
-pthread_mutex_t mux_listaDeCPU,mux_gradoMultiProg,mux_listaFinalizados;
+pthread_mutex_t mux_listaDeCPU, mux_gl_Programas, mux_gradoMultiProg, mux_listaFinalizados;
 
 void setupPlanificador(void);
 void setupSemaforosColas(void);

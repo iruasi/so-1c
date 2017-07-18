@@ -203,7 +203,7 @@ void* kernel_handler(void *sock_kernel){
 			if (stat != 0){
 				printf("Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 				head.tipo_de_proceso = MEM; head.tipo_de_mensaje = stat;
-				informarFallo(*sock_ker, head);
+				informarResultado(*sock_ker, head);
 
 			} else
 				puts("Se completo Solicitud de Bytes");

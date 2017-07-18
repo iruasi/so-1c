@@ -117,7 +117,7 @@ int Finalizar_Programa(int pid){
 
 
 	//habria q  ver si importa que el kernel conteste o matarlo de una y fue..
-	accionesFinalizacion(pid);
+	//accionesFinalizacion(pid);
 
 //	if((stat = recv(sock_kern, &recv_head, sizeof recv_head, 0)) == -1){
 //		log_error(logger,"Fallo de recepcion respuesta Kernel");
@@ -157,12 +157,12 @@ void accionesFinalizacion(int pid ){
 			strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaInicio));
 			strftime (buffFin, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaFin));
 
-			printf("\n\n\n FIN DE LA EJECUCION DEL PROCESO %d \n INFO DE EJECUCION: \n",pid);
+			printf("\n\n\n ###FIN DE LA EJECUCION DEL PROCESO %d \n###INFO DE EJECUCION: \n",pid);
 
-			printf ("HORA DE INICIO: %s\n", buffInicio);
-			printf ("HORA DE FIN: %s\n", buffFin);
-			printf("SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
-			printf("Cantidad de impresiones por pantalla: XXXXXXX\n");
+			printf ("###HORA DE INICIO: %s\n", buffInicio);
+			printf ("###HORA DE FIN: %s\n", buffFin);
+			printf("###SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
+			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: XXXXXXX\n");
 
 
 
@@ -213,7 +213,7 @@ void *programa_handler(void *atributos){
 	char *buffer;
 	char buffInicio[100];
 	int pack_size;
-	int motivoFin=1;
+	int motivoFin;
 	int stat;
 	int fin = 0;
 
@@ -280,8 +280,6 @@ void *programa_handler(void *atributos){
 			}
 
 
-
-
 			//puts("Kernel manda algo a imprimir");
 			//recv..
 		}
@@ -312,7 +310,7 @@ void *programa_handler(void *atributos){
 
 
 
-			log_info(logger,"PID: %d ",args->pidProg);
+			//log_info(logger,"PID: %d ",args->pidProg);
 
 			printf("Pid Recibido es: %d\n", args->pidProg);
 
@@ -327,33 +325,28 @@ void *programa_handler(void *atributos){
 
 		if (head_tmp.tipo_de_mensaje == FIN_PROG){
 
-
-			log_trace(logTrace,"se finaliza el hilo");
-
-			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa de manera NORMAL",args->pidProg);
+			//log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa",args->pidProg);
 
 			printf("Kernel nos avisa que termino de ejecutar el programa %d\n", args->pidProg);
-			stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0);
-			motivoFin = head_tmp.tipo_de_mensaje;
+
+			if ((buffer = recvGeneric(sock_kern)) == NULL){
+				log_error(logger,"error al recibir el exitcode ");
+				return (void *) FALLO_RECV;
+			}
+
+			if ((ppid = deserializeVal(buffer)) == NULL){
+				log_error(logger,"error al deserializar el packExitCode");
+				return (void *) FALLO_DESERIALIZAC;
+			}
+
+			memcpy(&motivoFin, &ppid->val, sizeof(int));
 
 			printf("Exit code %d\n",motivoFin);
 
 			accionesFinalizacion(args->pidProg);
-			puts("aca");
+			puts("estoy aca");
 		}
 
-		if(head_tmp.tipo_de_mensaje == ABORTO_PROCESO){
-			log_trace(logTrace,"se finaliza el hilo");
-
-			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa de manera ANORMAL",args->pidProg);
-			stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0);
-			motivoFin = head_tmp.tipo_de_mensaje;
-
-			printf("Exit code %d\n",motivoFin);
-
-			accionesFinalizacion(args->pidProg);
-			puts("aca");
-		}
 
 	}
 

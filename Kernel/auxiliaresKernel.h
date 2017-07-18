@@ -29,6 +29,10 @@ typedef struct {
 	int pid,ecode;
 }t_finConsola;
 
+void cpu_manejador(void *cpuInfo);
+void mem_manejador(void *m_sock);
+void cons_manejador(void *conInfo);
+
 
 void liberarCC(t_RelCC *cc);
 
@@ -95,5 +99,6 @@ void mostrarCantHeapUtilizadasDe(tPCB *pcb);
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
 
 void* queue_get(t_queue *self,int posicion);
+
 
 #endif // AUXILIARESKERNEL_H_
