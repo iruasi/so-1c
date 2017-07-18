@@ -38,12 +38,13 @@ extern sem_t eventoPlani;
 int globalPID;
 int globalFD;
 
+t_dictionary *proc_info;
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
 t_list *finalizadosPorConsolas;
 
 extern t_queue *New, *Exit,*Ready;
-extern t_list	*Exec,*listaProgramas, *Block;
+extern t_list	*Exec, *listaProgramas, *Block;
 extern tKernel *kernel;
 extern int grado_mult;
 
@@ -67,6 +68,7 @@ void setupMutexes(){
 
 void setupVariablesGlobales(void){
 
+	proc_info = dictionary_create();
 	gl_Programas = list_create();
 	finalizadosPorConsolas = list_create();
 
@@ -100,7 +102,6 @@ void cpu_manejador(void *infoCPU){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
 
-	tMensaje rta;
 	bool found;
 	char *buffer, *var;
 	char *file_serial, leer_serial;
@@ -128,6 +129,7 @@ void cpu_manejador(void *infoCPU){
 			break;
 		}
 
+		head.tipo_de_proceso = KER;
 		head.tipo_de_mensaje = (waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid) == -1)?
 				VAR_NOT_FOUND : S_WAIT;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -151,6 +153,7 @@ void cpu_manejador(void *infoCPU){
 			break;
 		}
 
+		head.tipo_de_proceso = KER;
 		head.tipo_de_mensaje = (signalSyscall(sem_bytes->bytes, cpu_i->cpu.pid) == -1)?
 				VAR_NOT_FOUND : S_SIGNAL;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -175,6 +178,7 @@ void cpu_manejador(void *infoCPU){
 			break;			break;
 		}
 
+		head.tipo_de_proceso = KER;
 		head.tipo_de_mensaje = ((stat = setGlobalSyscall(val_comp)) != 0)?
 				stat : SET_GLOBAL;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -291,6 +295,7 @@ void cpu_manejador(void *infoCPU){
 		}
 		freeAndNULL((void **) &buffer);
 
+		head.tipo_de_proceso = KER;
 		head.tipo_de_mensaje = ((stat = liberar(cpu_i->cpu.pid, alloc->val)) < 0)?
 				stat : LIBERAR;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -583,7 +588,7 @@ void cons_manejador(void *conInfo){
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
 
 	if(con_i->con->fd_con != -1){
-		printf("La consola %d asociada al PID: se desconectó.\n", con_i->con->fd_con,con_i->con->pid);
+		printf("La consola %d asociada al PID: %d se desconectó.\n", con_i->con->fd_con, con_i->con->pid);
 
 		t_finConsola *fc=malloc(sizeof(fc));
 		fc->pid = pidAFinalizar ;
@@ -659,31 +664,40 @@ void mostrarColaDe(char* cola){
 	puts("Mostrar estado de: ");
 	if (strncmp(cola,"todos",5)==0){
 		puts("Mostrar estado de todas las colas:");
+		pthread_mutex_lock(&mux_new); pthread_mutex_lock(&mux_ready); pthread_mutex_lock(&mux_exec);
+		pthread_mutex_lock(&mux_block); pthread_mutex_lock(&mux_exit);
 		mostrarColaNew();
 		mostrarColaReady();
 		mostrarColaExec();
 		mostrarColaExit();
 		mostrarColaBlock();
+		pthread_mutex_unlock(&mux_new); pthread_mutex_unlock(&mux_ready); pthread_mutex_unlock(&mux_exec);
+		pthread_mutex_unlock(&mux_block); pthread_mutex_unlock(&mux_exit);
 	}
 	if (strncmp(cola,"new",3)==0){
 		puts("Mostrar estado de cola NEW");
-		mostrarColaNew();
+		pthread_mutex_lock(&mux_new);
+		mostrarColaNew(); pthread_mutex_unlock(&mux_new);
 	}
 	if (strncmp(cola,"ready",5)==0){
 		puts("Mostrar estado de cola REDADY");
-		mostrarColaReady();
+		pthread_mutex_lock(&mux_ready);
+		mostrarColaReady(); pthread_mutex_unlock(&mux_ready);
 	}
 	if (strncmp(cola,"exec",4)==0){
 		puts("Mostrar estado de cola EXEC");
-		mostrarColaExec();
+		pthread_mutex_lock(&mux_exec);
+		mostrarColaExec(); pthread_mutex_unlock(&mux_exec);
 	}
 	if (strncmp(cola,"exit",4)==0){
 		puts("Mostrar estado de cola EXIT");
-		mostrarColaExit();
+		pthread_mutex_lock(&mux_exit);
+		mostrarColaExit(); pthread_mutex_unlock(&mux_exit);
 	}
 	if (strncmp(cola,"block",5)==0){
 		puts("Mostrar estado de cola BLOCK");
-		mostrarColaBlock();
+		pthread_mutex_lock(&mux_block);
+		mostrarColaBlock(); pthread_mutex_unlock(&mux_block);
 	}
 }
 
@@ -751,7 +765,6 @@ void mostrarInfoDe(int pidElegido){
 	}
 
 	mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-	mostrarCantPrivilegiadasDe(pcbAuxiliar);
 	mostrarTablaDeArchivosDe(pcbAuxiliar);
 	mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
 	mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
@@ -765,31 +778,28 @@ void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
 	//todo: ampliar pcb con la cant de rafagas totales?
 	printf("Cantidad de rafagas ejecutadas: x!!!!!!x\n");
 }
-void mostrarCantPrivilegiadasDe(tPCB *pcb){
-
-	printf("Cantidad de operaciones privilegiadas: x!!!!!!x\n");
-
-}
 void mostrarTablaDeArchivosDe(tPCB *pcb){
 
 
 	printf("Tabla de archivos abiertos del proceso: x!!!!!!x\n");
 }
 void mostrarCantHeapUtilizadasDe(tPCB *pcb){
-	printf("Cantidad de paginas de heap utilizacdas: x!!!!!!x\n");
+	char spid[6];
+	sprintf(spid, "%d", pcb->id);
+	infoProcess *ip = dictionary_get(proc_info, spid);
 
-	printf("Cantidad de acciones allocar realizadas: x!!!!!!x\n");
-
-
-	printf("Cantidad de bytes allocados: x!!!!!!x\n");
-
-	printf("Cantidad de acciones liberar realizados: x!!!!!!x\n");
-
-	printf("Cantidad de bytes liberados: x!!!!!!x\n");
+	printf("Cantidad de paginas de heap utilizadas: \t %d \n", ip->cant_heaps);
+	printf("Cantidad de allocaciones realizadas: \t %d \n", ip->bytes_allocd);
+	printf("Cantidad de bytes allocados: \t\t %d \n", ip->bytes_allocd);
+	printf("Cantidad de liberaciones realizadas: \t %d \n", ip->cant_frees);
+	printf("Cantidad de bytes liberados: \t\t %d \n", ip->bytes_freed);
 }
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
+	char spid[6];
+	sprintf(spid, "%d", pcb->id);
+	infoProcess *ip = dictionary_get(proc_info, spid);
 
-	printf("Cantidad de syscalls utilizadas : x!!!!!!!x\n");
+	printf("Cantidad de syscalls utilizadas : \t\t %d \n", ip->cant_syscalls);
 }
 
 void cambiarGradoMultiprogramacion(int nuevoGrado){

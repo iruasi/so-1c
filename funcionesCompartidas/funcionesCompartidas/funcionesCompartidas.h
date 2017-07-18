@@ -74,4 +74,7 @@ void clearAndClose(int *fd, fd_set *setFD);
  */
 indiceStack *crearStackVacio(void);
 
+void liberarPCB(tPCB *pcb);
+void liberarStack(t_list *stack_ind);
+
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

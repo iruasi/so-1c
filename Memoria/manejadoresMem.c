@@ -31,6 +31,7 @@ tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 
 
 void liberarEstructurasMemoria(void){
+	puts("Se procede a liberar todas las estructuras de Memoria.");
 
 	liberarConfiguracionMemoria();
 	freeAndNULL((void **) &MEM_FIS);

@@ -94,10 +94,6 @@ char *obtenerHeapDeMemoria(int pid, int pag);
 
 int crearNuevoHeap(int pid);
 
-int pagMasReciente(int pid);
-
-void enviarPrimerHMD(int pid, int pag);
-
 void agregarHeapAPID(int pid, int pag);
 
 tHeapMeta *nextBlock(tHeapMeta *hmd, int *dist);

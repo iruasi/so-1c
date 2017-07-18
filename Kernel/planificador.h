@@ -54,7 +54,11 @@ void limpiarPlanificadores(void);
 /* FUNCIONES EXTRA HECHAS AL VUELO */ // todo: ver si las delegamos en otros archivos
 t_RelPF *getProgByPID(int pid);
 
+/* Entrelaza el CPU y el Programa, por medio del PID del PCB que comparten.
+ * Se copian los valores de Programa en CPU y viceversa.
+ */
 void asociarProgramaACPU(t_RelCC *cpu);
+
 void avisarPIDaPrograma(int pid, int sock_prog);
 void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages);
 

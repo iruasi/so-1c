@@ -28,8 +28,6 @@ void recibirInstruccion(char **linea, int instr_size, int solics);
 int *ejecutarPrograma(void);
 
 void set_quantum_sleep(void);
-void liberarPCB(void);
-void liberarStack(t_list *stack_ind);
 
 int conectarConServidores(tCPU *cpu_data);
 
@@ -70,10 +68,10 @@ void err_handler(void){
 	puts("Se envio el PCB abortado a Kernel");
 
 	freeAndNULL((void **) &pcb_serial);
-	liberarPCB();
-	puts(" *** El CPU vuelve a un estado consistente y listo para recibir un pcb nuevo ***\n");
-
+	liberarPCB(pcb);
 	pthread_mutex_unlock(&mux_pcb);
+
+	puts(" *** El CPU vuelve a un estado consistente y listo para recibir un pcb nuevo ***\n");
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 
 int main(int argc, char* argv[]){
@@ -376,32 +374,4 @@ int conectarConServidores(tCPU *cpu_data){
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
 	return 0;
-}
-
-void liberarStack(t_list *stack_ind){
-
-	int i, j;
-	indiceStack *stack;
-
-	for (i = 0; i < list_size(stack_ind); ++i){
-		stack = list_remove(stack_ind, i);
-
-		for (j = 0; j < list_size(stack->args); ++j)
-			list_remove(stack->args, j);
-		list_destroy(stack->args);
-
-		for (j = 0; j < list_size(stack->vars); ++j)
-			list_remove(stack->vars, j);
-		list_destroy(stack->vars);
-	}
-	list_destroy(stack_ind);
-}
-
-void liberarPCB(void){
-
-	free(pcb->indiceDeCodigo);
-	if (pcb->indiceDeEtiquetas) // non-NULL
-		free(pcb->indiceDeEtiquetas);
-	liberarStack(pcb->indiceDeStack);
-	freeAndNULL((void **) &pcb);
 }

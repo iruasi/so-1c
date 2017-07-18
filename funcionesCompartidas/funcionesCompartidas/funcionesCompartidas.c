@@ -207,3 +207,31 @@ indiceStack *crearStackVacio(void){
 
 	return stack;
 }
+
+void liberarPCB(tPCB *pcb){
+
+	free(pcb->indiceDeCodigo);
+	if (pcb->indiceDeEtiquetas) // if hay etiquetas de algun tipo
+		free(pcb->indiceDeEtiquetas);
+	liberarStack(pcb->indiceDeStack);
+	freeAndNULL((void **) &pcb);
+}
+
+void liberarStack(t_list *stack_ind){
+
+	int i, j;
+	indiceStack *stack;
+
+	for (i = 0; i < list_size(stack_ind); ++i){
+		stack = list_remove(stack_ind, i);
+
+		for (j = 0; j < list_size(stack->args); ++j)
+			list_remove(stack->args, j);
+		list_destroy(stack->args);
+
+		for (j = 0; j < list_size(stack->vars); ++j)
+			list_remove(stack->vars, j);
+		list_destroy(stack->vars);
+	}
+	list_destroy(stack_ind);
+}

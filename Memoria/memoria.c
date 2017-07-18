@@ -52,10 +52,6 @@ int main(int argc, char* argv[]){
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
-
-
-
-
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
@@ -72,8 +68,6 @@ int main(int argc, char* argv[]){
 		perror("No pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
-
-
 
 	if ((sock_entrada = makeListenSock(memoria->puerto_entrada)) < 0){
 		fprintf(stderr, "No se pudo crear un socket de listen. fallo: %d", sock_entrada);
@@ -161,11 +155,11 @@ void* kernel_handler(void *sock_kernel){
 
 	int *sock_ker = (int *) sock_kernel;
 	int stat, new_page, pack_size;
-	int pid;
 	char *buffer;
 
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = THREAD_INIT};
 	tPackPidPag *pp;
+	tPackPID *ppid;
 
 	printf("Esperamos que lleguen cosas del socket Kernel: %d\n", *sock_ker);
 
@@ -255,14 +249,13 @@ void* kernel_handler(void *sock_kernel){
 
 		case FIN_PROG:
 
-			recv(*sock_ker, &pid, sizeof pid, 0);
-			// TODO: desalojarDatosPrograma(pid)
+			if ((buffer = recvGeneric(*sock_ker)) == NULL)
+				break;
 
-			break;
+			if ((ppid = deserializeVal(buffer)) == NULL)
+				break;
 
-		case FIN:
-			// se quiere desconectar el Kernel de forma normal. Vamos a apagarnos aca...
-			// TODO: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
+			finalizarPrograma(ppid->val);
 			break;
 
 		default:
@@ -275,9 +268,10 @@ void* kernel_handler(void *sock_kernel){
 		return NULL;
 	}
 
-	//se desconecto Kernel de forma normal. Vamos a apagarnos aca...
-	//todo: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
+	puts("Kernel cerro la conexion. Apagando Memoria...");
+	liberarEstructurasMemoria();
 
+	free(sock_ker);
 	return NULL;
 }
 
@@ -354,43 +348,37 @@ void consolaMemoria(void){
 
 
 	int finalizar = 0;
-	while(finalizar !=1){
-			printf("Seleccione opcion: \n");
-			char *opcion=malloc(MAXOPCION);
-			fgets(opcion,MAXOPCION,stdin);
-			opcion[strlen(opcion) - 1] = '\0';
-			if (strncmp(opcion,"retardo",7)==0){
-				puts("Opcion retardo");
-				char *msChar = opcion+8;
-				int ms = atoi(msChar);
-				printf("Ms a retardar %d\n",ms);
-				retardo(ms);
+	while(finalizar != 1){
+		printf("Seleccione opcion: \n");
+		char opcion[MAXOPCION];
+		fgets(opcion, MAXOPCION, stdin);
+		opcion[strlen(opcion) - 1] = '\0';
 
-			}
-			if (strncmp(opcion,"dump",4)==0){
-				puts("Opcion dump");
-				//todo: dump recibe parmetros??
-				//dump();
+		if (strncmp(opcion, "retardo", 7) == 0){
+			puts("Opcion retardo");
+			char *msChar = opcion + 8;
+			int ms = atoi(msChar);
+			retardo(ms);
 
-			}
-			if (strncmp(opcion,"flush",5)==0){
-				puts("Opcion flush");
-				flush();
-			}
-			if (strncmp(opcion,"sizeMemoria",11)==0){
-				puts("Opcion sizeMemoria");
-					size(-1);
-			}
-			if (strncmp(opcion,"sizeProceso",11)==0){
-				puts("Opcion sizeProceso");
-				char *pidProceso = opcion+12;
-				int pid = atoi(pidProceso);
-				size(pid);
+		} else if (strncmp(opcion, "dump", 4) == 0){
+			puts("Opcion dump");
+			//todo: dump recibe parmetros??
+			//dump();
 
-			}
+		} else if (strncmp(opcion, "flush", 5) == 0){
+			puts("Opcion flush");
+			flush();
 
+		} else if (strncmp(opcion, "sizeMemoria", 11) == 0){
+			puts("Opcion sizeMemoria");
+			size(-1);
 
-
+		} else if (strncmp(opcion, "sizeProceso", 11) == 0){
+			puts("Opcion sizeProceso");
+			char *pidProceso = opcion+12;
+			int pid = atoi(pidProceso);
+			size(pid);
 		}
+	}
 }
 
