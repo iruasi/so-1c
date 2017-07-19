@@ -179,6 +179,8 @@ int *ejecutarPrograma(void){ sleep(1);
 		cantidadDeRafagas++;
 		pcb->pc++;
 
+		pcb->rafagasEjecutadas++;
+
 		if(cantidadDeRafagas == pcb->proxima_rafaga){
 			fin_quantum = true;
 			break;

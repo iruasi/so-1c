@@ -49,29 +49,6 @@ void eliminarSemaforos(void){
 	//sem_destroy(&semLista);
 }
 
-void differenceBetweenTimePeriod(tHora start, tHora stop, tHora *diff)
-{
-	if(start.segundos > stop.segundos){
-		--start.minutos;
-		start.segundos += 60;
-	}
-
-	diff->segundos = stop.segundos - start.segundos;
-	if(start.minutos > stop.minutos){
-		--start.hora;
-		start.minutos += 60;
-	}
-
-	diff->minutos = stop.minutos - start.minutos;
-	diff->hora = stop.hora - start.hora;
-
-	diff->dia=stop.dia-start.dia;
-	diff->mes=stop.mes-start.mes;
-	diff->anio=stop.anio-start.anio;
-
-}
-
-
 
 int Iniciar_Programa(tAtributosProg *atributos){
 
@@ -157,17 +134,14 @@ void accionesFinalizacion(int pid ){
 			strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaInicio));
 			strftime (buffFin, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaFin));
 
-			printf("\n\n\n ###FIN DE LA EJECUCION DEL PROCESO %d \n###INFO DE EJECUCION: \n",pid);
+			printf("\n\n\n###FIN DE LA EJECUCION DEL PROCESO %d \n###INFO DE EJECUCION: \n",pid);
 
 			printf ("###HORA DE INICIO: %s\n", buffInicio);
 			printf ("###HORA DE FIN: %s\n", buffFin);
 			printf("###SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
 			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: XXXXXXX\n");
 
-
-
 			log_info(logger,"SEGUNDOS DE EJECUCION: %.f",diferencia);
-
 
 
 			//Lo sacamos de la lista de programas en ejecucion
@@ -182,6 +156,8 @@ void accionesFinalizacion(int pid ){
 
 			pthread_cancel(aux->hiloProg);
 
+
+
 			log_trace(logTrace,"hilo del programa %d finalizado",pid);
 		}
 	}
@@ -191,14 +167,17 @@ void Desconectar_Consola(tConsola *cons_data){
 	log_trace(logTrace,"eligio desconectar la consola");
 
 	int i;
-
+	pthread_mutex_lock(&mux_listaAtributos);pthread_mutex_lock(&mux_listaFinalizados);
 	for(i = 0; i < list_size(listaAtributos); i++){
+
 		tAtributosProg *aux = list_get(listaAtributos, i);
 		pthread_cancel(aux->hiloProg);
-
-		//pthread_kill(aux->hiloProg, SIGDISCONNECT);
+		list_add(listaAtributos,aux);
+		list_remove(listaAtributos,i);
 	}
-	log_trace(logTrace,"todos los hilos cancelados");
+	pthread_mutex_unlock(&mux_listaAtributos);pthread_mutex_unlock(&mux_listaFinalizados);
+
+	log_trace(logTrace,"todos los programas muertos");
 }
 
 
@@ -215,11 +194,9 @@ void *programa_handler(void *atributos){
 	int pack_size;
 	int motivoFin;
 	int stat;
-	int fin = 0;
 
 
 	log_trace(logTrace,"conectando con kernel");
-
 
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0){
@@ -306,14 +283,9 @@ void *programa_handler(void *atributos){
 			freeAndNULL((void **)&ppid);
 
 
-
-
-
-
 			//log_info(logger,"PID: %d ",args->pidProg);
 
 			printf("Pid Recibido es: %d\n", args->pidProg);
-
 
 
 			pthread_mutex_lock(&mux_listaAtributos);
@@ -329,22 +301,8 @@ void *programa_handler(void *atributos){
 
 			printf("Kernel nos avisa que termino de ejecutar el programa %d\n", args->pidProg);
 
-			if ((buffer = recvGeneric(sock_kern)) == NULL){
-				log_error(logger,"error al recibir el exitcode ");
-				return (void *) FALLO_RECV;
-			}
-
-			if ((ppid = deserializeVal(buffer)) == NULL){
-				log_error(logger,"error al deserializar el packExitCode");
-				return (void *) FALLO_DESERIALIZAC;
-			}
-
-			memcpy(&motivoFin, &ppid->val, sizeof(int));
-
-			printf("Exit code %d\n",motivoFin);
-
 			accionesFinalizacion(args->pidProg);
-			puts("estoy aca");
+
 		}
 
 
