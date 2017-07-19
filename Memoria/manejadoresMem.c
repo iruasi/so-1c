@@ -26,6 +26,8 @@ extern char *CACHE;         // memoria CACHE
 extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 
+extern int stack_size;
+t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
@@ -59,6 +61,7 @@ int setupMemoria(void){
 	if ((stat = setupCache()) != 0)
 		return MEM_EXCEPTION;
 
+	proc_lims = list_create();
 	return 0;
 }
 
@@ -184,3 +187,16 @@ void dumpMemContent(int pid){
 		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);
 	}
 }
+
+/* Registra el techo todo: ldalsdlaal
+ */
+void registrarStackLim(int pid, int code_pages){}
+//
+//	int s_lim = memoria->marco_size * (code_pages + stack_size - 1);
+//	t_procCtl *pc = {.pid = pid, .stack_lim = s_lim};
+//	//pthread_mutex_lock(
+//	list_add(proc_lims, pc);
+//	//pthread_mutex_unlock(
+//}
+
+

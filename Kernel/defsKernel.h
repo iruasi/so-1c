@@ -28,4 +28,11 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 #endif
 
+#ifndef MUX_LOCK_M
+#define MUX_LOCK(M) (pthread_mutex_lock(M))
+#endif
+#ifndef MUX_UNLOCK_M
+#define MUX_UNLOCK(M) (pthread_mutex_unlock(M))
+#endif
+
 #endif /* DEFSKERNEL_H_ */

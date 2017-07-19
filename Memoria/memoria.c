@@ -35,6 +35,7 @@ char *MEM_FIS;              // Memoria Fisica
 char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
+int stack_size;
 
 pthread_mutex_t mux_mem_access;
 
@@ -99,6 +100,13 @@ int main(int argc, char* argv[]){
 				*sock_ker     = client_sock;
 				kernExists    = true;
 
+				head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO; // para recibir info
+				if ((stat = recibirInfoProcSimple(*sock_ker, head, &stack_size)) != 0){
+					puts("No se pudo recibir size del stack de Kernel");
+					return FALLO_GRAL;
+				}
+				printf("Kernel informa stack size: %d\n", stack_size);
+
 				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, *sock_ker)) == -1){
 					puts("No se pudo enviar la informacion relevante a Kernel!");
 					return FALLO_GRAL;
@@ -161,7 +169,7 @@ void* kernel_handler(void *sock_kernel){
 	tPackPidPag *pp;
 	tPackPID *ppid;
 
-	printf("Esperamos que lleguen cosas del socket Kernel: %d\n", *sock_ker);
+	printf("(KERNEL_THR) Esperamos cosas del socket Kernel: %d\n", *sock_ker);
 
 	do {
 

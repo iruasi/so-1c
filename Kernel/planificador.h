@@ -8,6 +8,15 @@
 
 #include "auxiliaresKernel.h"
 
+
+#ifndef LOCK_PLANIF
+#define LOCK_PLANIF (LOCK_MUX(&mux_new), LOCK_MUX(&mux_ready), LOCK_MUX(&mux_exec), LOCK_MUX(&mux_block), LOCK_MUX(&mux_exit))
+#endif
+
+#ifndef UNLOCK_PLANIF
+#define UNLOCK_PLANIF (UNLOCK_MUX(&mux_new), UNLOCK_MUX(&mux_ready), UNLOCK_MUX(&mux_exec), UNLOCK_MUX(&mux_block), UNLOCK_MUX(&mux_exit))
+#endif
+
 #ifndef DISPONIBILIDAD_ESTADOS // todo: no se usan, cierto...?
 #define DISPONIBLE 1
 #define OCUPADO 2

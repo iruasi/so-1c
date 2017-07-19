@@ -16,6 +16,7 @@ float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
 extern int pid_free, free_page;
+extern int stack_size;
 
 // OPERACIONES DE LA MEMORIA
 
@@ -66,13 +67,15 @@ void size(int pid){
 
 // API DE LA MEMORIA
 
-int inicializarPrograma(int pid, int pageCount){
+int inicializarPrograma(int pid, int code_pages){
 	puts("Se inicializa un programa");
 
 	int reservadas;
 
-	if ((reservadas = reservarPaginas(pid, pageCount)) >= 0)
-		printf("Se reservaron bien las %d paginas solicitadas\n", pageCount);
+	if ((reservadas = reservarPaginas(pid, code_pages + stack_size)) >= 0)
+		printf("Se reservaron bien las %d paginas solicitadas\n", code_pages);
+
+	registrarStackLim(pid, code_pages);
 
 	return 0;
 }

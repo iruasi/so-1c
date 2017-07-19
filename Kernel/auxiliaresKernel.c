@@ -502,10 +502,9 @@ void cons_manejador(void *conInfo){
 	t_RelCC *con_i = (t_RelCC*) conInfo;
 	printf("cons_manejador socket %d\n", con_i->con->fd_con);
 
-	int stat,k;
+	int stat;
 	tPackHeader head = {.tipo_de_proceso = CON, .tipo_de_mensaje = THREAD_INIT};
 	char *buffer;
-	tPackBytes *pbytes;
 	tPackSrcCode *entradaPrograma;
 	tPackPID *ppid;
 	int pidAFinalizar;
@@ -535,13 +534,8 @@ void cons_manejador(void *conInfo){
 
 		encolarEnNew(new_pcb);
 
-		puts("debug 1");
-
-		//freeAndNULL((void **) &pbytes);
-		//freeAndNULL((void **) &buffer);
-		//todo: me esta tirando munmap_chunk() aca... por las dudas haria este free and null al final
-
-		puts("debug 2");
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &entradaPrograma);
 		puts("Fin case SRC_CODE.");
 		break;
 
@@ -553,32 +547,32 @@ void cons_manejador(void *conInfo){
 	case HSHAKE:
 		puts("Es solo un handshake");
 		break;
+
 	case KILL_PID:
 
+		if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
+			//log_error(logger,"error al recibir el pid");
+			puts("error al recibir el pid");
+			return;
+		}
 
-					if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
-						//log_error(logger,"error al recibir el pid");
-						puts("error al recibir el pid");
-						return;
-					}
+		if ((ppid = deserializeVal(buffer)) == NULL){
+			//log_error(logger,"error al deserializar el packPID");
+			puts("Error al deserializar el PACKPID");
+			return;
+		}
 
-					if ((ppid = deserializeVal(buffer)) == NULL){
-						//log_error(logger,"error al deserializar el packPID");
-						puts("Error al deserializar el PACKPID");
-						return;
-					}
+		//log_trace(logTrace,"asigno pid a la estructura");
+		pidAFinalizar = ppid->val;
+		//freeAndNULL((void **)&ppid);
+		printf("Pid a finalizar: %d\n",pidAFinalizar);
+		t_finConsola *fc=malloc(sizeof(fc));
+		fc->pid = pidAFinalizar ;
+		fc->ecode = CONS_FIN_PROG;
 
-					//log_trace(logTrace,"asigno pid a la estructura");
-					pidAFinalizar = ppid->val;
-					//freeAndNULL((void **)&ppid);
-					printf("Pid a finalizar: %d\n",pidAFinalizar);
-					t_finConsola *fc=malloc(sizeof(fc));
-					fc->pid = pidAFinalizar ;
-					fc->ecode = CONS_FIN_PROG;
-
-					pthread_mutex_lock(&mux_listaFinalizados);
-					list_add(finalizadosPorConsolas,fc);
-					pthread_mutex_unlock(&mux_listaFinalizados);
+		pthread_mutex_lock(&mux_listaFinalizados);
+		list_add(finalizadosPorConsolas,fc);
+		pthread_mutex_unlock(&mux_listaFinalizados);
 
 		break;
 
@@ -845,3 +839,6 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 void* queue_get(t_queue *self,int posicion) {
 	return list_get(self->elements, posicion);
 }
+
+void sendall(void){} // todo: hacer...?
+
