@@ -266,6 +266,7 @@ void encolarDeNewEnReady(tPCB *pcb){
 	pcb->cantidad_funciones     = meta->cantidad_de_funciones;
 	pcb->cantidad_instrucciones = meta->instrucciones_size;
 
+
 	if ((pcb->indiceDeCodigo    = malloc(indiceCod_size)) == NULL){
 		printf("Fallo malloc de %d bytes para pcb->indiceDeCodigo\n", indiceCod_size);
 		return;
@@ -415,10 +416,10 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 	int stat, q;
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
-	tPackHeader * headerExitCode = malloc(sizeof headerExitCode);//lo uso para indicar a consola de la forma en q termino el proceso.
+	tPackHeader * headerFin = malloc(sizeof headerFin);//lo uso para indicar a consola de la forma en q termino el proceso.
 	t_finConsola * fcAux = malloc(sizeof fcAux);
 
-	headerExitCode->tipo_de_proceso = KER;
+
 
 	char *buffer = recvGeneric(cpu->cpu.fd_cpu);
 	pcbCPU = deserializarPCB(buffer);
@@ -432,7 +433,11 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
 	MUX_UNLOCK(&mux_exec);
 
-	mergePCBs(pcbPlanif, pcbCPU); // ahora Planif es equivalente a CPU
+	//mergePCBs(pcbPlanif, pcbCPU); // ahora Planif es equivalente a CPU
+	//temporal:
+
+	pcbPlanif->rafagasEjecutadas = pcbCPU->rafagasEjecutadas;
+	pcbPlanif->exitCode = pcbCPU->exitCode;
 
 	//chequeamos que alguna consola no lo haya finalizado previamente
 	if (fueFinalizadoPorConsola(pcbPlanif->id))
@@ -445,7 +450,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 	if(pcbPlanif->exitCode != CONS_DISCONNECT){
 
-		char *ecode_serial;
+		/*char *ecode_serial;
 		int pack_size;
 		tPackExitCode pack_ec;
 
@@ -466,7 +471,14 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		}
 		printf("Se enviaron %d bytes al hilo_consola\n", stat);
 
-		free(ecode_serial);
+		free(ecode_serial);*/
+		headerFin->tipo_de_proceso=KER;
+		headerFin->tipo_de_mensaje=FIN_PROG;
+		if((stat = send(cpu->con->fd_con,headerFin,sizeof (tPackHeader),0))<0){
+				perror("error al enviar a la consola");
+				break;
+			}
+
 	}
 
 	if (finalizarEnMemoria(cpu->cpu.fd_cpu) != 0)
@@ -537,8 +549,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		break;
 	}
 
-	headerExitCode->tipo_de_mensaje=pcbCPU->exitCode;
-	if((stat = send(cpu->con->fd_con,headerExitCode,sizeof (tPackHeader),0))<0){
+	headerFin->tipo_de_mensaje=pcbCPU->exitCode;
+	if((stat = send(cpu->con->fd_con,headerFin,sizeof (tPackHeader),0))<0){
 		perror("error al enviar a la consola el exitCode");
 		break;
 	}

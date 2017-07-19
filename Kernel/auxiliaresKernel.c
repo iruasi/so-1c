@@ -87,10 +87,11 @@ tPCB *crearPCBInicial(void){
 
 	pcb->id = globalPID;
 	globalPID++;
-	pcb->proxima_rafaga = 0;
-	pcb->estado_proc    = 0;
-	pcb->contextoActual = 0;
-	pcb->exitCode       = 0;
+	pcb->proxima_rafaga     = 0;
+	pcb->estado_proc        = 0;
+	pcb->contextoActual     = 0;
+	pcb->exitCode           = 0;
+	pcb->rafagasEjecutadas  = 0;
 
 	return pcb;
 }
@@ -625,7 +626,7 @@ void consolaKernel(void){
 				char *pidInfo=opcion+5;
 				int pidElegido = atoi(pidInfo);
 				mostrarInfoDe(pidElegido);
-				printf("Info de PID: %d  \n",pidElegido);
+
 			}
 			if (strncmp(opcion,"tabla",5)==0){
 				puts("Opcion tabla");
@@ -654,8 +655,6 @@ void consolaKernel(void){
 }
 //TODO: Hay q sincronizar las colas?? Solo las estoy mirando, no tendria pq poner un semaforo, no?
 void mostrarColaDe(char* cola){
-	printf("%s",cola);
-	puts("Mostrar estado de: ");
 	if (strncmp(cola,"todos",5)==0){
 		puts("Mostrar estado de todas las colas:");
 		pthread_mutex_lock(&mux_new); pthread_mutex_lock(&mux_ready); pthread_mutex_lock(&mux_exec);
@@ -696,20 +695,29 @@ void mostrarColaDe(char* cola){
 }
 
 void mostrarColaNew(){
-	puts("Cola New: ");
+	puts("###Cola New### ");
 	int k=0;
 	tPCB * pcbAux;
+	if(queue_size(New)==0){
+		printf("No hay procesos en esta cola\n");
+		return;
+	}
 	for(k=0;k<queue_size(New);k++){
 		pcbAux = (tPCB*) queue_get(New,k);
 		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
 	}
 
+
 }
 
 void mostrarColaReady(){
-	puts("Cola Ready: ");
+	puts("###Cola Ready###");
 	int k=0;
 	tPCB * pcbAux;
+	if(queue_size(Ready)==0){
+		printf("No hay procesos en esta cola\n");
+		return;
+	}
 	for(k=0;k<queue_size(Ready);k++){
 		pcbAux = (tPCB*) queue_get(Ready,k);
 		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
@@ -717,9 +725,13 @@ void mostrarColaReady(){
 }
 
 void mostrarColaExec(){
-	puts("Cola Exec: ");
+	puts("###Cola Exec###");
 	int k=0;
 	tPCB * pcbAux;
+	if(list_size(Exec)==0){
+		printf("No hay procesos en esta cola\n");
+		return;
+	}
 	for(k=0;k<list_size(Exec);k++){
 		pcbAux = (tPCB*) list_get(Exec,k);
 		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
@@ -727,9 +739,13 @@ void mostrarColaExec(){
 }
 
 void mostrarColaExit(){
-	puts("Cola Exit: ");
+	puts("###Cola Exit###");
 	int k=0;
 	tPCB * pcbAux;
+	if(queue_size(Exit)==0){
+		printf("No hay procesos en esta cola\n");
+		return;
+	}
 	for(k=0;k<queue_size(Exit);k++){
 		pcbAux = (tPCB*) queue_get(Exit,k);
 		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
@@ -737,9 +753,13 @@ void mostrarColaExit(){
 }
 
 void mostrarColaBlock(){
-	puts("Cola Block: ");
+	puts("###Cola Block###");
 	int k=0;
 	tPCB * pcbAux;
+	if(list_size(Block)==0){
+			printf("No hay procesos en esta cola\n");
+			return;
+		}
 	for(k=0;k<list_size(Block);k++){
 		pcbAux = (tPCB*) list_get(Block,k);
 		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
@@ -748,20 +768,71 @@ void mostrarColaBlock(){
 
 
 void mostrarInfoDe(int pidElegido){
-	int j=0;
-	printf("Estamos en mostrar info de pid: %d\n",pidElegido);
-	tPCB * pcbAuxiliar;
-	for(j=0;j<list_size(listaProgramas);j++){
-		pcbAuxiliar = (tPCB*) list_get(listaProgramas,j);
-		if(pcbAuxiliar->id==pidElegido){
-			j=list_size(listaProgramas);
-		}
-	}
+	int p;
+	printf("############PROCESO %d############\n",pidElegido);
 
-	mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-	mostrarTablaDeArchivosDe(pcbAuxiliar);
-	mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-	mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+	tPCB * pcbAuxiliar;
+
+	pthread_mutex_lock(&mux_new);
+	if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
+		pcbAuxiliar = queue_get(New,p);
+		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+		mostrarTablaDeArchivosDe(pcbAuxiliar);
+		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+		pthread_mutex_unlock(&mux_new);
+		return;
+	}pthread_mutex_unlock(&mux_new);
+
+	pthread_mutex_lock(&mux_ready);
+	if ((p = getQueuePositionByPid(pidElegido, Ready)) != -1){
+		pcbAuxiliar = queue_get(Ready,p);
+		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+		mostrarTablaDeArchivosDe(pcbAuxiliar);
+		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+		pthread_mutex_unlock(&mux_ready);
+		return;
+	}pthread_mutex_unlock(&mux_ready);
+
+	pthread_mutex_lock(&mux_exec);
+	if ((p = getPCBPositionByPid(pidElegido, Exec)) != -1){
+		pcbAuxiliar = list_get(Exec,p);
+		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+		mostrarTablaDeArchivosDe(pcbAuxiliar);
+		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+		pthread_mutex_unlock(&mux_exec);
+
+		return;
+	}
+	pthread_mutex_unlock(&mux_exec);
+
+	pthread_mutex_lock(&mux_block);
+	if ((p = getPCBPositionByPid(pidElegido, Block)) != -1){
+		pcbAuxiliar = list_get(Block,p);
+		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+		mostrarTablaDeArchivosDe(pcbAuxiliar);
+		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+		pthread_mutex_unlock(&mux_block);
+		return;
+	}pthread_mutex_unlock(&mux_block);
+
+	pthread_mutex_lock(&mux_exit);
+	if ((p = getQueuePositionByPid(pidElegido, Exit)) != -1){
+		pcbAuxiliar = queue_get(Exit,p);
+		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+		mostrarTablaDeArchivosDe(pcbAuxiliar);
+		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+		pthread_mutex_unlock(&mux_exit);
+		return;
+	}pthread_mutex_unlock(&mux_exit);
+
+	puts("no existe ese PID");
+	return;
+
 
 
 
@@ -770,30 +841,34 @@ void mostrarInfoDe(int pidElegido){
 void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
 
 	//todo: ampliar pcb con la cant de rafagas totales?
-	printf("Cantidad de rafagas ejecutadas: x!!!!!!x\n");
+	int cantRafagas=0;
+	cantRafagas =  pcb->rafagasEjecutadas;
+	printf("####PROCESO %d####\nCantidad de rafagas ejecutadas: %d\n",pcb->id,cantRafagas);
 }
 void mostrarTablaDeArchivosDe(tPCB *pcb){
 
-
-	printf("Tabla de archivos abiertos del proceso: x!!!!!!x\n");
+	printf("####PROCESO %d####\nTabla de archivos abiertos del proceso: x!!!!!!x\n",pcb->id);
 }
 void mostrarCantHeapUtilizadasDe(tPCB *pcb){
+
+	//TODO: ROMPE ACA!
 	char spid[6];
 	sprintf(spid, "%d", pcb->id);
 	infoProcess *ip = dictionary_get(proc_info, spid);
 
-	printf("Cantidad de paginas de heap utilizadas: \t %d \n", ip->cant_heaps);
-	printf("Cantidad de allocaciones realizadas: \t %d \n", ip->bytes_allocd);
-	printf("Cantidad de bytes allocados: \t\t %d \n", ip->bytes_allocd);
-	printf("Cantidad de liberaciones realizadas: \t %d \n", ip->cant_frees);
-	printf("Cantidad de bytes liberados: \t\t %d \n", ip->bytes_freed);
+	printf("####PROCESO %d####\nCantidad de paginas de heap utilizadas: \t %d \n",pcb->id, ip->cant_heaps);
+	printf("####PROCESO %d####\nCantidad de allocaciones realizadas: \t %d \n", pcb->id,ip->bytes_allocd);
+	printf("####PROCESO %d####\nCantidad de bytes allocados: \t\t %d \n",pcb->id, ip->bytes_allocd);
+	printf("####PROCESO %d####\nCantidad de liberaciones realizadas: \t %d \n",pcb->id, ip->cant_frees);
+	printf("####PROCESO %d####\nCantidad de bytes liberados: \t\t %d \n",pcb->id, ip->bytes_freed);
 }
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
+	//todo:Rompe aca
 	char spid[6];
 	sprintf(spid, "%d", pcb->id);
 	infoProcess *ip = dictionary_get(proc_info, spid);
 
-	printf("Cantidad de syscalls utilizadas : \t\t %d \n", ip->cant_syscalls);
+	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
 }
 
 void cambiarGradoMultiprogramacion(int nuevoGrado){
@@ -839,6 +914,21 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 void* queue_get(t_queue *self,int posicion) {
 	return list_get(self->elements, posicion);
 }
+
+int getQueuePositionByPid(int pid, t_queue *queue){
+
+	int i, size;
+	tPCB *pcb;
+
+	size = queue_size(queue);
+	for (i = 0; i < size; ++i){
+		pcb = queue_get(queue, i);
+		if (pcb->id == pid)
+			return i;
+	}
+	return -1;
+}
+
 
 void sendall(void){} // todo: hacer...?
 
