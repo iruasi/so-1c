@@ -376,8 +376,9 @@ void consolaMemoria(void){
 
 		} else if (strncmp(opcion, "dump", 4) == 0){
 			puts("Opcion dump");
-			//todo: dump recibe parmetros??
-			//dump();
+			char *dpChar = opcion + 5;
+			int dp = atoi(dpChar);
+			dump(dp);
 
 		} else if (strncmp(opcion, "flush", 5) == 0){
 			puts("Opcion flush");

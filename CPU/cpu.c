@@ -138,27 +138,30 @@ int main(int argc, char* argv[]){
 
 	if (stat == -1){
 		perror("Error en la recepcion con Kernel. error");
-		return FALLO_RECV;
+		puts("Se limpia el proceso y se cierra..");
+		close(sock_kern);
+		close(sock_mem);
+		free(head);
+		liberarConfiguracionCPU(cpu_data);
+		return FALLO_GRAL;
 	}
 
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);
 	close(sock_mem);
-	free(pcb);
 	free(head);
 	liberarConfiguracionCPU(cpu_data);
 	return 0;
 }
 
 
-int *ejecutarPrograma(void){ sleep(1);
+int *ejecutarPrograma(void){
 
 	tPackHeader header;
 	int *retval = malloc(sizeof(int));
 	int stat, solics = 0;
 	t_size instr_size;
-	char **linea = malloc(0);
-	*linea = NULL;
+	char *linea = NULL;
 	bool fin_quantum = false;
 	termino = false;
 	int cantidadDeRafagas = 0;
@@ -170,11 +173,11 @@ int *ejecutarPrograma(void){ sleep(1);
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
 		pedirInstruccion(instr_size, &solics);
 
-		recibirInstruccion(linea, instr_size, solics);
+		recibirInstruccion(&linea, instr_size, solics);
 
-		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
+		printf("La linea %d es: %s\n", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
-		analizadorLinea(*linea, &functions, &kernel_functions);
+		analizadorLinea(linea, &functions, &kernel_functions);
 
 		cantidadDeRafagas++;
 		pcb->pc++;
@@ -216,6 +219,7 @@ int *ejecutarPrograma(void){ sleep(1);
 
 	free(linea);
 	free(pcb_serial);
+	liberarPCB(pcb);
 	return retval;
 }
 
@@ -281,7 +285,7 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 
 	//rompe el RR aca
 
-	if ((*linea = realloc(*linea, instr_size)) == NULL){
+	if ((*linea = realloc(*linea, instr_size + 1)) == NULL){
 		printf("No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		err_exec = FALLO_GRAL;
 		sem_post(&sem_fallo_exec);

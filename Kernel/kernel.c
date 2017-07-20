@@ -38,8 +38,7 @@ tKernel *kernel;
 t_dictionary * tablaFS;
 t_dictionary * tablaGlobal;
 
-sem_t hayProg; // semaforo estilo productor-consumidor. Se post'ea cuando entran PCBs en New o Ready
-sem_t hayCPUs;
+//sem_t haySTDIN;
 sem_t eventoPlani;
 sem_t codigoEnviado;
 
@@ -153,7 +152,6 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	FD_SET(ks->sock_lis_cpu, &ks->master);
 	FD_SET(ks->sock_lis_con, &ks->master);
 	FD_SET(ks->sock_watch,   &ks->master);
-	FD_SET(0,                &ks->master);
 	return 0;
 }
 
@@ -164,14 +162,10 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-	if (sem_init(&hayProg, 0, 0) == -1){
-		perror("No se pudo inicializar semaforo. error");
-		return FALLO_GRAL;
-	}
-	if (sem_init(&hayCPUs, 0, 0) == -1){
-		perror("No se pudo inicializar semaforo. error");
-		return FALLO_GRAL;
-	}
+//	if (sem_init(&haySTDIN, 0, 0) == -1){
+//		perror("No se pudo inicializar semaforo. error");
+//		return FALLO_GRAL;
+//	}
 	if (sem_init(&eventoPlani, 0, 0) == -1){
 		perror("No se pudo inicializar semaforo. error");
 		return FALLO_GRAL;
@@ -199,6 +193,7 @@ int main(int argc, char* argv[]){
 	fd_set read_fd;
 	FD_ZERO(&read_fd);
 	FD_ZERO(&ks->master);
+	//FD_SET(0, &ks->master); por ahora lo deshabilitamos, no lo necesitamos
 
 	kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
@@ -250,7 +245,6 @@ int main(int argc, char* argv[]){
 					puts("El socket es de inotify");
 					inotifyer(argv[1]);
 				}
-
 
 				// Controlamos el listen de CPU o de Consola
 				if (fd == ks->sock_lis_cpu){
@@ -305,10 +299,8 @@ int main(int argc, char* argv[]){
 					printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
 					break;
 
-				} else if (fd == 0){ //socket del stdin
-					printf("Ingreso texto por pantalla!\nCerramos Kernel!\n");
-					goto limpieza; // nos vamos del ciclo infinito...
-				}
+				} else if (fd == 0) //socket del stdin
+//					sem_post(&haySTDIN);
 
 				puts("Si esta linea se imprime, es porque el header_tmp tiene algun valor rarito...");
 				printf("El valor de header_tmp es: proceso %d \t mensaje: %d\n", header_tmp.tipo_de_proceso, header_tmp.tipo_de_mensaje);

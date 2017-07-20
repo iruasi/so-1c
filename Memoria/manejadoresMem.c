@@ -172,19 +172,25 @@ void dumpMemStructs(void){ // todo: revisar
 
 void dumpMemContent(int pid){
 
-	if (pid == -4){
+	if (pid < 0){
+		// pido a kernel lista de todos los PIDs
+		// deserializar: cantidad pids, sizeof(ints)...
+		// for p in pids: dumpMemContent(p)
 		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
 		return;
 	}
 
-	int pag;
+	int pag, i;
 	char *cont;
 	int page_count = pageQuantity(pid);
 
-	printf("PID \t\t PAGINA \t\t CONTENIDO\n");
+	printf("PID \t PAGINA \t CONTENIDO\n");
 	for (pag = 0; pag < page_count; ++pag){
 		cont = getMemContent(pid, pag);
-		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);
+		printf("%d \t %d \t ", pid, pag);
+		for (i = 0; i < memoria->marco_size; ++i)
+			printf("%c\\", cont[i]);
+		puts("");
 	}
 }
 

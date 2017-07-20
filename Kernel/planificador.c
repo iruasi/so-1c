@@ -163,37 +163,32 @@ void planificar(void){
 				mandarPCBaCPU(pcbAux, cpu);
 			}
 			MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec); MUX_UNLOCK(&mux_listaDeCPU);
-
-				break;
+			break;
 
 		case (RR):
-				printf("Estoy en RR\n");
-				if(!queue_is_empty(New))
-				{
+			printf("Estoy en RR\n");
+
+			MUX_LOCK(&mux_new); MUX_LOCK(&mux_exec);
+			if(!queue_is_empty(New)){
+				if(list_size(Exec) < grado_mult){ // todo: list_size(Exec) + list_size(Ready) < grado_mult?
 					pcbAux = (tPCB*) queue_pop(New);
-					if(list_size(Exec) < grado_mult) // todo: list_size(Exec) + list_size(Ready) < grado_mult?
-						encolarDeNewEnReady(pcbAux);
+					encolarDeNewEnReady(pcbAux);
 				}
-				if(!queue_is_empty(Ready)){
-					if(list_size(listaDeCpu) > 0 && obtenerCPUociosa() != -1) { // todo: actualizar esta lista...
-						pcbAux = (tPCB*) queue_peek(Ready);
+			}
+			MUX_UNLOCK(&mux_new); MUX_UNLOCK(&mux_exec);
 
-						cpu = (t_RelCC *) list_get(listaDeCpu, obtenerCPUociosa());
+			MUX_LOCK(&mux_ready); MUX_LOCK(&mux_exec); MUX_LOCK(&mux_listaDeCPU);
+			if(!queue_is_empty(Ready) && (pos = obtenerCPUociosa()) != -1){
 
-						cpu->cpu.pid = pcbAux->id;
+				cpu = (t_RelCC *) list_get(listaDeCpu, pos);
+				pcbAux = (tPCB*) queue_pop(Ready);
+				cpu->cpu.pid = pcbAux->id;
 
-						MUX_LOCK(&mux_ready);
-						pcbAux = (tPCB*) queue_pop(Ready);
-						MUX_UNLOCK(&mux_ready);
-						MUX_LOCK(&mux_exec);
-						list_add(Exec, pcbAux);
-						MUX_UNLOCK(&mux_exec);
-
-						asociarProgramaACPU(cpu);
-						mandarPCBaCPU(pcbAux, cpu);
-					}
-				}
-
+				list_add(Exec, pcbAux);
+				asociarProgramaACPU(cpu);
+				mandarPCBaCPU(pcbAux, cpu);
+			}
+			MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec); MUX_UNLOCK(&mux_listaDeCPU);
 		break;
 
 		} // cierra Switch

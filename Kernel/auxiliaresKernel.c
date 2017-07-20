@@ -12,6 +12,7 @@
 #include <parser/parser.h>
 #include <commons/collections/list.h>
 
+#include "defsKernel.h"
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
@@ -33,6 +34,7 @@
 extern sem_t sem_heapDict;
 extern sem_t sem_bytes;
 extern sem_t sem_end_exec;
+//extern sem_t haySTDIN;
 
 extern sem_t eventoPlani;
 int globalPID;
@@ -372,10 +374,11 @@ void cpu_manejador(void *infoCPU){
 		if(head.tipo_de_mensaje == 1){
 		buffer = recvGeneric(sock_fs);
 		//deserializeLoQueMandeElFS;
-		if((stat = send(cpu_i->cpu.fd_cpu,leer_serial,pack_size,0)) == -1){
+		/* todo: ver que ande
+		if((stat = send(cpu_i->cpu.fd_cpu, leer_serial, pack_size, 0)) == -1){
 			perror("error al enviar el paquete al filesystem");
 			break;
-			}
+			}*/
 		}
 		break;
 
@@ -489,6 +492,10 @@ void mem_manejador(void *m_sock){
 		puts("Fin case THREAD_INIT");
 		break;
 
+	case DUMP_DISK: // todo: agregar /dmp a FS...
+		puts("Memoria dumpea informacion en /dmp");
+		break;
+
 	default:
 		puts("Se recibe un mensaje de Memoria no considerado");
 		break;
@@ -535,7 +542,6 @@ void cons_manejador(void *conInfo){
 		encolarEnNew(new_pcb);
 
 		freeAndNULL((void **) &buffer);
-		freeAndNULL((void **) &entradaPrograma);
 		puts("Fin case SRC_CODE.");
 		break;
 
@@ -577,6 +583,7 @@ void cons_manejador(void *conInfo){
 		break;
 
 	default:
+		puts("Se recibe un mensaje no reconocido!");
 		break;
 
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
@@ -608,10 +615,11 @@ void consolaKernel(void){
 	printf ("5-Para finalizar un proceso: 'finalizar <PID>'\n");
 	printf ("6-Para detener la planificacion: 'stop'\n");
 
+	char *opcion = malloc(MAXOPCION);
 	int finalizar = 0;
 	while(finalizar !=1){
 			printf("Seleccione opcion: \n");
-			char *opcion=malloc(MAXOPCION);
+			//sem_wait(&haySTDIN);
 			fgets(opcion,MAXOPCION,stdin);
 			opcion[strlen(opcion) - 1] = '\0';
 			if (strncmp(opcion,"procesos",8)==0){
@@ -783,10 +791,10 @@ void mostrarCantHeapUtilizadasDe(tPCB *pcb){
 	infoProcess *ip = dictionary_get(proc_info, spid);
 
 	printf("Cantidad de paginas de heap utilizadas: \t %d \n", ip->cant_heaps);
-	printf("Cantidad de allocaciones realizadas: \t %d \n", ip->bytes_allocd);
-	printf("Cantidad de bytes allocados: \t\t %d \n", ip->bytes_allocd);
-	printf("Cantidad de liberaciones realizadas: \t %d \n", ip->cant_frees);
-	printf("Cantidad de bytes liberados: \t\t %d \n", ip->bytes_freed);
+	printf("Cantidad de allocaciones realizadas: \t %d \n",    ip->cant_alloc);
+	printf("Cantidad de bytes allocados: \t\t %d \n",          ip->bytes_allocd);
+	printf("Cantidad de liberaciones realizadas: \t %d \n",    ip->cant_frees);
+	printf("Cantidad de bytes liberados: \t\t %d \n",          ip->bytes_freed);
 }
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
 	char spid[6];
@@ -833,7 +841,9 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 
 	pf->prog = con_i;
 	pf->src  = src;
+	MUX_LOCK(&mux_gl_Programas);
 	list_add(gl_Programas, pf);
+	MUX_UNLOCK(&mux_gl_Programas);
 }
 
 void* queue_get(t_queue *self,int posicion) {

@@ -40,7 +40,7 @@ typedef enum {
 	LEER        = 38,
 	RESERVAR    = 39,
 
-	ENTREGO_FD = 40, //KERNEL - CPU
+	ENTREGO_FD  = 40, //KERNEL - CPU
 	// API Memoria & Mensaje que recibe/envia Memoria
 	ASIGN_PAG   = 50,
 	INI_PROG    = 51,
@@ -49,6 +49,7 @@ typedef enum {
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
 	ASIGN_SUCCS = 56,
+	DUMP_DISK   = 57,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
