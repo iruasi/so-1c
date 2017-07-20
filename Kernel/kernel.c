@@ -27,7 +27,7 @@
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
-#include "manejadores.h"
+//#include "manejadores.h"
 
 int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int frames, frame_size; // para guardar datos a recibir de Memoria
@@ -308,7 +308,6 @@ int main(int argc, char* argv[]){
 			}} // aca terminan el for() y el if(FD_ISSET)
 	}
 
-	limpieza:
 	// Un poco mas de limpieza antes de cerrar
 
 	FD_ZERO(&read_fd);

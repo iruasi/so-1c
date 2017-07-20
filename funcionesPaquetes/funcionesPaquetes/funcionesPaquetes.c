@@ -314,6 +314,8 @@ char *serializePCB(tPCB *pcb, tPackHeader head, int *pack_size){
 	off += sizeof (int);
 	memcpy(pcb_serial + off, &pcb->exitCode, sizeof (int));
 	off += sizeof (int);
+	memcpy(pcb_serial + off, &pcb->rafagasEjecutadas, sizeof (int));
+	off += sizeof (int);
 
 	// serializamos indice de codigo
 	memcpy(pcb_serial + off, pcb->indiceDeCodigo, indiceCod_size);
@@ -426,6 +428,8 @@ tPCB *deserializarPCB(char *pcb_serial){
 	memcpy(&pcb->contextoActual, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 	memcpy(&pcb->exitCode, pcb_serial + offset, sizeof(int));
+	offset += sizeof(int);
+	memcpy(&pcb->rafagasEjecutadas, pcb_serial + offset, sizeof(int));
 	offset += sizeof(int);
 
 	indiceCod_size = pcb->cantidad_instrucciones * 2 * sizeof(int);

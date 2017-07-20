@@ -240,41 +240,47 @@ t_RelPF *getProgByPID(int pid){
 
 void encolarDeNewEnReady(tPCB *pcb){
 	printf("Se encola el PID %d en Ready\n", pcb->id);
+	if(getProgByPID(pcb->id) != NULL){ //por las dudas de q no encuentre el programa relacinoado;por ej pcb esperando en new y consola se desocnecta
+		t_RelPF *pf = getProgByPID(pcb->id);
 
-	t_RelPF *pf = getProgByPID(pcb->id);
+		t_metadata_program *meta = metadata_desde_literal(pf->src->bytes);
+		t_size indiceCod_size = meta->instrucciones_size * sizeof(t_intructions);
+		int code_pages = (int) ceil((float) pf->src->bytelen / frame_size);
 
-	t_metadata_program *meta = metadata_desde_literal(pf->src->bytes);
-	t_size indiceCod_size = meta->instrucciones_size * sizeof(t_intructions);
-	int code_pages = (int) ceil((float) pf->src->bytelen / frame_size);
+		pcb->pc                     = meta->instruccion_inicio;
+		pcb->paginasDeCodigo        = code_pages;
+		pcb->etiquetas_size         = meta->etiquetas_size;
+		pcb->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
+		pcb->cantidad_funciones     = meta->cantidad_de_funciones;
+		pcb->cantidad_instrucciones = meta->instrucciones_size;
 
-	pcb->pc                     = meta->instruccion_inicio;
-	pcb->paginasDeCodigo        = code_pages;
-	pcb->etiquetas_size         = meta->etiquetas_size;
-	pcb->cantidad_etiquetas     = meta->cantidad_de_etiquetas;
-	pcb->cantidad_funciones     = meta->cantidad_de_funciones;
-	pcb->cantidad_instrucciones = meta->instrucciones_size;
 
-	if ((pcb->indiceDeCodigo    = malloc(indiceCod_size)) == NULL){
-		printf("Fallo malloc de %d bytes para pcb->indiceDeCodigo\n", indiceCod_size);
-		return;
-	} memcpy(pcb->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
-
-	if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
-		if ((pcb->indiceDeEtiquetas = malloc(meta->etiquetas_size)) == NULL){
-			printf("Fallo malloc de %d bytes para pcb->indiceDeEtiquetas\n", meta->etiquetas_size);
+		if ((pcb->indiceDeCodigo    = malloc(indiceCod_size)) == NULL){
+			printf("Fallo malloc de %d bytes para pcb->indiceDeCodigo\n", indiceCod_size);
 			return;
+		} memcpy(pcb->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
+
+		if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
+			if ((pcb->indiceDeEtiquetas = malloc(meta->etiquetas_size)) == NULL){
+				printf("Fallo malloc de %d bytes para pcb->indiceDeEtiquetas\n", meta->etiquetas_size);
+				return;
+			}
+			memcpy(pcb->indiceDeEtiquetas, meta->etiquetas, pcb->etiquetas_size);
 		}
-		memcpy(pcb->indiceDeEtiquetas, meta->etiquetas, pcb->etiquetas_size);
+
+		avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
+		iniciarYAlojarEnMemoria(pf, code_pages);
+
+		MUX_LOCK(&mux_ready);
+		queue_push(Ready, pcb);
+		MUX_UNLOCK(&mux_ready);
+
+		metadata_destruir(meta);
 	}
-
-	avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
-	iniciarYAlojarEnMemoria(pf, code_pages);
-
-	MUX_LOCK(&mux_ready);
-	queue_push(Ready, pcb);
-	MUX_UNLOCK(&mux_ready);
-
-	metadata_destruir(meta);
+	else
+	{
+		puts("SACAMOS Y ELIMINAMOS EL PCB Q NO TIENE CODIGOFUENTE ASOCIADO");
+	}
 }
 
 void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
@@ -387,26 +393,26 @@ int obtenerCPUociosa(void){
 	return -1;
 }
 
-bool fueFinalizadoPorConsola(int pid){
+int fueFinalizadoPorConsola(int pid){
 
 	int i;
 	for(i = 0; i < list_size(finalizadosPorConsolas); i++){
 		t_finConsola *fcAux = list_get(finalizadosPorConsolas, i);
 		if(fcAux->pid == pid)
-			return true;
+			return i;
 	}
-	return false;
+	return -1;
 }
 
 void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
 	tPCB *pcbCPU, *pcbPlanif;
 
-	int stat, q;
+	int stat, q,k;
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
-	tPackHeader * headerExitCode = malloc(sizeof headerExitCode);//lo uso para indicar a consola de la forma en q termino el proceso.
+	tPackHeader * headerFin = malloc(sizeof headerFin);//lo uso para indicar a consola de la forma en q termino el proceso.
 	t_finConsola * fcAux = malloc(sizeof fcAux);
 
-	headerExitCode->tipo_de_proceso = KER;
+
 
 	char *buffer = recvGeneric(cpu->cpu.fd_cpu);
 	pcbCPU = deserializarPCB(buffer);
@@ -423,18 +429,24 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	mergePCBs(&pcbPlanif, pcbCPU); // ahora Planif es equivalente a CPU
 
 	//chequeamos que alguna consola no lo haya finalizado previamente
-	if (fueFinalizadoPorConsola(pcbPlanif->id))
+	pthread_mutex_lock(&mux_listaFinalizados);
+	if ((k=fueFinalizadoPorConsola(pcbPlanif->id))!= -1){
+		fcAux=list_get(finalizadosPorConsolas,k);
 		pcbPlanif->exitCode = fcAux->ecode;
-	else
+	}
+	else{
 		pcbPlanif->exitCode = pcbCPU->exitCode;
+	}
+	pthread_mutex_unlock(&mux_listaFinalizados);
 
 	//avisamos a consola el fin siempre y cuando no haya finalizado antes
+
 	printf("Exit code del proceso %d: %d\n", pcbPlanif->id, pcbPlanif->exitCode);
 
 	if(pcbPlanif->exitCode != CONS_DISCONNECT){
 
-		headerExitCode->tipo_de_proceso = KER; headerExitCode->tipo_de_mensaje = FIN_PROG;
-		informarResultado(cpu->con->fd_con, *headerExitCode);
+		headerFin->tipo_de_proceso = KER; headerFin->tipo_de_mensaje = FIN_PROG;
+		informarResultado(cpu->con->fd_con, *headerFin);
 
 //		char *ecode_serial;
 //		int pack_size;
@@ -470,6 +482,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	MUX_UNLOCK(&mux_exit);
 
 	//lo sacamos de la lista gl_Programas:
+
 	t_RelPF *pf;
 	for(q=0;q<list_size(gl_Programas);q++){
 		pf=list_get(gl_Programas,q);
@@ -528,8 +541,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		break;
 	}
 
-	headerExitCode->tipo_de_mensaje=pcbCPU->exitCode;
-	if((stat = send(cpu->con->fd_con,headerExitCode,sizeof (tPackHeader),0))<0){
+	headerFin->tipo_de_mensaje=pcbCPU->exitCode;
+	if((stat = send(cpu->con->fd_con,headerFin,sizeof (tPackHeader),0))<0){
 		perror("error al enviar a la consola el exitCode");
 		break;
 	}

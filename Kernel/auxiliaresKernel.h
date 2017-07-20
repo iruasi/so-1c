@@ -111,5 +111,9 @@ void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
 
 void* queue_get(t_queue *self,int posicion);
 
+int getQueuePositionByPid(int pid, t_queue *queue);
+
+void desconexionCpu(t_RelCC *cpu_i);
+
 
 #endif // AUXILIARESKERNEL_H_

@@ -155,7 +155,7 @@ int main(int argc, char* argv[]){
 }
 
 
-int *ejecutarPrograma(void){
+int *ejecutarPrograma(void){sleep(1);
 
 	tPackHeader header;
 	int *retval = malloc(sizeof(int));
@@ -181,6 +181,8 @@ int *ejecutarPrograma(void){
 
 		cantidadDeRafagas++;
 		pcb->pc++;
+
+		pcb->rafagasEjecutadas++;
 
 		if(cantidadDeRafagas == pcb->proxima_rafaga){
 			fin_quantum = true;
@@ -218,6 +220,7 @@ int *ejecutarPrograma(void){
 	printf("Se enviaron %d bytes a kernel \n", stat);
 
 	free(linea);
+
 	free(pcb_serial);
 	liberarPCB(pcb);
 	return retval;
