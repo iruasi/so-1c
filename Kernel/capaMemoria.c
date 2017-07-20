@@ -32,7 +32,7 @@ void setupHeapStructs(void){
 	heapDict = dictionary_create();
 
 	sem_init(&sem_heapDict, 0, 0);
-	sem_init(&sem_bytes, 0, 0);
+	sem_init(&sem_bytes,    0, 0);
 	sem_init(&sem_end_exec, 0, 0);
 }
 
@@ -46,7 +46,7 @@ bool esReservable(int size_req, tHeapMeta *hmd){
 
 void crearNuevoHMD(tHeapMeta *dir_mem, int size){
 
-	dir_mem->size = size;
+	dir_mem->size = size - SIZEOF_HMD;
 	dir_mem->isFree = true;
 }
 

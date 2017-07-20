@@ -72,10 +72,14 @@ int inicializarPrograma(int pid, int code_pages){
 
 	int reservadas;
 
-	if ((reservadas = reservarPaginas(pid, code_pages + stack_size)) >= 0)
-		printf("Se reservaron bien las %d paginas solicitadas\n", code_pages);
+	if ((reservadas = reservarPaginas(pid, code_pages + stack_size)) < 0){
+		return reservadas;
+	}
 
-	registrarStackLim(pid, code_pages);
+	printf("Se reservaron bien las %d paginas solicitadas\n", code_pages);
+	printf("Se reservaron ademas %d paginas para el stack\n", stack_size);
+
+//	registrarStackLim(pid, code_pages);
 
 	return 0;
 }

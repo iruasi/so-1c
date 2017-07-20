@@ -23,7 +23,7 @@
 
 #define FIFO_INST -1
 
-void mergePCBs(tPCB *old, tPCB *new);
+void mergePCBs(tPCB **old, tPCB *new);
 
 void planificar(void);
 
@@ -131,6 +131,7 @@ void planificar(void){
 	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
 	t_RelCC * cpu;
+	int pos;
 
 	while(1)
 	{
@@ -150,26 +151,18 @@ void planificar(void){
 			}
 			MUX_UNLOCK(&mux_new); MUX_UNLOCK(&mux_exec);
 
-			if(!queue_is_empty(Ready) && obtenerCPUociosa() != -1){
-				if(list_size(listaDeCpu) > 0) {
+			MUX_LOCK(&mux_ready); MUX_LOCK(&mux_exec); MUX_LOCK(&mux_listaDeCPU);
+			if(!queue_is_empty(Ready) && (pos = obtenerCPUociosa()) != -1){
 
-					cpu = (t_RelCC *) list_get(listaDeCpu, obtenerCPUociosa());
+				cpu = (t_RelCC *) list_get(listaDeCpu, pos);
+				pcbAux = (tPCB*) queue_pop(Ready);
+				cpu->cpu.pid = pcbAux->id;
 
-					MUX_LOCK(&mux_ready);
-					pcbAux = (tPCB*) queue_pop(Ready);
-					MUX_UNLOCK(&mux_ready);
-
-					cpu->cpu.pid = pcbAux->id;
-
-					MUX_LOCK(&mux_exec);
-					list_add(Exec, pcbAux);
-					MUX_UNLOCK(&mux_exec);
-
-					asociarProgramaACPU(cpu);
-					mandarPCBaCPU(pcbAux, cpu);
-				}
-
+				list_add(Exec, pcbAux);
+				asociarProgramaACPU(cpu);
+				mandarPCBaCPU(pcbAux, cpu);
 			}
+			MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec); MUX_UNLOCK(&mux_listaDeCPU);
 
 				break;
 
@@ -432,7 +425,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
 	MUX_UNLOCK(&mux_exec);
 
-	mergePCBs(pcbPlanif, pcbCPU); // ahora Planif es equivalente a CPU
+	mergePCBs(&pcbPlanif, pcbCPU); // ahora Planif es equivalente a CPU
 
 	//chequeamos que alguna consola no lo haya finalizado previamente
 	if (fueFinalizadoPorConsola(pcbPlanif->id))
@@ -445,32 +438,35 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 	if(pcbPlanif->exitCode != CONS_DISCONNECT){
 
-		char *ecode_serial;
-		int pack_size;
-		tPackExitCode pack_ec;
+		headerExitCode->tipo_de_proceso = KER; headerExitCode->tipo_de_mensaje = FIN_PROG;
+		informarResultado(cpu->con->fd_con, *headerExitCode);
 
-		pack_ec.head.tipo_de_proceso = KER;
-		pack_ec.head.tipo_de_mensaje = FIN_PROG;
-		pack_ec.val = pcbPlanif->exitCode;
-
-		pack_size = 0;
-		if ((ecode_serial = serializeVal(&pack_ec, &pack_size)) == NULL){
-			puts("No se serializo bien");
-			return;
-		}
-
-		printf("aviso a %d que el proceso %d termino con un exitcode: %d.\n ", cpu->con->fd_con, pcbPlanif->id, pcbPlanif->exitCode);
-		if ((stat = send(cpu->con->fd_con, ecode_serial, pack_size, 0)) == -1){ // todo: rompe misterioso
-			perror("Fallo envio de a Consola. error");
-			return;
-		}
-		printf("Se enviaron %d bytes al hilo_consola\n", stat);
-
-		free(ecode_serial);
+//		char *ecode_serial;
+//		int pack_size;
+//		tPackExitCode pack_ec;
+//
+//		pack_ec.head.tipo_de_proceso = KER;
+//		pack_ec.head.tipo_de_mensaje = FIN_PROG;
+//		pack_ec.val = pcbPlanif->exitCode;
+//
+//		pack_size = 0;
+//		if ((ecode_serial = serializeVal(&pack_ec, &pack_size)) == NULL){
+//			puts("No se serializo bien");
+//			return;
+//		}
+//
+//		printf("aviso a %d que el proceso %d termino con un exitcode: %d.\n ", cpu->con->fd_con, pcbPlanif->id, pcbPlanif->exitCode);
+//		if ((stat = send(cpu->con->fd_con, ecode_serial, pack_size, 0)) == -1){
+//			perror("Fallo envio de a Consola. error");
+//			return;
+//		}
+//		printf("Se enviaron %d bytes al hilo_consola\n", stat);
+//
+//		free(ecode_serial);
 	}
 
-	if (finalizarEnMemoria(cpu->cpu.fd_cpu) != 0)
-		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.fd_cpu);
+	if (finalizarEnMemoria(cpu->cpu.pid) != 0)
+		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.pid);
 
 	//Agregamos el PCB Devuelto por cpu + el excode corresp a la cola de EXIT
 	MUX_LOCK(&mux_exit);
@@ -569,9 +565,9 @@ void blockByPID(int pid){ //todo: que saque el PCB de ejecucion?
 }
 
 /* Se deshace del PCB viejo y lo apunta al nuevo */
-void mergePCBs(tPCB *old, tPCB *new){
-	liberarPCB(old);
-	old = new;
+void mergePCBs(tPCB **old, tPCB *new){
+	liberarPCB(*old);
+	*old = new;
 }
 
 void unBlockByPID(int pid){

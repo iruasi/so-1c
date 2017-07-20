@@ -39,6 +39,11 @@ int stack_size;
 
 pthread_mutex_t mux_mem_access;
 
+struct infoKer{
+	int *sock_ker;
+	bool kernExists;
+};
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -58,7 +63,8 @@ int main(int argc, char* argv[]){
 
 	pthread_t kern_thread;
 	pthread_t consMemoria_thread;
-	bool kernExists = false;
+	struct infoKer infoKer;
+	infoKer.kernExists = false;
 	int sock_entrada , client_sock , clientSize;
 
 	struct sockaddr_in client;
@@ -95,30 +101,30 @@ int main(int argc, char* argv[]){
 
 		case KER:
 
-			if (!kernExists){
-				int *sock_ker = malloc(sizeof(int));
-				*sock_ker     = client_sock;
-				kernExists    = true;
+			if (!infoKer.kernExists){
+				infoKer.sock_ker   = malloc(sizeof(int));
+				*infoKer.sock_ker  = client_sock;
+				infoKer.kernExists = true;
 
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO; // para recibir info
-				if ((stat = recibirInfoProcSimple(*sock_ker, head, &stack_size)) != 0){
+				if ((stat = recibirInfoProcSimple(*infoKer.sock_ker, head, &stack_size)) != 0){
 					puts("No se pudo recibir size del stack de Kernel");
 					return FALLO_GRAL;
 				}
 				printf("Kernel informa stack size: %d\n", stack_size);
 
-				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, *sock_ker)) == -1){
+				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, *infoKer.sock_ker)) == -1){
 					puts("No se pudo enviar la informacion relevante a Kernel!");
 					return FALLO_GRAL;
 				}
 
-				if( pthread_create(&kern_thread, NULL, (void*) kernel_handler, (void*) sock_ker) < 0){
+				if(pthread_create(&kern_thread, NULL, (void*) kernel_handler, (void*) &infoKer) < 0){
 					perror("No pudo crear hilo. error");
 					return FALLO_GRAL;
 				}
 
 			} else
-				fprintf(stderr, "Se trato de conectar otro Kernel. Ignoramos el paquete...\n");
+				puts("Se trato de conectar otro Kernel. Ignoramos el paquete...");
 
 			break;
 
@@ -159,9 +165,9 @@ int main(int argc, char* argv[]){
 
 /* dado el socket de Kernel, maneja las acciones que de este reciba
  */
-void* kernel_handler(void *sock_kernel){
+void* kernel_handler(void *infoKer){
 
-	int *sock_ker = (int *) sock_kernel;
+	struct infoKer *ik = (struct infoKer *) infoKer;
 	int stat, new_page, pack_size;
 	char *buffer;
 
@@ -169,7 +175,7 @@ void* kernel_handler(void *sock_kernel){
 	tPackPidPag *pp;
 	tPackPID *ppid;
 
-	printf("(KERNEL_THR) Esperamos cosas del socket Kernel: %d\n", *sock_ker);
+	printf("(KERNEL_THR) Esperamos cosas del socket Kernel: %d\n", *ik->sock_ker);
 
 	do {
 
@@ -177,7 +183,7 @@ void* kernel_handler(void *sock_kernel){
 		case INI_PROG:
 			puts("Kernel quiere inicializar un programa.");
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL)
+			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;
 
 			if ((pp = deserializePIDPaginas(buffer)) == NULL)
@@ -199,13 +205,13 @@ void* kernel_handler(void *sock_kernel){
 			puts("Kernel quiere Solicitar Bytes");
 
 			pthread_mutex_lock(&mux_mem_access);
-			stat = manejarSolicitudBytes(*sock_ker);
+			stat = manejarSolicitudBytes(*ik->sock_ker);
 			pthread_mutex_unlock(&mux_mem_access);
 
 			if (stat != 0){
 				printf("Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 				head.tipo_de_proceso = MEM; head.tipo_de_mensaje = stat;
-				informarResultado(*sock_ker, head);
+				informarResultado(*ik->sock_ker, head);
 
 			} else
 				puts("Se completo Solicitud de Bytes");
@@ -216,7 +222,7 @@ void* kernel_handler(void *sock_kernel){
 			puts("Kernel quiere almacenar bytes");
 
 			pthread_mutex_lock(&mux_mem_access);
-			stat = manejarAlmacenamientoBytes(*sock_ker);
+			stat = manejarAlmacenamientoBytes(*ik->sock_ker);
 			pthread_mutex_unlock(&mux_mem_access);
 
 			if (stat != 0)
@@ -228,7 +234,7 @@ void* kernel_handler(void *sock_kernel){
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL)
+			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;
 
 			if ((pp = deserializePIDPaginas(buffer)) == NULL)
@@ -245,7 +251,7 @@ void* kernel_handler(void *sock_kernel){
 			pack_size = 0;
 			buffer = serializePIDPaginas(pp, &pack_size);
 
-			if ((stat = send(*sock_ker, buffer, pack_size, 0)) == -1){
+			if ((stat = send(*ik->sock_ker, buffer, pack_size, 0)) == -1){
 				perror("Fallo send de pagina asignada a Kernel. error");
 				break;
 			}
@@ -257,7 +263,7 @@ void* kernel_handler(void *sock_kernel){
 
 		case FIN_PROG:
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL)
+			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;
 
 			if ((ppid = deserializeVal(buffer)) == NULL)
@@ -269,17 +275,17 @@ void* kernel_handler(void *sock_kernel){
 		default:
 			break;
 		}
-	} while((stat = recv(*sock_ker, &head, HEAD_SIZE, 0)) > 0);
+	} while((stat = recv(*ik->sock_ker, &head, HEAD_SIZE, 0)) > 0);
 
 	if (stat == -1){
 		perror("Se perdio conexion con Kernel. error");
 		return NULL;
 	}
 
-	puts("Kernel cerro la conexion. Apagando Memoria...");
-	liberarEstructurasMemoria();
-
-	free(sock_ker);
+	puts("Kernel cerro la conexion.");
+	ik->kernExists = false;
+	close(*ik->sock_ker);
+	freeAndNULL((void **) &ik->sock_ker);
 	return NULL;
 }
 

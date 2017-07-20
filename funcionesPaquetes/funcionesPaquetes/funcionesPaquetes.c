@@ -69,29 +69,6 @@ int contestarProcAProc(tPackHeader head, int val, int sock){
 	return stat;
 }
 
-int contestarMemoriaCPU(int marco_size, int sock_cpu){
-
-	int stat, pack_size;
-	char *hs_serial;
-
-	tHShakeProcAProc h_shake;
-	h_shake.head.tipo_de_proceso = MEM;
-	h_shake.head.tipo_de_mensaje = MEMINFO;
-	h_shake.val = marco_size;
-
-	pack_size = 0;
-	if ((hs_serial = serializeProcAProc(&h_shake, &pack_size)) == NULL){
-		puts("No se pudo serializar el handshake de Memoria a CPU");
-		return FALLO_SERIALIZAC;
-	}
-
-	if((stat = send(sock_cpu, hs_serial, pack_size, 0)) == -1)
-		perror("Error de envio informacion Memoria a CPU. error");
-
-	free(hs_serial);
-	return stat;
-}
-
 int recibirInfoKerMem(int sock_mem, int *frames, int *frame_size){
 
 	int stat;
@@ -638,37 +615,6 @@ tPackByteAlmac *deserializeByteAlmacenamiento(char *pbal_serial){
 	return pbal;
 }
 
-tPackSrcCode *recvbytes(int sock_in){
-
-	int stat;
-	tPackSrcCode *src_pack;
-	if ((src_pack = malloc(sizeof *src_pack)) == NULL){
-		perror("No se pudo mallocar espacio para el paquete src_pack. error");
-		return NULL;
-	}
-
-	// recibimos el valor de size que va a tener el codigo fuente
-	if ((stat = recv(sock_in, &src_pack->bytelen, sizeof (unsigned long), 0)) <= 0){
-		perror("El socket cerro la conexion o hubo fallo de recepcion. error");
-		errno = FALLO_RECV;
-		return NULL;
-	}
-
-	// hacemos espacio para el codigo fuente
-	if ((src_pack->bytes = malloc(src_pack->bytelen)) == NULL){
-		perror("No se pudo mallocar espacio para el src_pack->bytes. error");
-		return NULL;
-	}
-
-	if ((stat = recv(sock_in, src_pack->bytes, src_pack->bytelen, 0)) <= 0){
-		perror("El socket cerro la conexion o hubo fallo de recepcion. error");
-		errno = FALLO_RECV;
-		return NULL;
-	}
-
-	return src_pack;
-}
-
 char *serializeSrcCode(tPackSrcCode *src_code, int *pack_size){
 
 	char *src_serial;
@@ -689,96 +635,6 @@ char *serializeSrcCode(tPackSrcCode *src_code, int *pack_size){
 	*pack_size += src_code->bytelen;
 
 	return src_serial;
-}
-
-
-tPackSrcCode *deserializeSrcCode(int sock_in){
-
-	unsigned long bufferSize;
-	char *bufferCode;
-	int offset = 0;
-	int stat;
-	tPackSrcCode *line_pack;
-
-	// recibimos el valor del largo del codigo fuente
-	if ((stat = recv(sock_in, &bufferSize, sizeof bufferSize, 0)) == -1){
-		perror("No se pudo recibir el size del codigo fuente. error");
-		return NULL;
-	}
-	bufferSize++; // hacemos espacio para el '\0'
-
-	// hacemos espacio para toda la estructura en serie
-	if ((line_pack = malloc(HEAD_SIZE + sizeof (int) + bufferSize)) == NULL){
-		perror("No se pudo mallocar para el src_pack");
-		return NULL;
-	}
-
-	offset += sizeof (tPackHeader);
-	memcpy(line_pack + offset, &bufferSize, sizeof bufferSize);
-	offset += sizeof bufferSize;
-
-	if ((bufferCode = malloc(bufferSize)) == NULL){
-		perror("No se pudo almacenar memoria para el buffer del codigo fuente. error");
-		return NULL;
-	}
-
-	// recibimos el codigo fuente
-	if ((stat = recv(sock_in, bufferCode, bufferSize, 0)) == -1){
-		perror("No se pudo recibir el size del codigo fuente. error");
-		return NULL;
-	}
-	bufferCode[bufferSize -1] = '\0';
-
-	memcpy(line_pack + offset, bufferCode, bufferSize);
-
-	return line_pack;
-}
-
-void *serializeSrcCodeFromRecv(int sock_in, tPackHeader head, int *packSize){
-
-	unsigned long bufferSize;
-	void *bufferCode;
-	int offset = 0;
-	void *src_pack;
-
-	int stat;
-
-	// recibimos el valor del largo del codigo fuente
-	if ((stat = recv(sock_in, &bufferSize, sizeof bufferSize, 0)) == -1){
-		perror("No se pudo recibir el size del codigo fuente. error");
-		return NULL;
-	}
-
-	// hacemos espacio para toda la estructura en serie
-	if ((src_pack = malloc(HEAD_SIZE + sizeof (unsigned long) + bufferSize)) == NULL){
-		perror("No se pudo mallocar para el src_pack");
-		return NULL;
-	}
-
-	// copiamos el header, y el valor del bufferSize en el paquete
-	memcpy(src_pack, &head, sizeof head);
-
-	offset += sizeof head;
-	memcpy(src_pack + offset, &bufferSize, sizeof bufferSize);
-	offset += sizeof bufferSize;
-
-	if ((bufferCode = malloc(bufferSize)) == NULL){
-		perror("No se pudo almacenar memoria para el buffer del codigo fuente. error");
-		return NULL;
-	}
-
-	// recibimos el codigo fuente
-	if ((stat = recv(sock_in, bufferCode, bufferSize, 0)) == -1){
-		perror("No se pudo recibir el size del codigo fuente. error");
-		return NULL;
-	}
-
-	memcpy(src_pack + offset, bufferCode, bufferSize);
-
-	// size total del paquete serializado
-	*packSize = HEAD_SIZE + sizeof (unsigned long) + bufferSize;
-	freeAndNULL((void **) &bufferCode);
-	return src_pack;
 }
 
 char *serializeVal(tPackVal *pval, int *pack_size){
@@ -887,6 +743,7 @@ char *serializeAbrir(tPackAbrir *abrir, int *pack_size){
 
 	return abrir_serial;
 }
+
 char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = MOVERCURSOR};
@@ -909,7 +766,6 @@ char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_vari
 
 	return mov_serial;
 }
-
 
 char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size){
 
@@ -1110,13 +966,14 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 
 	tPackHeader head = {.tipo_de_proceso = FS,.tipo_de_mensaje = LEER};
 
-
 	*pack_size = 0;
 	memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 
-	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
-			*pack_size += sizeof(int);
+	*pack_size += sizeof(int);
+
+	memcpy(leer_fs_serial + *pack_size, &dirSize,sizeof(int));
+	*pack_size += sizeof(int);
 
 	memcpy(leer_fs_serial + *pack_size, &path, dirSize);
 	*pack_size += dirSize;
@@ -1134,7 +991,7 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 }
 
 /*
- * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?
+ * FUNCIONES EXTRA...
  */
 
 /* Retorna el peso en bytes de todas las listas y variables sumadas del stack
@@ -1152,7 +1009,6 @@ int sumarPesosStack(t_list *stack){
 
 	return sum;
 }
-
 
 void informarResultado(int sock, tPackHeader head){
 	char *buffer;
