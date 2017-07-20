@@ -217,7 +217,9 @@ int *ejecutarPrograma(void){ sleep(1);
 	printf("Se enviaron %d bytes a kernel \n", stat);
 
 	free(linea);
+
 	free(pcb_serial);
+
 	return retval;
 }
 

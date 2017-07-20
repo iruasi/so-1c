@@ -48,6 +48,7 @@ extern t_list	*Exec, *listaProgramas, *Block;
 extern tKernel *kernel;
 extern int grado_mult;
 
+bool estaEnExit(int pid);
 
 extern t_dictionary * tablaGlobal;
 
@@ -99,6 +100,7 @@ tPCB *crearPCBInicial(void){
 void cpu_manejador(void *infoCPU){
 
 	t_RelCC *cpu_i = (t_RelCC *) infoCPU;
+	cpu_i->con->pid=-1;
 	printf("cpu_manejador socket %d\n", cpu_i->cpu.fd_cpu);
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
@@ -421,10 +423,63 @@ void cpu_manejador(void *infoCPU){
 	}
 
 	puts("CPU se desconecto, la sacamos de la listaDeCpu..");
+
+	if(cpu_i->con->pid > -1){ //esta cpu tenia asignado un proceso.
+
+		desconexionCpu(cpu_i);//en esta funcion ponemos el pcb mas actual en exit y avisamos a consola el fin..
+	}
+
 	pthread_mutex_lock(&mux_listaDeCPU);
 	cpu_i = list_remove(listaDeCpu, getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu));
 	pthread_mutex_unlock(&mux_listaDeCPU);
 	liberarCC(cpu_i);
+}
+
+void desconexionCpu(t_RelCC *cpu_i){
+	tPCB *pcbAuxiliar;
+	int p,stat,q;
+	tPackHeader * header = malloc(sizeof header);
+
+	printf("La cpu que se desconecto, estaba ejecutando el proceso %d\n",cpu_i->con->pid);
+
+
+	pthread_mutex_lock(&mux_exec);
+
+	if ((p = getPCBPositionByPid(cpu_i->con->pid, Exec)) != -1){
+
+		pcbAuxiliar = list_get(Exec,p);
+		pcbAuxiliar->exitCode=DESCONEXION_CPU;
+		printf("Exit code del proceso %d: %d",pcbAuxiliar->id,pcbAuxiliar->exitCode);
+		puts("Sacamos de exec y pasamos a exit");
+		list_remove(Exec,p);
+
+		pthread_mutex_lock(&mux_exit);
+		queue_push(Exit,pcbAuxiliar);
+		pthread_mutex_unlock(&mux_exit);
+
+		header->tipo_de_proceso=KER;
+		header->tipo_de_mensaje=DESCONEXION_CPU;
+
+		puts("Le avisamos a la consola q su programa termino.");
+		if((stat = send(cpu_i->con->fd_con,header,sizeof (tPackHeader),0))<0){
+			perror("error al enviar a la consola");
+		}
+
+		puts("saco al programa de gl_programas");
+		//saco al programa de gl_programas
+		pthread_mutex_lock(&mux_gl_Programas);
+		t_RelPF *pf;
+		for(q=0;q<list_size(gl_Programas);q++){
+			pf=list_get(gl_Programas,q);
+			if(pf->prog->con->pid == cpu_i->con->pid){
+				list_remove(gl_Programas,q);
+			}
+		}
+		pthread_mutex_unlock(&mux_gl_Programas);
+
+	}
+	pthread_mutex_unlock(&mux_exec);
+	free(header);
 }
 
 void liberarCC(t_RelCC *cc){
@@ -583,16 +638,27 @@ void cons_manejador(void *conInfo){
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
 
 	if(con_i->con->fd_con != -1){
-		printf("La consola %d asociada al PID: %d se desconectó.\n", con_i->con->fd_con, con_i->con->pid);
+	pthread_mutex_lock(&mux_exec);
+		if(!estaEnExit(con_i->con->pid)){//el programa no esta en la lista de exit, osea sigue en ejecucion
+			printf("La consola %d asociada al PID: %d se desconecto.\n", con_i->con->fd_con, con_i->con->pid);
 
-		t_finConsola *fc=malloc(sizeof(fc));
-		fc->pid = pidAFinalizar ;
-		fc->ecode = CONS_DISCONNECT;
+			t_finConsola *fc=malloc(sizeof(fc));
+			fc->pid = con_i->con->pid ;
+			fc->ecode = CONS_DISCONNECT;
 
-		pthread_mutex_lock(&mux_listaFinalizados);
-		list_add(finalizadosPorConsolas,fc);
-		pthread_mutex_unlock(&mux_listaFinalizados);
+			pthread_mutex_lock(&mux_listaFinalizados);
+			list_add(finalizadosPorConsolas,fc);
+			printf("##$$## AGREGUE A FINALIZADOS POR CONSOLA AL PID %d EXITCODE %d \n",fc->pid,fc->ecode);
+			pthread_mutex_unlock(&mux_listaFinalizados);
+			int k;
+			pthread_mutex_lock(&mux_gl_Programas);
+			if(( k=getConPosByFD(con_i->con->fd_con,gl_Programas))!= -1){
+				list_remove(gl_Programas,k);
+			}
+			pthread_mutex_unlock(&mux_gl_Programas);
 
+		}
+	pthread_mutex_unlock(&mux_exec);
 	}
 	else{
 		printf("cierro thread de consola\n");
@@ -928,6 +994,18 @@ int getQueuePositionByPid(int pid, t_queue *queue){
 	}
 	return -1;
 }
+
+bool estaEnExit(int pid){
+
+	int i;
+	for(i = 0; i < queue_size(Exit); i++){
+		tPCB *pcbAux = queue_get(Exit, i);
+		if(pcbAux->id == pid)
+			return true;
+	}
+	return false;
+}
+
 
 
 void sendall(void){} // todo: hacer...?

@@ -29,6 +29,7 @@ typedef enum {
 , FALLO_HILO_JOIN=     -29
 , FALLO_DESERIALIZAC=  -30
 , FALLO_SERIALIZAC=    -31
+, DESCONEXION_CPU=      -32
 
 , FALLO_INSTR=         -40
 , VAR_NOT_FOUND=       -41

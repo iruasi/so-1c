@@ -74,4 +74,6 @@ void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages);
 void blockByPID(int pid);
 void unBlockByPID(int pid);
 
+int fueFinalizadoPorConsola(int pid);
+
 #endif

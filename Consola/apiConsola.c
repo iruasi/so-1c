@@ -305,6 +305,11 @@ void *programa_handler(void *atributos){
 
 		}
 
+		if(head_tmp.tipo_de_mensaje == DESCONEXION_CPU){
+			printf("Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n",args->pidProg);
+			accionesFinalizacion(args->pidProg);
+		}
+
 
 	}
 
