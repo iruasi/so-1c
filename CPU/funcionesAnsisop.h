@@ -62,7 +62,7 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable);
 
 //FUNCIONES MODO KERNEL
 void wait (t_nombre_semaforo identificador_semaforo);
-void signal (t_nombre_semaforo identificador_semaforo);
+void signal_so (t_nombre_semaforo identificador_semaforo);
 void liberar (t_puntero puntero);
 t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags);
 void borrar (t_descriptor_archivo direccion);

@@ -102,7 +102,7 @@ tPCB *crearPCBInicial(void){
 void cpu_manejador(void *infoCPU){
 
 	t_RelCC *cpu_i = (t_RelCC *) infoCPU;
-	cpu_i->con->pid=-1;
+	cpu_i->con->pid=cpu_i->con->fd_con=-1;
 	printf("cpu_manejador socket %d\n", cpu_i->cpu.fd_cpu);
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
@@ -110,7 +110,7 @@ void cpu_manejador(void *infoCPU){
 	bool found;
 	char *buffer, *var;
 	char *file_serial, leer_serial;
-	int stat, pack_size;
+	int stat, pack_size,p;
 	tPackBytes *sem_bytes;
 	tPackVal *alloc;
 	t_puntero ptr;
@@ -433,18 +433,21 @@ void cpu_manejador(void *infoCPU){
 	}
 
 	pthread_mutex_lock(&mux_listaDeCPU);
-	cpu_i = list_remove(listaDeCpu, getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu));
+	if ((p = getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu)) != -1){
+		list_remove(listaDeCpu,p);
+	}
 	pthread_mutex_unlock(&mux_listaDeCPU);
+
 	liberarCC(cpu_i);
 }
 
 void desconexionCpu(t_RelCC *cpu_i){
+
 	tPCB *pcbAuxiliar;
-	int p,stat,q;
-	tPackHeader * header = malloc(sizeof header);
+	int p;
+
 
 	printf("La cpu que se desconecto, estaba ejecutando el proceso %d\n",cpu_i->con->pid);
-
 
 	pthread_mutex_lock(&mux_exec);
 
@@ -452,37 +455,14 @@ void desconexionCpu(t_RelCC *cpu_i){
 
 		pcbAuxiliar = list_get(Exec,p);
 		pcbAuxiliar->exitCode=DESCONEXION_CPU;
-		printf("Exit code del proceso %d: %d",pcbAuxiliar->id,pcbAuxiliar->exitCode);
-		puts("Sacamos de exec y pasamos a exit");
+
 		list_remove(Exec,p);
 
-		pthread_mutex_lock(&mux_exit);
-		queue_push(Exit,pcbAuxiliar);
-		pthread_mutex_unlock(&mux_exit);
-
-		header->tipo_de_proceso=KER;
-		header->tipo_de_mensaje=DESCONEXION_CPU;
-
-		puts("Le avisamos a la consola q su programa termino.");
-		if((stat = send(cpu_i->con->fd_con,header,sizeof (tPackHeader),0))<0){
-			perror("error al enviar a la consola");
-		}
-
-		puts("saco al programa de gl_programas");
-		//saco al programa de gl_programas
-		pthread_mutex_lock(&mux_gl_Programas);
-		t_RelPF *pf;
-		for(q=0;q<list_size(gl_Programas);q++){
-			pf=list_get(gl_Programas,q);
-			if(pf->prog->con->pid == cpu_i->con->pid){
-				list_remove(gl_Programas,q);
-			}
-		}
-		pthread_mutex_unlock(&mux_gl_Programas);
-
+		encolarEnExit(pcbAuxiliar,cpu_i);
 	}
+
 	pthread_mutex_unlock(&mux_exec);
-	free(header);
+
 }
 
 void liberarCC(t_RelCC *cc){
@@ -548,7 +528,8 @@ void mem_manejador(void *m_sock){
 		puts("Fin case THREAD_INIT");
 		break;
 
-	case DUMP_DISK: // todo: agregar /dmp a FS...
+	//case DUMP_DISK: // todo: agregar /dmp a FS...
+	case -97:
 		puts("Memoria dumpea informacion en /dmp");
 		break;
 
@@ -822,7 +803,7 @@ void mostrarColaExit(){
 	}
 	for(k=0;k<queue_size(Exit);k++){
 		pcbAux = (tPCB*) queue_get(Exit,k);
-		printf("En la posicion %d, el proceso %d\n",k,pcbAux->id);
+		printf("En la posicion %d, el proceso %d con un ExitCode: %d\n",k,pcbAux->id,pcbAux->exitCode);
 	}
 }
 

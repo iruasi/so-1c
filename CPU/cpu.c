@@ -7,6 +7,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <math.h>
+#include <signal.h>
 
 #include <commons/config.h>
 #include <commons/collections/list.h>
@@ -28,12 +29,16 @@ void recibirInstruccion(char **linea, int instr_size, int solics);
 int *ejecutarPrograma(void);
 
 void set_quantum_sleep(void);
+void signal_handler(void);
+void sigusr1Handler(void);
+void sigintHandler(void);
 
 int conectarConServidores(tCPU *cpu_data);
 
 int pag_size;
 int q_sleep;
 float q_sleep_segs;
+bool ejecutando;
 
 void set_quantum_sleep(void){
 	q_sleep_segs = q_sleep / 1000.0;
@@ -43,7 +48,7 @@ void set_quantum_sleep(void){
 
 int err_exec;            // esta variable global va a retener el codigo de error con el que se rompio una primitiva
 sem_t sem_fallo_exec;    // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
-pthread_mutex_t mux_pcb; // sincroniza sobre el PCB global, para enviar un PCB roto antes de obtener uno nuevo
+pthread_mutex_t mux_pcb,mux_ejecutando; // sincroniza sobre el PCB global, para enviar un PCB roto antes de obtener uno nuevo
 
 void err_handler(void){
 
@@ -74,6 +79,38 @@ void err_handler(void){
 	puts(" *** El CPU vuelve a un estado consistente y listo para recibir un pcb nuevo ***\n");
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 
+
+
+void signal_handler(void){
+
+
+	signal(SIGUSR1, sigusr1Handler);
+	signal(SIGINT, sigintHandler);
+}
+
+void sigusr1Handler(void){
+
+	puts("Señal SIGUSR1 detectada");
+	if(ejecutando){
+		puts("Esperamos a que termine al rafaga para desconectar esta cpu");
+	}
+	else{
+		puts("No hay rafaga ejecutando, procedemos a desconectar esta cpu");
+//		close(sock_kern);
+//		close(sock_mem);
+//		free(head);
+//		liberarConfiguracionCPU(cpu_data);
+//		exit(1);
+	}
+}
+
+void sigintHandler(void){
+
+	puts("Señal SIGINT detectada");
+
+}
+
+
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -83,7 +120,9 @@ int main(int argc, char* argv[]){
 
 	int stat;
 	int *retval;
-
+	pthread_mutex_lock(&mux_ejecutando);
+	ejecutando=false;
+	pthread_mutex_unlock(&mux_ejecutando);
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
 
@@ -94,7 +133,11 @@ int main(int argc, char* argv[]){
 	pthread_mutex_init(&mux_pcb, NULL);
 	pthread_t pcb_th;
 	pthread_t errores_th;
+	pthread_t signalH_th;
 	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
+
+	pthread_create(&signalH_th, NULL, (void *) signal_handler, NULL);
+
 
 	if ((stat = conectarConServidores(cpu_data)) != 0){
 		puts("No se pudo conectar con ambos servidores");
@@ -163,10 +206,14 @@ int *ejecutarPrograma(void){sleep(1);
 	t_size instr_size;
 	char *linea = NULL;
 	bool fin_quantum = false;
+	pthread_mutex_lock(&mux_ejecutando);
 	termino = false;
+	pthread_mutex_unlock(&mux_ejecutando);
 	int cantidadDeRafagas = 0;
 
+
 	puts("Empieza a ejecutar...");
+	ejecutando=true;
 	do{
 		instr_size = (pcb->indiceDeCodigo + pcb->pc)->offset;
 
@@ -218,7 +265,9 @@ int *ejecutarPrograma(void){sleep(1);
 		perror("Fallo envio de PCB a Kernel. error");
 
 	printf("Se enviaron %d bytes a kernel \n", stat);
-
+	pthread_mutex_lock(&mux_ejecutando);
+	ejecutando=false;
+	pthread_mutex_unlock(&mux_ejecutando);
 	free(linea);
 
 	free(pcb_serial);

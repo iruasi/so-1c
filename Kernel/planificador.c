@@ -405,14 +405,11 @@ int fueFinalizadoPorConsola(int pid){
 }
 
 void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
-	tPCB *pcbCPU, *pcbPlanif;
 
-	int stat, q,k;
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 	tPackHeader * headerFin = malloc(sizeof headerFin);//lo uso para indicar a consola de la forma en q termino el proceso.
-	t_finConsola * fcAux = malloc(sizeof fcAux);
-
-
+	tPCB *pcbCPU, *pcbPlanif;
+	int stat;
 
 	char *buffer = recvGeneric(cpu->cpu.fd_cpu);
 	pcbCPU = deserializarPCB(buffer);
@@ -421,6 +418,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	case (FIN_PROCESO):
 
 	puts("Se recibe FIN_PROCESO de CPU");
+
 	//lo sacamos de la lista de EXEC
 	MUX_LOCK(&mux_exec);
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
@@ -428,73 +426,14 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 	mergePCBs(&pcbPlanif, pcbCPU); // ahora Planif es equivalente a CPU
 
-	//chequeamos que alguna consola no lo haya finalizado previamente
-	pthread_mutex_lock(&mux_listaFinalizados);
-	if ((k=fueFinalizadoPorConsola(pcbPlanif->id))!= -1){
-		fcAux=list_get(finalizadosPorConsolas,k);
-		pcbPlanif->exitCode = fcAux->ecode;
-	}
-	else{
-		pcbPlanif->exitCode = pcbCPU->exitCode;
-	}
-	pthread_mutex_unlock(&mux_listaFinalizados);
 
-	//avisamos a consola el fin siempre y cuando no haya finalizado antes
-
-	printf("Exit code del proceso %d: %d\n", pcbPlanif->id, pcbPlanif->exitCode);
-
-	if(pcbPlanif->exitCode != CONS_DISCONNECT){
-
-		headerFin->tipo_de_proceso = KER; headerFin->tipo_de_mensaje = FIN_PROG;
-		informarResultado(cpu->con->fd_con, *headerFin);
-
-//		char *ecode_serial;
-//		int pack_size;
-//		tPackExitCode pack_ec;
-//
-//		pack_ec.head.tipo_de_proceso = KER;
-//		pack_ec.head.tipo_de_mensaje = FIN_PROG;
-//		pack_ec.val = pcbPlanif->exitCode;
-//
-//		pack_size = 0;
-//		if ((ecode_serial = serializeVal(&pack_ec, &pack_size)) == NULL){
-//			puts("No se serializo bien");
-//			return;
-//		}
-//
-//		printf("aviso a %d que el proceso %d termino con un exitcode: %d.\n ", cpu->con->fd_con, pcbPlanif->id, pcbPlanif->exitCode);
-//		if ((stat = send(cpu->con->fd_con, ecode_serial, pack_size, 0)) == -1){
-//			perror("Fallo envio de a Consola. error");
-//			return;
-//		}
-//		printf("Se enviaron %d bytes al hilo_consola\n", stat);
-//
-//		free(ecode_serial);
-	}
-
-	if (finalizarEnMemoria(cpu->cpu.pid) != 0)
-		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.pid);
-
-	//Agregamos el PCB Devuelto por cpu + el excode corresp a la cola de EXIT
-	MUX_LOCK(&mux_exit);
-	//queue_push(Exit, pcbPlanif); //yo agregaria pcbAux ya q CPU lo modifico y seria mejor guardarse ese.. lo mismo mas adelante en pcbpreempt
-	queue_push(Exit, pcbPlanif);
-	MUX_UNLOCK(&mux_exit);
-
-	//lo sacamos de la lista gl_Programas:
-
-	t_RelPF *pf;
-	for(q=0;q<list_size(gl_Programas);q++){
-		pf=list_get(gl_Programas,q);
-		if(pf->prog->con->pid == pcbPlanif->id){
-			list_remove(gl_Programas,q);
-		}
-	}
+	encolarEnExit(pcbPlanif,cpu);
 
 	//ponemos la cpu como libre
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
-	puts("eventoPlani (cpudispo)");
+	puts("eventoPlani (cpudisponible)");
 	sem_post(&eventoPlani);
+
 
 	puts("Fin case FIN_PROCESO");
 	break;
@@ -519,7 +458,9 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 
 	case (ABORTO_PROCESO):
 
-				MUX_LOCK(&mux_exec);
+
+
+	MUX_LOCK(&mux_exec);
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
 	MUX_UNLOCK(&mux_exec);
 
@@ -553,6 +494,46 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	default:
 		break;
 	}
+}
+
+void encolarEnExit(tPCB *pcb,t_RelCC *cpu){
+
+	int q;
+	tPackHeader * headerFin = malloc(sizeof headerFin); //lo uso para indicar a consola de q termino el proceso.
+
+	printf("\n\n#####EXIT CODE DEL PROCESO %d: %d\n\n#####", pcb->id, pcb->exitCode);
+
+	if(pcb->exitCode != CONS_DISCONNECT){
+
+		if(pcb->exitCode!= DESCONEXION_CPU){
+			headerFin->tipo_de_proceso = KER; headerFin->tipo_de_mensaje = FIN_PROG;
+		}
+		else{
+			headerFin->tipo_de_proceso=KER;headerFin->tipo_de_mensaje=DESCONEXION_CPU;
+		}
+		informarResultado(cpu->con->fd_con, *headerFin);
+	}
+
+	if (finalizarEnMemoria(cpu->cpu.pid) != 0)
+		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.pid);
+
+	//Agregamos el PCB Devuelto por cpu + el excode corresp a la cola de EXIT
+	MUX_LOCK(&mux_exit);
+	queue_push(Exit, pcb);
+	MUX_UNLOCK(&mux_exit);
+
+	//lo sacamos de la lista gl_Programas:
+
+	MUX_LOCK(&mux_gl_Programas);
+	t_RelPF *pf;
+	for(q=0;q<list_size(gl_Programas);q++){
+		pf=list_get(gl_Programas,q);
+		if(pf->prog->con->pid == pcb->id){
+			list_remove(gl_Programas,q);
+		}
+	}
+	MUX_UNLOCK(&mux_gl_Programas);
+
 }
 
 void blockByPID(int pid){ //todo: que saque el PCB de ejecucion?
