@@ -32,6 +32,23 @@ typedef struct {
 }t_finConsola;
 
 
+typedef struct{
+	t_banderas flag;
+	t_descriptor_archivo fd;
+	t_valor_variable posicionCursor;
+}tProcesoArchivo;
+
+typedef struct{
+	int pid;
+	t_list * archivosPorProceso; //Esta lista va a contener tProcesosPorArchivo
+}t_procesoXarchivo;
+
+/* tablaProcesos: va almacenar los proceos que tienen archivos en uso y demás, es decir, va tener elementos de t_procesoXarchivo que
+ * relacion un proceso por medio de su pid y los flagas y los FD globales a los cuales está asociado
+ *
+ * archivosPorProceso es la lista que va a almacenar los flags con los FD globales que tiene ese proceso
+ *
+ * */
 
 void liberarCC(t_RelCC *cc);
 
@@ -112,5 +129,7 @@ void mostrarCantHeapUtilizadasDe(tPCB *pcb);
 void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
 
 void* queue_get(t_queue *self,int posicion);
+
+tProcesoArchivo * obtenerFlagSegunFD(t_descriptor_archivo fd,t_RelCC * cpu_i);
 
 #endif // AUXILIARESKERNEL_H_

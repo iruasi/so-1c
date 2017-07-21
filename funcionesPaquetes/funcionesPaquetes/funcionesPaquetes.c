@@ -994,7 +994,6 @@ tPackRW * deserializeLeer(char * rw_serial){
 	memcpy(read_write->info,off + rw_serial,read_write->tamanio);
 	off += read_write->tamanio;
 
-
 	return read_write;
 
 
@@ -1104,7 +1103,7 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 	return aux;
 }
 
-char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, int * pack_size){
+char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size){
 	int dirSize = strlen(path);
 	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + dirSize + sizeof tamanio + tamanio);
 
@@ -1116,7 +1115,7 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 	*pack_size += HEAD_SIZE;
 
 	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
-			*pack_size += sizeof(int);
+	*pack_size += sizeof(int);
 
 	memcpy(leer_fs_serial + *pack_size, &path, dirSize);
 	*pack_size += dirSize;
@@ -1127,12 +1126,35 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 	memcpy(leer_fs_serial + *pack_size, info, tamanio);
 	*pack_size += tamanio;
 
+	memcpy(leer_fs_serial + *pack_size,&flag,sizeof(int)),
+	*pack_size += sizeof(int);
 
 	memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));
 
 	return leer_fs_serial;
 }
+tPackLE * deserializeLeerFS(char * le_serial){
+			tPackLE * le_aux = malloc(sizeof(*le_aux));
 
+			int off = 0;
+
+
+			memcpy(&le_aux->tamanio_direccion, off + le_serial,sizeof(int));
+			off += sizeof(int);
+			le_aux->direccion = malloc(le_aux->tamanio_direccion);
+			memcpy(le_aux->direccion,off + le_serial,le_aux->tamanio_direccion);
+			off += le_aux->tamanio_direccion;
+			memcpy(&le_aux->tamanio, off + le_serial,sizeof(int));
+			off += sizeof(int);
+			le_aux->info = malloc(le_aux->tamanio);
+			memcpy(le_aux->info, off + le_serial,le_aux->tamanio);
+			off += le_aux->tamanio;
+			memcpy(&le_aux->flags, off + le_serial,sizeof(le_aux->flags));
+			off += sizeof(le_aux->flags);
+
+
+		return le_aux;
+		}
 /*
  * FUNCIONES EXTRA... //todo: deberia ir en compartidas, no?
  */

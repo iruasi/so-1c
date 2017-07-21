@@ -148,4 +148,12 @@ typedef struct{
 	int *cantidadOpen;
 }__attribute__((packed))tPackFS; //Sirve para mandar el fd a la CPU
 
+typedef struct{
+	int tamanio_direccion;
+	t_direccion_archivo direccion;
+	t_valor_variable tamanio;
+	void*info;
+	t_banderas flags;
+}__attribute__((packed)) tPackLE;//Esta estructura sirve para mandar solicitudes de lectura y escritura al fs
+
 #endif /* TIPOSPAQUETES_H_ */

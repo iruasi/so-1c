@@ -35,8 +35,11 @@ int sock_mem;
 int sock_fs;
 tKernel *kernel;
 
-t_dictionary * tablaFS;
+
 t_dictionary * tablaGlobal;
+
+t_list * tablaProcesos;
+
 
 sem_t hayProg; // semaforo estilo productor-consumidor. Se post'ea cuando entran PCBs en New o Ready
 sem_t hayCPUs;
@@ -214,8 +217,10 @@ int main(int argc, char* argv[]){
 	setupHeapStructs();
 	setupVariablesGlobales();
 
-	tablaFS = dictionary_create();
-	tablaGlobal = dictionary_create();
+
+	tablaGlobal = dictionary_create();  //todo:hacer free
+	tablaProcesos = list_create();		//todo:hacer free
+
 
 
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){

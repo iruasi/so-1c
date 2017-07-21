@@ -33,8 +33,8 @@
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.exe.debug.1539871497" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.exe.debug">
 								<option id="gnu.c.link.option.libs.840777004" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
-									<listOptionValue builtIn="false" value="funcionesCompartidas"/>
 									<listOptionValue builtIn="false" value="fuse"/>
+									<listOptionValue builtIn="false" value="funcionesPaquetes"/>
 									<listOptionValue builtIn="false" value="funcionesPaquetes"/>
 									<listOptionValue builtIn="false" value="commons"/>
 								</option>

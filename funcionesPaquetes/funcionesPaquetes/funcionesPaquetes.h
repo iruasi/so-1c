@@ -125,7 +125,8 @@ tPackFS * deserializeFileDescriptor(char * aux_serial);
 tPackAbrir * deserializeAbrir(char *abrir_serial);
 
 //serializeLeerFS, guarda el paquete que hay que mandarle al fs para leer
-char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, int * pack_size);
+char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio, t_banderas flag,int * pack_size);
+tPackLE * deserializeLeerFS(char * le_serial);
 void informarFallo(int sock, tPackHeader head);
 
 

@@ -520,13 +520,14 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		pthread_mutex_lock(&mux_exec);
 		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
 		pthread_mutex_unlock(&mux_exec);
-
+		t_finConsola *fcAux;
 		//chequeamos q alguna consola no lo haya finalizado previamente
 		if(list_size(finalizadosPorConsolas)>0){
-			for(int k=0;k<list_size(finalizadosPorConsolas);k++){
-				t_finConsola fcAux = list_get(finalizadosPorConsolas,k);
-				if(fcAux.pid == pcbAux.id){
-					pcbPlanif->exitCode = fcAux.ecode;
+			int k;
+			for(k=0;k<list_size(finalizadosPorConsolas);k++){
+				fcAux = list_get(finalizadosPorConsolas,k);
+				if(fcAux->pid == pcbAux->id){
+					pcbPlanif->exitCode = fcAux->ecode;
 					k=list_size(finalizadosPorConsolas)+1;
 				}
 				else
