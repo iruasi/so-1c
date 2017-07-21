@@ -85,13 +85,8 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	}
 	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
 
-	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = KERINFO};
-	if ((stat = contestarProcAProc(head, kernel->stack_size, sock_mem)) < 0){
-		puts("No se pudo informar a Memoria acerca del stack size");
-		return FALLO_GRAL;
-	}
-
-	if((stat = recibirInfoKerMem(sock_mem, &frames, &frame_size)) == -1){
+	tPackHeader h_esp = {.tipo_de_proceso = MEM, .tipo_de_mensaje = MEMINFO};
+	if((stat = recibirInfo2ProcAProc(sock_mem, h_esp, &frames, &frame_size)) == -1){
 		puts("No se recibio correctamente informacion de Memoria!");
 		return FALLO_GRAL;
 	}

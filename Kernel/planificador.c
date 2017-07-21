@@ -269,7 +269,7 @@ void encolarDeNewEnReady(tPCB *pcb){
 		}
 
 		avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
-		iniciarYAlojarEnMemoria(pf, code_pages);
+		iniciarYAlojarEnMemoria(pf, code_pages + kernel->stack_size);
 
 		MUX_LOCK(&mux_ready);
 		queue_push(Ready, pcb);
@@ -509,7 +509,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		MUX_UNLOCK(&mux_exit);
 
 	//Aviso a memoria
-	if (!finalizarEnMemoria(cpu->cpu.pid))
+	if (finalizarEnMemoria(cpu->cpu.pid) != 0)
 		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.pid);
 
 	headerMemoria->tipo_de_proceso=KER;

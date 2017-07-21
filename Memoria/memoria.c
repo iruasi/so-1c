@@ -37,7 +37,6 @@ tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
 int sock_kernel;
-int stack_size;
 
 pthread_mutex_t mux_mem_access;
 
@@ -108,14 +107,8 @@ int main(int argc, char* argv[]){
 				*infoKer.sock_ker  = client_sock;
 				infoKer.kernExists = true;
 
-				head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO; // para recibir info
-				if ((stat = recibirInfoProcSimple(*infoKer.sock_ker, head, &stack_size)) != 0){
-					puts("No se pudo recibir size del stack de Kernel");
-					return FALLO_GRAL;
-				}
-				printf("Kernel informa stack size: %d\n", stack_size);
-
-				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, *infoKer.sock_ker)) == -1){
+				head.tipo_de_proceso = MEM; head.tipo_de_mensaje = MEMINFO;
+				if ((stat = contestar2ProcAProc(head, memoria->marcos, memoria->marco_size, *infoKer.sock_ker)) == -1){
 					puts("No se pudo enviar la informacion relevante a Kernel!");
 					return FALLO_GRAL;
 				}
@@ -313,7 +306,7 @@ void* cpu_handler(void *socket_cpu){
 			pthread_mutex_lock(&mux_mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 
 			pthread_mutex_unlock(&mux_mem_access);
 			puts("Se completo Solicitud de Bytes");

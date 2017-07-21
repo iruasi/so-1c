@@ -16,7 +16,6 @@ float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
 extern int pid_free, free_page;
-extern int stack_size;
 
 // OPERACIONES DE LA MEMORIA
 
@@ -57,9 +56,8 @@ void size(int pid){
 		printf("Cantidad de frames ocupados:   %d\n", mem_ocup);
 		printf("Cantidad de frames libres:     %d\n", mem_free);
 
-	} else {
+	} else
 		printf("Tamanio total del proceso %d:  %d\n", pid, pageQuantity(pid));
-	}
 }
 
 
@@ -67,19 +65,15 @@ void size(int pid){
 
 // API DE LA MEMORIA
 
-int inicializarPrograma(int pid, int code_pages){
+int inicializarPrograma(int pid, int page_quant){
 	puts("Se inicializa un programa");
 
 	int reservadas;
 
-	if ((reservadas = reservarPaginas(pid, code_pages + stack_size)) < 0){
+	if ((reservadas = reservarPaginas(pid, page_quant)) < 0){
 		return reservadas;
 	}
-
-	printf("Se reservaron bien las %d paginas solicitadas\n", code_pages);
-	printf("Se reservaron ademas %d paginas para el stack\n", stack_size);
-
-//	registrarStackLim(pid, code_pages);
+	printf("Se reservaron bien las %d paginas solicitadas\n", page_quant);
 
 	return 0;
 }
@@ -105,7 +99,6 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 	char *buffer;
 	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
 		puts("No se pudieron leer los bytes de la pagina");
-		finalizarPrograma(pid);
 		return NULL;
 	}
 
@@ -152,6 +145,8 @@ int liberarPagina(int pid, int page){
 
 void finalizarPrograma(int pid){
 	printf("Se procede a finalizar el pid %d\n", pid);
+
+	dump(pid);
 
 	limpiarDeCache(pid);
 	limpiarDeInvertidas(pid);

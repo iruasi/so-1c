@@ -31,7 +31,7 @@ void set_quantum_sleep(void);
 
 int conectarConServidores(tCPU *cpu_data);
 
-int pag_size;
+int pag_size, stack_size;
 int q_sleep;
 float q_sleep_segs;
 
@@ -373,10 +373,11 @@ int conectarConServidores(tCPU *cpu_data){
 	printf("Se enviaron: %d bytes a KERNEL\n", stat);
 
 	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = KERINFO;
-	if ((stat = recibirInfoProcSimple(sock_kern, h_esp, &q_sleep)) != 0){
-		puts("No se pudo recibir el quantum sleep de Kernel!");
+	if ((stat = recibirInfo2ProcAProc(sock_kern, h_esp, &q_sleep, &stack_size)) != 0){
+		puts("No se pudo recibir el quantum sleep y stack size de Kernel!");
 		return ABORTO_CPU;
 	}
+	printf("Se trabaja con quant_sleep %d y stack_size %d\n", q_sleep, stack_size);
 	set_quantum_sleep();
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 

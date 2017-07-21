@@ -25,24 +25,24 @@
 
 /****** Definiciones de Handshakes ******/
 
-int contestarMemoriaKernel(int marco_size, int marcos, int sock_ker){
+int contestar2ProcAProc(tPackHeader h, int val1, int val2, int sock){
 
 	int stat, pack_size;
 	char *hs_serial;
 
-	tHShakeMemAKer *h_shake = malloc(sizeof *h_shake);
-	h_shake->head.tipo_de_proceso = MEM;
-	h_shake->head.tipo_de_mensaje = MEMINFO;
-	h_shake->marco_size = marco_size;
-	h_shake->marcos = marcos;
+	tHShake2ProcAProc *h_shake = malloc(sizeof *h_shake);
+	h_shake->head.tipo_de_proceso = h.tipo_de_proceso;
+	h_shake->head.tipo_de_mensaje = h.tipo_de_mensaje;
+	h_shake->val1 = val1;
+	h_shake->val2 = val2;
 
-	if ((hs_serial = serializeMemAKer(h_shake, &pack_size)) == NULL){
-		puts("Fallo la serializacion de handshake Memoria a Kernel");
+	if ((hs_serial = serialize2ProcAProc(h_shake, &pack_size)) == NULL){
+		puts("Fallo la serializacion de handshake 2ProcAProc");
 		return FALLO_SERIALIZAC;
 	}
 
-	if((stat = send(sock_ker, hs_serial, pack_size, 0)) == -1)
-		perror("Error de envio informacion Memoria a Kernel. error");
+	if((stat = send(sock, hs_serial, pack_size, 0)) == -1)
+		perror("Error de envio informacion de 2ProcAProc. error");
 
 	return stat;
 }
@@ -69,30 +69,28 @@ int contestarProcAProc(tPackHeader head, int val, int sock){
 	return stat;
 }
 
-int recibirInfoKerMem(int sock_mem, int *frames, int *frame_size){
+int recibirInfo2ProcAProc(int sock, tPackHeader h, int *val1, int *val2){
 
 	int stat;
 	char *info_serial;
 	tPackHeader head;
 
-	if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
+	if ((stat = recv(sock, &head, HEAD_SIZE, 0)) == -1){
 		perror("Fallo recepcion de info de Memoria. error");
 		return FALLO_RECV;
 	}
 
-	if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != MEMINFO){
+	if (head.tipo_de_proceso != h.tipo_de_proceso || head.tipo_de_mensaje != h.tipo_de_mensaje){
 		printf("El paquete recibido no era el esperado! Proceso: %d, Mensaje: %d\n",
 				head.tipo_de_proceso, head.tipo_de_mensaje);
 		return FALLO_GRAL;
 	}
 
-	if ((info_serial = recvGeneric(sock_mem)) == NULL){
-		puts("Fallo la creacion de info serializada desde Memoria");
+	if ((info_serial = recvGeneric(sock)) == NULL)
 		return FALLO_GRAL;
-	}
 
-	memcpy(frames, info_serial, sizeof(int));
-	memcpy(frame_size, info_serial + sizeof(int), sizeof(int));
+	memcpy(val1, info_serial, sizeof(int));
+	memcpy(val2, info_serial + sizeof(int), sizeof(int));
 
 	free(info_serial);
 	return 0;
@@ -128,7 +126,7 @@ int recibirInfoProcSimple(int sock, tPackHeader h_esp, int *var){
 
 /****** Definiciones de [De]Serializaciones Handshakes especiales ******/
 
-char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size){
+char *serialize2ProcAProc(tHShake2ProcAProc *h_shake, int *pack_size){
 
 	char *hs_serial;
 
@@ -143,9 +141,9 @@ char *serializeMemAKer(tHShakeMemAKer *h_shake, int *pack_size){
 
 	*pack_size += sizeof(int);
 
-	memcpy(hs_serial + *pack_size, &h_shake->marcos, sizeof(int));
+	memcpy(hs_serial + *pack_size, &h_shake->val1, sizeof(int));
 	*pack_size += sizeof(int);
-	memcpy(hs_serial + *pack_size, &h_shake->marco_size, sizeof(int));
+	memcpy(hs_serial + *pack_size, &h_shake->val2, sizeof(int));
 	*pack_size += sizeof(int);
 
 	memcpy(hs_serial + HEAD_SIZE, pack_size, sizeof(int));

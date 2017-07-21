@@ -14,7 +14,7 @@
 
 extern bool termino;
 extern AnSISOP_funciones functions;
-extern int pag_size;
+extern int pag_size, stack_size;
 char *eliminarWhitespace(char *string);
 
 extern int err_exec;
@@ -125,6 +125,13 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	var->pos.offset = (off + size) % pag_size;
 	var->pos.pag    = pag + (off + size) / pag_size;
 	var->pos.size   = sizeof (t_valor_variable);
+
+	if (stack_ptr / pag_size >= stack_size){ // nos pasamos del limite
+		printf("No se pudo definir la variable %c: Stack del proceso lleno\n", variable);
+		err_exec = MEM_OVERALLOC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
 
 	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
 	printf("Contexto: %d\n", pcb->contextoActual);

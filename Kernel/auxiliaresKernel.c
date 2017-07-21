@@ -46,7 +46,7 @@ t_list *listaDeCpu;
 t_list *finalizadosPorConsolas;
 
 extern t_queue *New, *Exit,*Ready;
-extern t_list	*Exec, *listaProgramas, *Block;
+extern t_list	*Exec, *Block;
 extern tKernel *kernel;
 extern int grado_mult;
 
@@ -394,11 +394,8 @@ void cpu_manejador(void *infoCPU){
 		puts("Se recibe handshake de CPU");
 
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO;
-
-		//Si el QS cambia en tiempo de ejecucion, no habria q informarle a CPU el nuevo valor?!
-		// todo: habiamos quedado en que no lo actualizabamos, porque no era parte de los minimos, pero estaria bueno hacerlo
-		if ((stat = contestarProcAProc(head, kernel->quantum_sleep, cpu_i->cpu.fd_cpu)) < 0){
-			puts("No se pudo informar el quantum_sleep a CPU.");
+		if ((stat = contestar2ProcAProc(head, kernel->quantum_sleep, kernel->stack_size, cpu_i->cpu.fd_cpu)) < 0){
+			puts("No se pudo informar el quantum_sleep y stack_size a CPU.");
 			return;
 		}
 

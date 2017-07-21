@@ -126,9 +126,9 @@ typedef struct {
 typedef struct {
 
 	tPackHeader head;
-	int marcos;
-	int marco_size;
-} tHShakeMemAKer;
+	int val1;
+	int val2;
+} tHShake2ProcAProc;
 
 //t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio,
 
