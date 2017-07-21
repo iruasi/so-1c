@@ -481,7 +481,7 @@ void liberar (t_puntero puntero){
 	printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
 
 	tPackHeader head;
-	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = S_WAIT};
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = LIBERAR};
 
 	tPackVal *pval;
 	int pack_size = 0;

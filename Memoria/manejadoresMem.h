@@ -60,4 +60,9 @@ void dumpMemStructs(void);
  */
 void dumpMemContent(int pid);
 
+int *obtenerPIDsKernel(int *len);
+
+/* obtenida de codigo publicado en git */
+void DumpHex(const void* data, size_t size);
+
 #endif

@@ -13,6 +13,7 @@
 #include "memoriaConfigurators.h"
 #include "apiMemoria.h"
 
+#include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 
@@ -26,6 +27,7 @@ extern char *CACHE;         // memoria CACHE
 extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 
+extern int sock_kernel;
 extern int stack_size;
 t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 
@@ -173,30 +175,58 @@ void dumpMemStructs(void){ // todo: revisar
 void dumpMemContent(int pid){
 
 	if (pid < 0){
-		// pido a kernel lista de todos los PIDs
-		// deserializar: cantidad pids, sizeof(ints)...
-		// for p in pids: dumpMemContent(p)
-		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
+		int i, len, *pids;
+		pids = obtenerPIDsKernel(&len);
+
+		for (i = 0; i < len; ++i)
+			dumpMemContent(pids[i]);
 		return;
 	}
 
-	int pag, i;
+	int pag;
 	char *cont;
 	int page_count = pageQuantity(pid);
 
-	printf("PID \t PAGINA \t CONTENIDO\n");
 	for (pag = 0; pag < page_count; ++pag){
 		cont = getMemContent(pid, pag);
-		printf("%d \t %d \t ", pid, pag);
-		for (i = 0; i < memoria->marco_size; ++i)
-			printf("%c\\", cont[i]);
+		printf("PID \t PAGINA\n%d \t %d \t\n", pid, pag);
+		puts("CONTENIDO");
+		DumpHex(cont, memoria->marco_size);
 		puts("");
 	}
 }
 
+int *obtenerPIDsKernel(int *len){
+
+	char *buffer;
+	tPackBytes *pb;
+	int *pids;
+
+	tPackHeader head  = {.tipo_de_proceso = MEM, .tipo_de_mensaje = PID_LIST};
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = PID_LIST};
+	informarResultado(sock_kernel, head);
+
+	if (validarRespuesta(sock_kernel, head, &h_esp) != 0)
+		return NULL;
+
+	if ((buffer = recvGeneric(sock_kernel)) == NULL)
+		return NULL;
+
+	if ((pb = deserializeBytes(buffer)) == NULL)
+		return NULL;
+
+	*len = pb->bytelen;
+	pids = malloc(*len);
+	memcpy(pids, pb->bytes, *len);
+
+	free(buffer);
+	free(pb);
+	return pids;
+}
+
 /* Registra el techo todo: ldalsdlaal
  */
-void registrarStackLim(int pid, int code_pages){}
+//void registrarStackLim(int pid, int code_pages){}
 //
 //	int s_lim = memoria->marco_size * (code_pages + stack_size - 1);
 //	t_procCtl *pc = {.pid = pid, .stack_lim = s_lim};
@@ -206,3 +236,32 @@ void registrarStackLim(int pid, int code_pages){}
 //}
 
 
+void DumpHex(const void* data, size_t size){
+
+	char ascii[17];
+	size_t i, j;
+	ascii[16] = '\0';
+	for (i = 0; i < size; ++i) {
+		printf("%02X ", ((unsigned char*)data)[i]);
+		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
+			ascii[i % 16] = ((unsigned char*)data)[i];
+		} else {
+			ascii[i % 16] = '.';
+		}
+		if ((i+1) % 8 == 0 || i+1 == size) {
+			printf(" ");
+			if ((i+1) % 16 == 0) {
+				printf("| %s \n", ascii);
+			} else if (i+1 == size) {
+				ascii[(i+1) % 16] = '\0';
+				if ((i+1) % 16 <= 8) {
+					printf(" ");
+				}
+				for (j = (i+1) % 16; j < 16; ++j) {
+					printf(" ");
+				}
+				printf("| %s \n", ascii);
+			}
+		}
+	}
+}

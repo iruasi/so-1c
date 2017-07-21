@@ -523,6 +523,7 @@ void mem_manejador(void *m_sock){
 	printf("mem_manejador socket %d\n", *sock_mem);
 
 	int stat;
+	char *buffer;
 	tPackHeader head = {.tipo_de_proceso = MEM, .tipo_de_mensaje = THREAD_INIT};
 
 	do {
@@ -552,13 +553,31 @@ void mem_manejador(void *m_sock){
 		puts("Memoria dumpea informacion en /dmp");
 		break;
 
+	case PID_LIST:
+		puts("Memoria pide lista de procesos activos");
+
+		int len, pack_size;
+		int *pids = formarPtrPIDs(&len);
+
+		head.tipo_de_proceso = KER; head.tipo_de_mensaje = PID_LIST;
+		pack_size = 0;
+		if ((buffer = serializeBytes(head, (char *) pids, len, &pack_size)) == NULL){
+			head.tipo_de_mensaje = FALLO_SERIALIZAC;
+			informarResultado(*sock_mem, head);
+			break;
+		}
+
+		if ((stat = send(*sock_mem, buffer, pack_size, 0)) == -1)
+			perror("No se pudo mandar lista de PIDs a Memoria. error");
+		printf("Se enviaron %d bytes a Memoria\n", stat);
+
+		break;
+
 	default:
 		puts("Se recibe un mensaje de Memoria no considerado");
 		break;
 
 	}} while ((stat = recv(*sock_mem, &head, HEAD_SIZE, 0)) > 0);
-
-
 }
 
 void cons_manejador(void *conInfo){
@@ -670,6 +689,35 @@ void cons_manejador(void *conInfo){
 	else{
 		printf("cierro thread de consola\n");
 	}
+}
+
+
+/* A partir de la cola de Ready y Exec forma un int* con los pids existentes.
+ * `len' es una variable de salida para indicar la cantidad de pids que hay.
+ */
+int *formarPtrPIDs(int *len){
+
+	int i,r,q, *pids;
+	tPCB *pcb;
+
+	MUX_LOCK(&mux_ready); MUX_LOCK(&mux_exec);
+	r = queue_size(Ready);
+	q = list_size(Exec);
+	pids = malloc(r + q);
+
+	for (i = 0; i < r; ++i){
+		pcb = queue_get(Ready, i);
+		memcpy(&pids[i], &pcb->id, sizeof(int));
+	}
+
+	for (i = r; i < q; ++i){
+		pcb = list_get(Exec, i);
+		memcpy(&pids[i], &pcb->id, sizeof(int));
+	}
+	MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec);
+
+	*len = r + q;
+	return pids;
 }
 
 void consolaKernel(void){

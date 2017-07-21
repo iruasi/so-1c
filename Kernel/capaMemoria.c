@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <semaphore.h>
+#include <pthread.h>
 
 #include <parser/parser.h>
 #include <commons/collections/dictionary.h>
@@ -19,6 +20,7 @@ extern int MAX_ALLOC_SIZE;
 
 t_dictionary *heapDict; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
 sem_t sem_heapDict;
+pthread_mutex_t mux_heapDict;
 sem_t sem_bytes;
 sem_t sem_end_exec;
 
@@ -34,6 +36,8 @@ void setupHeapStructs(void){
 	sem_init(&sem_heapDict, 0, 0);
 	sem_init(&sem_bytes,    0, 0);
 	sem_init(&sem_end_exec, 0, 0);
+
+	pthread_mutex_init(&mux_heapDict, NULL);
 }
 
 bool esReservable(int size_req, tHeapMeta *hmd){
@@ -104,22 +108,24 @@ t_puntero reservar(int pid, int size){
 }
 
 t_puntero intentarReservaUnica(int pid, int size){
+	char *heap, spid[MAXPID_DIG];
+	sprintf(spid, "%d", pid);
 
 	t_puntero  ptr;
 	int stat;
 	t_list    *heaps;
 	tHeapProc *hp;
-	char      *heap, spid[MAXPID_DIG];
 
 	if ((stat = crearNuevoHeap(pid)) != 0){
 		puts("No se pudo crear pagina de heap!");
 		return 0;
 	}
 
-	sprintf(spid, "%d", pid);
-	heaps    = dictionary_get(heapDict, spid);
-	hp = list_get(heaps, list_size(heaps)-1);
+	MUX_LOCK(&mux_heapDict);
+	heaps = dictionary_get(heapDict, spid);
+	MUX_UNLOCK(&mux_heapDict);
 
+	hp = list_get(heaps, list_size(heaps)-1);
 	if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL)
 		return 0;
 
@@ -171,7 +177,10 @@ t_puntero reservarEnHeap(int pid, int size){
 	t_list *heaps_pid;
 	tHeapProc *hp;
 
+	MUX_LOCK(&mux_heapDict);
 	heaps_pid = dictionary_get(heapDict, spid);
+	MUX_UNLOCK(&mux_heapDict);
+
 	for (i = 0; i < list_size(heaps_pid); ++i){
 		hp = list_get(heaps_pid, i);
 
@@ -317,7 +326,6 @@ int crearNuevoHeap(int pid){
 
 	agregarHeapAPID(heap_pp->pid, heap_pp->pageCount);
 
-
 	free(heap_pp);
 	free(buffer);
 	return 0;
@@ -445,16 +453,38 @@ void agregarHeapAPID(int pid, int pag){
 
 	if (!tieneHeap(pid)){
 		t_list *heaps = list_create();
+		MUX_LOCK(&mux_heapDict);
 		dictionary_put(heapDict, spid, heaps);
+		MUX_UNLOCK(&mux_heapDict);
 	}
 
 	t_list *heaps = dictionary_get(heapDict, spid);
 	list_add(heaps, hp);
 }
 
-bool tieneHeap(int pid){
-
+void liberarHeapEnKernel(int pid){
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
-	return dictionary_has_key(heapDict, spid);
+	printf("Eliminamos los registros de Heap del PID %s\n", spid);
+
+	if (!tieneHeap(pid))
+		return;
+
+	MUX_LOCK(&mux_heapDict);
+	t_list *heaps = dictionary_remove(heapDict, spid);
+	MUX_UNLOCK(&mux_heapDict);
+
+	while (list_size(heaps))
+		free(list_remove(heaps, 0));
+}
+
+bool tieneHeap(int pid){
+	char spid[MAXPID_DIG];
+	sprintf(spid, "%d", pid);
+
+	MUX_LOCK(&mux_heapDict);
+	bool rta = dictionary_has_key(heapDict, spid);
+	MUX_UNLOCK(&mux_heapDict);
+
+	return rta;
 }

@@ -379,6 +379,9 @@ int finalizarEnMemoria(int pid){
 		perror("Fallo send FIN_PROG a Memoria. error");
 		return FALLO_SEND;
 	}
+
+	liberarHeapEnKernel(pid);
+
 	return 0;
 }
 
@@ -444,32 +447,8 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	printf("Exit code del proceso %d: %d\n", pcbPlanif->id, pcbPlanif->exitCode);
 
 	if(pcbPlanif->exitCode != CONS_DISCONNECT){
-
 		headerFin->tipo_de_proceso = KER; headerFin->tipo_de_mensaje = FIN_PROG;
 		informarResultado(cpu->con->fd_con, *headerFin);
-
-//		char *ecode_serial;
-//		int pack_size;
-//		tPackExitCode pack_ec;
-//
-//		pack_ec.head.tipo_de_proceso = KER;
-//		pack_ec.head.tipo_de_mensaje = FIN_PROG;
-//		pack_ec.val = pcbPlanif->exitCode;
-//
-//		pack_size = 0;
-//		if ((ecode_serial = serializeVal(&pack_ec, &pack_size)) == NULL){
-//			puts("No se serializo bien");
-//			return;
-//		}
-//
-//		printf("aviso a %d que el proceso %d termino con un exitcode: %d.\n ", cpu->con->fd_con, pcbPlanif->id, pcbPlanif->exitCode);
-//		if ((stat = send(cpu->con->fd_con, ecode_serial, pack_size, 0)) == -1){
-//			perror("Fallo envio de a Consola. error");
-//			return;
-//		}
-//		printf("Se enviaron %d bytes al hilo_consola\n", stat);
-//
-//		free(ecode_serial);
 	}
 
 	if (finalizarEnMemoria(cpu->cpu.pid) != 0)
@@ -503,35 +482,35 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 		puts("Termino por fin de quantum");
 
 	MUX_LOCK(&mux_exec);
-	//pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbAux->id, Exec));
-	list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
+	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
 	MUX_UNLOCK(&mux_exec);
+
+	mergePCBs(&pcbPlanif, pcbCPU);
 
 	MUX_LOCK(&mux_exit);
 	queue_push(Ready, pcbCPU);
 	MUX_UNLOCK(&mux_exit);
 
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
-
 	sem_post(&eventoPlani);
 
 	break;
 
 	case (ABORTO_PROCESO):
 
-				MUX_LOCK(&mux_exec);
-	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
-	MUX_UNLOCK(&mux_exec);
+		MUX_LOCK(&mux_exec);
+		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
+		MUX_UNLOCK(&mux_exec);
 
-	pcbPlanif->exitCode = pcbCPU->exitCode;
+		mergePCBs(&pcbPlanif, pcbCPU);
 
-	MUX_LOCK(&mux_exit);
-	queue_push(Exit, pcbPlanif);
-	MUX_UNLOCK(&mux_exit);
+		MUX_LOCK(&mux_exit);
+		queue_push(Exit, pcbPlanif);
+		MUX_UNLOCK(&mux_exit);
 
 	//Aviso a memoria
-	if (!finalizarEnMemoria(cpu->cpu.fd_cpu))
-		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.fd_cpu);
+	if (!finalizarEnMemoria(cpu->cpu.pid))
+		printf("No se pudo pedir finalizacion en Memoria del PID %d\n", cpu->cpu.pid);
 
 	headerMemoria->tipo_de_proceso=KER;
 	headerMemoria->tipo_de_mensaje = ABORTO_PROCESO;

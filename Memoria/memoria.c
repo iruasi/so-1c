@@ -35,6 +35,8 @@ char *MEM_FIS;              // Memoria Fisica
 char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
+
+int sock_kernel;
 int stack_size;
 
 pthread_mutex_t mux_mem_access;
@@ -168,6 +170,7 @@ int main(int argc, char* argv[]){
 void* kernel_handler(void *infoKer){
 
 	struct infoKer *ik = (struct infoKer *) infoKer;
+	sock_kernel = *ik->sock_ker;
 	int stat, new_page, pack_size;
 	char *buffer;
 
@@ -255,6 +258,7 @@ void* kernel_handler(void *infoKer){
 				perror("Fallo send de pagina asignada a Kernel. error");
 				break;
 			}
+			printf("Se enviaron %d bytes del paquete PIDPaginas a Kernel\n", stat);
 
 			freeAndNULL((void **) &pp);
 			freeAndNULL((void **) &buffer);

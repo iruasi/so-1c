@@ -44,6 +44,7 @@ void cpu_manejador(void *cpuInfo);
 void mem_manejador(void *m_sock);
 void cons_manejador(void *conInfo);
 
+int *formarPtrPIDs(int *len);
 
 void liberarCC(t_RelCC *cc);
 

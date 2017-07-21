@@ -50,6 +50,7 @@ typedef enum {
 	MEMINFO     = 55,
 	ASIGN_SUCCS = 56,
 	DUMP_DISK   = 57,
+	PID_LIST    = 58,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,

@@ -96,6 +96,8 @@ int crearNuevoHeap(int pid);
 
 void agregarHeapAPID(int pid, int pag);
 
+void liberarHeapEnKernel(int pid);
+
 tHeapMeta *nextBlock(tHeapMeta *hmd, int *dist);
 tHeapMeta *nextFreeBlock(tHeapMeta *hmd, int *dist);
 int getMaxFreeBlock(char *heap);
