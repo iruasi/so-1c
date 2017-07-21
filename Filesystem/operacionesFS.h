@@ -119,6 +119,8 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 
 static int unlink2 (const char *path);
 
+int validarArchivo(char* path);
+
 void setupFuseOperation(void);
 
 #endif /* OPERACIONESFS_H_ */

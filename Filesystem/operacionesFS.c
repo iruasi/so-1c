@@ -6,7 +6,10 @@
 #include <errno.h>
 #include <fcntl.h>
 
+#include <commons/collections/list.h>
+
 #include "operacionesFS.h"
+#include "manejadorSadica.h"
 //todo: ver como usar los bitarray y el mmap
 
 static int getattr(const char *path, struct stat *stbuf) {
@@ -47,20 +50,38 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t of
 }
 
 static int open2(const char *path, struct fuse_file_info *fi) {
+	int hayBloque = -1;
+	int i=0;
+	/*
 	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
 		return -ENOENT;
 
 	if ((fi->flags & 3) != O_RDONLY)
 		return -EACCES;
-	puts ("Se abre un archivo");
-	fopen(path, "wb"); //todo: ver como manejar las banderas
+	*/
+	puts ("Se quiere abrir un archivo");
+	/*
+	 * todo: habria que poner un mutex aca? por si se quieren crear
+	 * dos archivos al mismo tiempo..
+	 */
+	while(i<meta->cantidad_bloques && hayBloque==-1){
+		if(!bitarray_test_bit(bitArray, i)){
+			bitarray_set_bit(bitArray, i);
+			hayBloque=1;
+		}
+	}
+	if(hayBloque==1){
+		fopen(path, "w"); //todo: ver como manejar las banderas
+		//todo: el modo creacion seria ese?
+		puts("Se creo el archivo!\n");
+	}
 
 
 	return 0; //todo: ver como retornar el fd
 }
 
 static int read2(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
-	size_t len;
+	/*size_t len;
 	(void) fi;
 	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
 		return -ENOENT;
@@ -71,33 +92,82 @@ static int read2(const char *path, char *buf, size_t size, off_t offset, struct 
 		memcpy(buf, DEFAULT_FILE_CONTENT + offset, size);
 	} else
 		size = 0;
+		*/
+	printf("Se quiere leer el archivo %s, size: %d, offset: %d\n", path, size, offset);
+	if(validarArchivo(path)==-1){
+		perror("Error al leer el archivo...");
+		return -1;
+	}
+	fread(buf, size, 1, path);
+	printf("Datos leidos: %s\n", buf);
 	return size;
 }
 
 static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi){
-	printf("Escribir en %s los datos de %s el tamanio %d", path, buf, size);
+	int cantidadBloques = (int) ceil(size/meta->tamanio_bloques);
+	int bloquesLibres=0,
+			i=0;
+	t_list* bloques;
+	printf("Se quiere escribir en %s los datos de %s el tamanio %d", path, buf, size);
+	if(validarArchivo(path)==-1){
+		perror("Error al escribir archivo");
+		return -1;
+	}
+	while(bloquesLibres<cantidadBloques && i<meta->cantidad_bloques){
+		if(!bitarray_test_bit(bitArray, i)){
+			list_add(bloques, i);
+			++bloquesLibres;
+		}
+	}
+	if(bloquesLibres<cantidadBloques){
+		perror("No hay bloques suficientes para escribir los datos");
+		return -1; // en caso de error, retorna -1 y finaliza.
+	}
+	while(!list_is_empty(bloques)){
+		bitarray_set_bit(bitArray, list_get(bloques, 0));
+		list_remove(bloques, 0);
+	}
 	fwrite(buf, size, offset, (void*)path);
+	puts("Se escribieron los datos en el archivo!\n");
+	list_destroy(bloques);
 	return size;
-
 }
 
 static int unlink2 (const char *path){
-	int rem;
+	//int rem;
 	printf("Se quiere borrar el archivo el archivo %s\n", path);
-	if((rem=remove(path))==-1){
-		puts("Error al borrar el archivo");
-		return 1;
+	if(validarArchivo(path)==-1){
+		perror("Error al borrar archivo");
+		return -1;
 	}
-	else puts ("Se borro el archivo");
+	tArchivos* archivo = malloc(sizeof(tArchivos));
+	t_config* conf = config_create(path);
+	archivo->bloques = config_get_array_value(conf, "BLOQUES");
+	int i;
+	for(i=0; i<sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++){
+		bitarray_clean_bit(bitArray, atoi(archivo->bloques[i]));
+	}
+	remove(path);
+	free(archivo);
+	config_destroy(conf);
 	return 0;
-	//todo: me tira error pero borra el archivo, ver por que
 }
 
 /*
- * Esta es la estructura principal de FUSE con la cual nosotros le decimos a
- * biblioteca que funciones tiene que invocar segun que se le pida a FUSE.
- * Como se observa la estructura contiene punteros a funciones.
+ * Validar no se bien que funcion fuse es, pero la pide el enunciado,
+ * quizas sea "interna" previa a leer o escribir datos.
  */
+int validarArchivo(char* path){
+	printf("Se quiere validar la existencia del archivo %s\n", path);
+	FILE* arch;
+	if((arch = fopen(path, "rb")) == NULL){
+		perror("El archivo no existe...\n");
+		return -1;
+	}
+	puts ("El archivo existe!\n");
+	return 0;
+}
+
 
 void setupFuseOperations(void){
 	oper.getattr = getattr;
@@ -108,34 +178,5 @@ void setupFuseOperations(void){
 	oper.unlink = unlink2;
 }
 
-//TODO: pasar al main
-// Dentro de los argumentos que recibe nuestro programa obligatoriamente
-// debe estar el path al directorio donde vamos a montar nuestro FS
-//int main(int argc, char *argv[]) {
-//	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-//
-//	// Limpio la estructura que va a contener los parametros
-//	memset(&runtime_options, 0, sizeof(struct t_runtime_options));
-//
-//	// Esta funcion de FUSE lee los parametros recibidos y los intepreta
-//	if (fuse_opt_parse(&args, &runtime_options, fuse_options, NULL) == -1){
-//		/** error parsing options */
-//		perror("Invalid arguments!");
-//		return EXIT_FAILURE;
-//	}
-//
-//	// Si se paso el parametro --welcome-msg
-//	// el campo welcome_msg deberia tener el
-//	// valor pasado
-//	if( runtime_options.welcome_msg != NULL ){
-//		printf("%s\n", runtime_options.welcome_msg);
-//	}
-//
-//	// Esta es la funcion principal de FUSE, es la que se encarga
-//	// de realizar el montaje, comuniscarse con el kernel, delegar todo
-//	// en varios threads
-//	FILE* bloq1 = fopen("1.bin", wb); //todo: en el main se va a crear en la ruta que esta en el config
-//	return fuse_main(args.argc, args.argv, &oper, NULL);
-//}
 
 
