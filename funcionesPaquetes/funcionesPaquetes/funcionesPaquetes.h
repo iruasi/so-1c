@@ -33,6 +33,7 @@ char *serializeProcAProc(tHShakeProcAProc *h_shake, int *pack_size);
  *  !!!!!! Esta funcion comprende que ya se recibio el HEAD de 8 bytes !!!!!!
  */
 char *recvGeneric(int sock_in);
+char *recvGenericWFlags(int sock_in, int flags);
 
 /* Para mandar solamente un Header. Util para informar fallos */
 char *serializeHeader(tPackHeader head, int *pack_size);

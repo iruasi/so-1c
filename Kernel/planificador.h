@@ -76,4 +76,5 @@ void unBlockByPID(int pid);
 
 int fueFinalizadoPorConsola(int pid);
 
+void encolarEnExit(tPCB *pcb,t_RelCC *cpu);
 #endif

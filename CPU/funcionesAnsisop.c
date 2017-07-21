@@ -36,7 +36,7 @@ void setupCPUFunciones(void){
 
 void setupCPUFuncionesKernel(void){
 	kernel_functions.AnSISOP_wait 					= wait;
-	kernel_functions.AnSISOP_signal					= signal;
+	kernel_functions.AnSISOP_signal					= signal_so;
 	kernel_functions.AnSISOP_abrir					= abrir;
 	kernel_functions.AnSISOP_borrar					= borrar;
 	kernel_functions.AnSISOP_cerrar					= cerrar;
@@ -457,7 +457,7 @@ void wait (t_nombre_semaforo identificador_semaforo){
 	free(sem);
 }
 
-void signal (t_nombre_semaforo identificador_semaforo){
+void signal_so (t_nombre_semaforo identificador_semaforo){
 	printf("Se pide al kernel un signal para el semaforo %s\n", identificador_semaforo);
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};

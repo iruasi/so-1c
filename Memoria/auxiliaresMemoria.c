@@ -88,7 +88,7 @@ void limpiarDeCache(int pid){
 
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
-		if (CACHE_lines->pid == pid){
+		if (CACHE_lines[i].pid == pid){
 			CACHE_lines[i].pid  = pid_free;
 			CACHE_lines[i].page = free_page;
 		}

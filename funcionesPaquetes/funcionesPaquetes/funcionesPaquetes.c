@@ -173,13 +173,13 @@ char *serializeProcAProc(tHShakeProcAProc *h_shake, int *pack_size){
 	return hs_serial;
 }
 
-char *recvGeneric(int sock_in){
-	puts("Se recibe el paquete serializado..");
+char *recvGenericWFlags(int sock_in, int flags){
+	printf("Se recibe el paquete serializado, usando flags %x\n", flags);
 
 	int stat, pack_size;
 	char *p_serial;
 
-	if ((stat = recv(sock_in, &pack_size, sizeof(int), 0)) == -1){
+	if ((stat = recv(sock_in, &pack_size, sizeof(int), flags)) == -1){
 		perror("Fallo de recv. error");
 		return NULL;
 
@@ -196,7 +196,7 @@ char *recvGeneric(int sock_in){
 		return NULL;
 	}
 
-	if ((stat = recv(sock_in, p_serial, pack_size, 0)) == -1){
+	if ((stat = recv(sock_in, p_serial, pack_size, flags)) == -1){
 		perror("Fallo de recv. error");
 		return NULL;
 
@@ -206,6 +206,10 @@ char *recvGeneric(int sock_in){
 	}
 
 	return p_serial;
+}
+
+char *recvGeneric(int sock_in){
+	return recvGenericWFlags(sock_in, 0);
 }
 
 /****** Definiciones de [De]Serializaciones Regulares ******/
