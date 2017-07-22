@@ -35,7 +35,7 @@ int sock_mem;
 int sock_fs;
 tKernel *kernel;
 
-t_dictionary * tablaFS;
+t_list * tablaProcesos;
 t_dictionary * tablaGlobal;
 
 //sem_t haySTDIN;
@@ -201,8 +201,8 @@ int main(int argc, char* argv[]){
 	setupHeapStructs();
 	setupVariablesGlobales();
 
-	tablaFS = dictionary_create();
 	tablaGlobal = dictionary_create();
+	tablaProcesos = list_create();
 
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
 		perror("no pudo crear hilo. error");

@@ -27,7 +27,7 @@ char *eliminarWhitespace(char *string){
 		if (CHAR_WHITESPACE(string[i])){
 			var = malloc(i + 1);
 			memcpy(var, string, i);
-			var[i + 1] = '\0';
+			var[i] = '\0';
 			return var;
 		}
 	}
