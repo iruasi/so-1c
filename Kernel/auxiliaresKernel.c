@@ -110,7 +110,7 @@ void cpu_manejador(void *infoCPU){
 	bool found;
 	char *buffer, *var;
 	char *file_serial, leer_serial;
-	int stat, pack_size,p;
+	int stat, pack_size, p;
 	tPackBytes *sem_bytes;
 	tPackVal *alloc;
 	t_puntero ptr;
@@ -314,7 +314,7 @@ void cpu_manejador(void *infoCPU){
 		tPackFS * fileSystem = malloc(sizeof*fileSystem);
 		int valor = 0;
 		tPackAbrir * abrir = deserializeAbrir(buffer);
-		int pack_size = 0;
+		pack_size = 0;
 		t_descriptor_archivo fd;
 		printf("La direccion es %s\n", (char *) abrir->direccion);
 		tDatosTablaGlobal * datosGlobal = malloc(sizeof(*datosGlobal));
@@ -1041,8 +1041,3 @@ bool estaEnExit(int pid){
 	}
 	return false;
 }
-
-
-
-void sendall(void){} // todo: hacer...?
-

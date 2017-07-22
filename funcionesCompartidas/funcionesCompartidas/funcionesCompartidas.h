@@ -8,6 +8,13 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposPaquetes.h>
 
+#define CHAR_WHITESPACE(C) ((C == '\n' || C == '\t' || C == '\r')? true : false)
+
+/* retorna un string identico hasta el primer caracter whitespace que encuentre,
+ * de momento los caracteres de whitespace son los de CHAR_WHITESPACE
+ */
+char *eliminarWhitespace(char *string);
+
 /* Verifica que dos valores enteros sean equivalentes. Si lo son, retorna true.
  * Si no coinciden, emite el mensaje `errmsg' en stderr junto con los valores obtenidos, y retorna false.
  */
@@ -76,5 +83,7 @@ indiceStack *crearStackVacio(void);
 
 void liberarPCB(tPCB *pcb);
 void liberarStack(t_list *stack_ind);
+
+int sendall(int sock, char *buff, int *len);
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

@@ -154,7 +154,7 @@ int frameHash(int pid, int page){
 	return frame_apr;
 }
 
-void dumpMemStructs(void){ // todo: revisar
+void dumpMemStructs(void){
 
 	int i;
 	tEntradaInv *entry = (tEntradaInv*) MEM_FIS;
@@ -164,11 +164,6 @@ void dumpMemStructs(void){ // todo: revisar
 	for (i = 0; i < memoria->marcos; ++i)
 		printf("%d \t\t %d \t\t %d\n", i, (entry +i)->pid, (entry +i)->pag);
 	puts("Fin dump Tabla de Paginas Invertida");
-
-	puts("Comienzo dump Listado Procesos Activos");
-	// todo: dumpear listado de procesos activos... No se ni lo que es un proc activo
-	puts("Fin dump Listado Procesos Activos");
-
 }
 
 void dumpMemContent(int pid){
@@ -195,7 +190,7 @@ void dumpMemContent(int pid){
 	}
 }
 
-int *obtenerPIDsKernel(int *len){
+int *obtenerPIDsKernel(int *len){ // todo: debuggear
 
 	char *buffer;
 	tPackBytes *pb;

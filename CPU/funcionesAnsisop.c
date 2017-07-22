@@ -15,7 +15,6 @@
 extern bool termino;
 extern AnSISOP_funciones functions;
 extern int pag_size, stack_size;
-char *eliminarWhitespace(char *string);
 
 extern int err_exec;
 extern sem_t sem_fallo_exec;
@@ -291,7 +290,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 
 	char *valor_serial;
 	int pack_size, stat;
-
+	tPackHeader h_obt;
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = SET_GLOBAL};
 	pack_size = 0;
 	if ((valor_serial = serializeValorYVariable(head, valor, variable, &pack_size)) == NULL){
@@ -303,6 +302,13 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 	if ((stat = send(sock_kern, valor_serial, pack_size, 0)) == -1){
 		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
 		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
+	head.tipo_de_proceso = KER; head.tipo_de_mensaje = SET_GLOBAL;
+	if (validarRespuesta(sock_kern, head, &h_obt) != 0){
+		err_exec = h_obt.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
@@ -326,42 +332,54 @@ void irAlLabel (t_nombre_etiqueta etiqueta){
 }
 
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
-	printf("Se llama a la funcion %s\n", etiqueta);
+	printf("Llamar sin retorno a %s\n", etiqueta);
 
-	indiceStack *nuevoStack = crearStackVacio();
-	list_add(pcb->indiceDeStack, nuevoStack);
-	pcb->contextoActual++;
-
-	irAlLabel(etiqueta);
+	puts("Esta funcion no se usa en este TP. Retornamos FALLO_INSTR!");
+	err_exec = FALLO_INSTR;
+	sem_post(&sem_fallo_exec);
+	pthread_exit(&err_exec);
 }
 
 void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
-	printf("Se llama a la funcion %s y se guarda el retorno\n", etiqueta);
+	printf("Se llama la funcion %s y se retornara en %d\n", etiqueta, donde_retornar);
+
+	int pag, off, size;
+
 	indiceStack *nuevoStack = crearStackVacio();
+	obtenerUltimoEnContexto(pcb->indiceDeStack, &pag, &off, &size);
+
+	nuevoStack->retVar.pag    = pag;
+	nuevoStack->retVar.offset = off;
+	nuevoStack->retVar.size   = size;
+	nuevoStack->retPos = donde_retornar;
+
 	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
+
 	irAlLabel(etiqueta);
 }
 
-void retornar (t_valor_variable retorno){
+void retornar (t_valor_variable retorno){ // todo: revisar correctitud
 	int contextoActual= pcb->contextoActual;
 	indiceStack* stackActual = list_get(pcb->indiceDeStack,contextoActual);
-	int i;
-	for(i=0 ; list_size(stackActual->args) ; i++){
-		posicionMemoria* argumento = list_get(stackActual->args, i);
-		free(argumento); // se liberan los argumentos
+
+	// Liberamos los argumentos y variables del stack
+	while(list_size(stackActual->args)){
+		posicionMemoria* arg = list_remove(stackActual->args, 0);
+		freeAndNULL((void **) &arg); // se liberan los argumentos
+	}
+	while(list_size(stackActual->vars)){
+		posicionMemoria* var = list_remove(stackActual->vars, 0);
+		freeAndNULL((void **) &var); // se liberan las variables
 	}
 
-	for(i=0 ; list_size(stackActual->vars) ; i++){
-		posicionMemoria* var = list_get(stackActual->vars, i);
-		free(var); // se liberan las variables
-	}
-	posicionMemoria retVar = stackActual->retVar;
-	t_puntero direcVariable = (retVar.pag) + retVar.offset; // TODO: la pag habria que dividirla por el tam de la pagina (Propuesta: obtener frame_size en el handshake con Memoria, como hace el Kernel)
-	asignar(direcVariable,retorno);
+ 	t_puntero retPtr = stackActual->retVar.pag * pag_size + stackActual->retVar.offset;
+	asignar(retPtr, retorno);
 	pcb->pc = stackActual->retPos;
+
 	free(stackActual);
-	list_remove(pcb->indiceDeStack,pcb->contextoActual);
+	list_remove(pcb->indiceDeStack, pcb->contextoActual);
+
 	pcb->contextoActual--;
 }
 
@@ -370,12 +388,13 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 
 	t_valor_variable valor;
 	tPackValComp *val_var;
-	int pack_size, stat, var_len;
+	int pack_size, var_len;
 	char *var_serial, *var;
 	var = eliminarWhitespace(variable);
 	var_len = strlen(var) + 1;
-
+	tPackHeader h_obt;
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = GET_GLOBAL};
+
 	pack_size = 0;
 	if ((var_serial = serializeBytes(head, var, var_len, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
@@ -383,26 +402,12 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 		pthread_exit(&err_exec);
 	}
 
-	if ((stat = send(sock_kern, var_serial, pack_size, 0)) == -1){
-		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
-		err_exec = FALLO_SEND;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
-	printf("Se enviaron %d bytes a Kernel\n", stat);
+	enviar(var_serial, pack_size);
 	freeAndNULL((void **) &var_serial);
 
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
-		perror("Fallo recepcion de header. error");
-		err_exec = FALLO_RECV;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
-
-	if (head.tipo_de_proceso != KER || head.tipo_de_mensaje != GET_GLOBAL){
-		printf("Error de comunicacion. Se recibio Header con: proc %d, msj %d\n",
-				head.tipo_de_proceso, head.tipo_de_mensaje);
-		err_exec = CONEX_INVAL;
+	head.tipo_de_proceso = KER; head.tipo_de_mensaje = GET_GLOBAL;
+	if (validarRespuesta(sock_kern, head, &h_obt) != 0){
+		err_exec = h_obt.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
@@ -460,7 +465,7 @@ void wait (t_nombre_semaforo identificador_semaforo){
 void signal_so (t_nombre_semaforo identificador_semaforo){
 	printf("Se pide al kernel un signal para el semaforo %s\n", identificador_semaforo);
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
+	tPackHeader head  = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
 	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = S_SIGNAL};
 	int pack_size = 0;
 
@@ -473,13 +478,14 @@ void signal_so (t_nombre_semaforo identificador_semaforo){
 		pthread_exit(&err_exec);
 	}
 
+	enviar(sig_serial, pack_size);
+
 	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
 		err_exec = head.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
 
-	enviar(sig_serial, pack_size);
 	free(sig_serial);
 	free(sem);
 }
@@ -713,22 +719,4 @@ void enviar(char *op_kern_serial, int pack_size){
 		pthread_exit(&err_exec);
 	}
 	printf("Se enviaron %d bytes a Kernel\n", stat);
-}
-
-char *eliminarWhitespace(char *string){
-
-	int var_len;
-	char *var = NULL;
-
-	var_len = strlen(string);
-	if (string_ends_with(string, "\n") || string_ends_with(string, "\t")){
-		var = malloc(var_len);
-		memcpy(var, string, var_len);
-		var[var_len - 1] = '\0';
-		return var;
-	}
-	var = malloc(var_len + 1);
-	memcpy(var, string, var_len + 1);
-	var[var_len] = '\0';
-	return var;
 }

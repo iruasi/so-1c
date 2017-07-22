@@ -17,6 +17,28 @@
 
 #define BACKLOG 20
 
+char *eliminarWhitespace(char *string){
+
+	int i;
+	char *var = NULL;
+	int var_len = strlen(string);
+
+	for (i = 0; i < var_len; ++i){
+		if (CHAR_WHITESPACE(string[i])){
+			var = malloc(i + 1);
+			memcpy(var, string, i);
+			var[i + 1] = '\0';
+			return var;
+		}
+	}
+
+	var = malloc(var_len + 1);
+	memcpy(var, string, var_len);
+	var[var_len] = '\0';
+	return var;
+}
+
+
 bool assertEq(int expected, int actual, const char* errmsg){
 	if (expected != actual){
 		fprintf(stderr, "%s\n", errmsg);
@@ -234,4 +256,24 @@ void liberarStack(t_list *stack_ind){
 		list_destroy(stack->vars);
 	}
 	list_destroy(stack_ind);
+}
+
+
+int sendall(int sock, char *buff, int *len){
+
+	int total = 0;
+	int left  = *len;
+	int stat;
+
+	while (total < *len){
+		if ((stat = send(sock, buff, left, 0)) == -1){
+			perror("No se pudo sendall'ear el paquete. error");
+			break;
+		}
+		total += stat;
+		left  -= stat;
+	}
+
+	*len = total;
+	return (stat == -1)? FALLO_SEND : 0;
 }
