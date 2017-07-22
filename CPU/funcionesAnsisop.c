@@ -506,7 +506,7 @@ void liberar (t_puntero puntero){
 
 }
 
-/*tPackFS * deserializeFileDescriptor(char * aux_serial){
+tPackFS * deserializeFileDescriptor(char * aux_serial){
 	tPackFS * aux = malloc(sizeof *aux);
 
 	int off = 0;
@@ -517,7 +517,7 @@ void liberar (t_puntero puntero){
 	off += sizeof(int);
 
 	return aux;
-}*/ //Lo pase a funcionesPaquetes pero lo dejo comentado si tengo que debuggearlo en algun futuro no muy lejano
+} //Lo pase a funcionesPaquetes pero lo dejo comentado si tengo que debuggearlo en algun futuro no muy lejano
 
 
 
@@ -531,7 +531,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	int stat;
 	tPackHeader head;
 
-	tPackFS * fileSystem;
+	tPackBytes * bytes;
 	tPackAbrir * abrir = malloc(sizeof *abrir);
 
 	abrir->longitudDireccion = strlen(dir) + 1;
@@ -548,12 +548,14 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
 	enviar(abrir_serial, pack_size);
 
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
+	if ((stat = recv(sock_kern, &head, HEAD_SIZE, MSG_WAITALL)) < 0){
 		perror("Fallo recv de puntero alojado de Kernel. error");
 		err_exec = FALLO_RECV;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
+	printf("El head recibido es de %d y tiene el mensaje %d \n",head.tipo_de_proceso,head.tipo_de_mensaje);
+
 
 	if ((buffer = recvGeneric(sock_kern)) == NULL){
 		err_exec = FALLO_RECV;
@@ -562,14 +564,13 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
 	}
 
-	if ((fileSystem = deserializeFileDescriptor(buffer)) == NULL){
-			err_exec = FALLO_DESERIALIZAC;
-			sem_post(&sem_fallo_exec);
-			pthread_exit(&err_exec);
-		}
-
-
-	return fileSystem->fd;
+	if ((bytes = deserializeBytes(buffer)) == NULL){
+				err_exec = FALLO_DESERIALIZAC;
+				sem_post(&sem_fallo_exec);
+				pthread_exit(&err_exec);
+			}
+	t_descriptor_archivo fd = *((int *) bytes->bytes);
+	return fd;
 }
 
 void borrar (t_descriptor_archivo direccion){
