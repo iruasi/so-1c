@@ -2,15 +2,23 @@
 #include <stdbool.h>
 #include <string.h>
 #include <semaphore.h>
+#include <pthread.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/tiposErrores.h>
 
 #include "kernelConfigurators.h"
 #include "planificador.h"
+#include "defsKernel.h"
 
 extern tKernel *kernel;
 extern t_valor_variable *shared_vals;
+
+t_dictionary *dict_sems_queue; // queue de PIDs que esperan signal de algun SEM
+pthread_mutex_t mux_sems_queue;
+
+void enqueuePIDtoSem(char *sem, int pid);
+int *unqueuePIDfromSem(char *sem);
 
 int getSemPosByID(const char *sem){
 
@@ -27,26 +35,71 @@ int waitSyscall(const char *sem, int pid){
 
 	int p;
 	if ((p = getSemPosByID(sem)) == -1)
-		return p;
+		return VAR_NOT_FOUND;
 
 	kernel->sem_vals[p]--;
 	if (kernel->sem_vals[p] < 0){
 		puts("Ejecucion espera semaforo");
-		blockByPID(pid);
+		enqueuePIDtoSem((char *) sem, pid);
+		return PCB_BLOCK;
+		// todo: blockByPID(pid) en planificador...
 	}
-
-	return 0;
+	return S_WAIT; // este retorno indica en realidad que no se bloquea el PCB
 }
 
-int signalSyscall(const char *sem, int pid){
+void enqueuePIDtoSem(char *sem, int pid){
 
-	int p;
+	t_queue *pids_blk;
+	int *pid_b = malloc(sizeof(int));
+	*pid_b = pid; // creamos una copia del PID
+
+
+	MUX_LOCK(&mux_sems_queue);
+	if (!dictionary_has_key(dict_sems_queue, sem)){
+		pids_blk = queue_create();
+		queue_push(pids_blk, pid_b);
+		dictionary_put(dict_sems_queue, sem, pids_blk);
+
+	} else {
+		pids_blk = dictionary_get(dict_sems_queue, sem);
+		queue_push(pids_blk, pid_b);
+	}
+	MUX_UNLOCK(&mux_sems_queue);
+}
+
+int *unqueuePIDfromSem(char *sem){
+
+	MUX_LOCK(&mux_sems_queue);
+	if (!dictionary_has_key(dict_sems_queue, sem)){
+		printf("El semaforo %s no tiene registrado ningun PID\n", sem);
+		MUX_UNLOCK(&mux_sems_queue);
+		return NULL;
+	}
+
+	t_queue *pids_blk = dictionary_get(dict_sems_queue, sem);
+	if (queue_is_empty(pids_blk)){
+		printf("No hay PIDs esperando a %s\n", sem);
+		MUX_UNLOCK(&mux_sems_queue);
+		return NULL;
+	}
+	int *pid = queue_pop(pids_blk);
+	MUX_UNLOCK(&mux_sems_queue);
+
+	return pid;
+}
+
+int signalSyscall(const char *sem){
+
+	int p, *pid;
 	if ((p = getSemPosByID(sem)) == -1)
-		return p;
+		return VAR_NOT_FOUND;
 
 	kernel->sem_vals[p]++;
 	if (kernel->sem_vals[p] >= 0){
-		unBlockByPID(pid);
+		if ((pid = unqueuePIDfromSem((char *) sem)) == NULL)
+			return 0;
+		unBlockByPID(*pid);
+		free(pid);
 		puts("Ejecucion continua por semaforo");
 	}
 

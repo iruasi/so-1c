@@ -32,7 +32,7 @@ typedef struct {
 
 /* SEMAFOROS */
 pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit;
-pthread_mutex_t mux_listaDeCPU, mux_gl_Programas, mux_gradoMultiProg, mux_listaFinalizados;
+pthread_mutex_t mux_listaDeCPU, mux_gl_Programas, mux_gradoMultiProg, mux_listaFinalizados, mux_sems_queue;
 
 void setupPlanificador(void);
 void setupSemaforosColas(void);
@@ -71,7 +71,7 @@ void asociarProgramaACPU(t_RelCC *cpu);
 void avisarPIDaPrograma(int pid, int sock_prog);
 void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages);
 
-void blockByPID(int pid);
+void blockByPID(int pid, tPCB *pcbCPU);
 void unBlockByPID(int pid);
 
 int fueFinalizadoPorConsola(int pid);

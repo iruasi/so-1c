@@ -12,7 +12,6 @@
 
 #include "funcionesAnsisop.h"
 
-extern bool termino;
 extern AnSISOP_funciones functions;
 extern int pag_size, stack_size;
 
@@ -438,8 +437,8 @@ void wait (t_nombre_semaforo identificador_semaforo){
 	char * sem = eliminarWhitespace(identificador_semaforo);
 	printf("Se pide al Kernel un wait para el semaforo %s\n", sem);
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_WAIT};
-	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = S_WAIT};
+	tPackHeader head   = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_WAIT};
+	tPackHeader h_esp  = {.tipo_de_proceso = KER};
 	int pack_size = 0;
 
 	int lenId = strlen(sem) + 1;
@@ -452,10 +451,15 @@ void wait (t_nombre_semaforo identificador_semaforo){
 
 	enviar(wait_serial, pack_size);
 
+	h_esp.tipo_de_mensaje = S_WAIT;
 	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
-		err_exec = head.tipo_de_mensaje;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
+		if (head.tipo_de_mensaje != PCB_BLOCK){ // fallo el syscall
+			err_exec = head.tipo_de_mensaje;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+
+		} else // Kernel pide desalojar el PCB para bloquearlo
+			bloqueado = true;
 	}
 
 	free(wait_serial);
@@ -567,7 +571,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	printf("El head recibido es de %d y tiene el mensaje %d \n",head.tipo_de_proceso,head.tipo_de_mensaje);
+	printf("El head recibido es de %d y tiene el mensaje %d \n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 
 	if ((buffer = recvGeneric(sock_kern)) == NULL){

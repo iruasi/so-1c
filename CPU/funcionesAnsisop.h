@@ -21,7 +21,7 @@
  * VARIABLES GLOBALES QUE UTILIZAN LAS FUNCIONES ANSISOP
  *
  */
-bool termino;
+bool termino, fin_quantum, bloqueado;
 tPCB* pcb;
 int sock_mem; // SE PASA A VAR GLOBAL POR SIEMPRE
 int sock_kern;

@@ -407,7 +407,7 @@ int fueFinalizadoPorConsola(int pid){
 	return -1;
 }
 
-void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acciones
+void cpu_handler_planificador(t_RelCC *cpu){
 
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 	tPackHeader * headerFin = malloc(sizeof headerFin);//lo uso para indicar a consola de la forma en q termino el proceso.
@@ -439,7 +439,7 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	puts("Fin case FIN_PROCESO");
 	break;
 
-	case(PCB_PREEMPT):
+	case (PCB_PREEMPT):
 		puts("Termino por fin de quantum");
 
 	MUX_LOCK(&mux_exec);
@@ -456,6 +456,15 @@ void cpu_handler_planificador(t_RelCC *cpu){ // todo: revisar este flujo de acci
 	sem_post(&eventoPlani);
 
 	break;
+
+	case (PCB_BLOCK):
+		printf("Se bloquea el PID %d\n", cpu->cpu.pid);
+		blockByPID(cpu->cpu.pid, pcbCPU);
+		cpu->cpu.pid = -1;
+
+		puts("Fin case PCB_BLOCK");
+		sem_post(&eventoPlani);
+		break;
 
 	case (ABORTO_PROCESO):
 		printf("CPU %d aborto el PID %d\n", cpu->cpu.fd_cpu, cpu->cpu.pid);
@@ -517,21 +526,20 @@ void encolarEnExit(tPCB *pcb,t_RelCC *cpu){
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
 }
 
-void blockByPID(int pid){ //todo: que saque el PCB de ejecucion?
-	puts("Pasamos proceso (que deberia estar en Exec) a Block");
+void blockByPID(int pid, tPCB *pcbCPU){
+	printf("Pasamos PID %d desde Exec a Block\n", pid);
 
-	int p;
-	tPCB* pcb;
+	tPCB *pcbPlanif;
 
 	MUX_LOCK(&mux_exec);
-	if ((p = getPCBPositionByPid(pid, Exec)) == -1){
-		printf("No existe el PCB de PID %d en la cola de Exec\n", pid);
-		MUX_UNLOCK(&mux_exec); return;
-	}
-	pcb = list_remove(Exec, p); MUX_UNLOCK(&mux_exec);
+	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pid, Exec));
+	MUX_UNLOCK(&mux_exec);
+
+	mergePCBs(&pcbPlanif, pcbCPU);
 
 	MUX_LOCK(&mux_block);
-	list_add(Block, pcb); MUX_UNLOCK(&mux_block);
+	list_add(Block, pcbPlanif);
+	MUX_UNLOCK(&mux_block);
 }
 
 /* Se deshace del PCB viejo y lo apunta al nuevo */
@@ -551,10 +559,12 @@ void unBlockByPID(int pid){
 		printf("No existe el PCB de PID %d en la cola de Block\n", pid);
 		MUX_UNLOCK(&mux_block); return;
 	}
-	pcb = list_remove(Block, p); MUX_UNLOCK(&mux_block);
+	pcb = list_remove(Block, p);
+	MUX_UNLOCK(&mux_block);
 
 	MUX_LOCK(&mux_ready);
-	queue_push(Ready, pcb); MUX_UNLOCK(&mux_ready);
+	queue_push(Ready, pcb);
+	MUX_UNLOCK(&mux_ready);
+
 	sem_post(&eventoPlani);
-	//sem_post(&hayProg);
 }

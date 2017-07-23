@@ -29,7 +29,6 @@
 #include "planificador.h"
 //#include "manejadores.h"
 
-int MAX_ALLOC_SIZE; // con esta variable se debe comprobar que CPU no pida mas que este size de HEAP
 int frames, frame_size; // para guardar datos a recibir de Memoria
 int sock_mem;
 int sock_fs;
@@ -43,27 +42,6 @@ sem_t eventoPlani;
 sem_t codigoEnviado;
 
 int fdInotify;
-
-// El tamaño de un evento es igual al tamaño de la estructura de inotify
-// mas el tamaño maximo de nombre de archivo que nosotros soportemos
-// en este caso el tamaño de nombre maximo que vamos a manejar es de 24
-// caracteres. Esto es porque la estructura inotify_event tiene un array
-// sin dimension ( Ver C-Talks I - ANSI C ).
-#define EVENT_SIZE  ( sizeof (struct inotify_event) + 24 )
-
-// El tamaño del buffer es igual a la cantidad maxima de eventos simultaneos
-// que quiero manejar por el tamaño de cada uno de los eventos. En este caso
-// Puedo manejar hasta 1024 eventos simultaneos.
-#define BUF_LEN     ( 128 * EVENT_SIZE )
-
-typedef struct {
-	int sock_lis_con,
-		sock_lis_cpu,
-		sock_inotify,
-		sock_watch,
-		fd_max;
-	fd_set master;
-} ker_socks;
 
 int interconectarProcesos(ker_socks *ks, const char* path);
 void inotifyer(char *path);
@@ -140,7 +118,7 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	}
 
 	// Creamos un monitor sobre un path indicando que eventos queremos escuchar
-	ks->sock_watch = inotify_add_watch(ks->sock_inotify, path, IN_MODIFY | IN_CREATE | IN_DELETE);
+	ks->sock_watch = inotify_add_watch(ks->sock_inotify, path, IN_MODIFY);
 	ks->fd_max = MAX(ks->fd_max, ks->sock_watch);
 
 	FD_SET(sock_fs,          &ks->master);
@@ -199,6 +177,7 @@ int main(int argc, char* argv[]){
 	}
 
 	setupHeapStructs();
+	void setupMutexes();
 	setupVariablesGlobales();
 
 	tablaGlobal = dictionary_create();

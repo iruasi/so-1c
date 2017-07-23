@@ -5,8 +5,7 @@
 #define PID_IDLE -1
 #endif
 
-#ifdef SIZEOF_HMD
-#undef SIZEOF_HDM
+#ifndef SIZEOF_HMD
 #define SIZEOF_HMD 5
 #endif
 
@@ -34,5 +33,28 @@
 #ifndef MUX_UNLOCK_M
 #define MUX_UNLOCK(M) (pthread_mutex_unlock(M))
 #endif
+
+// El tamaño de un evento es igual al tamaño de la estructura de inotify
+// mas el tamaño maximo de nombre de archivo que nosotros soportemos
+// en este caso el tamaño de nombre maximo que vamos a manejar es de 24
+// caracteres. Esto es porque la estructura inotify_event tiene un array
+// sin dimension ( Ver C-Talks I - ANSI C ).
+#define EVENT_SIZE  ( sizeof (struct inotify_event) + 24 )
+
+// El tamaño del buffer es igual a la cantidad maxima de eventos simultaneos
+// que quiero manejar por el tamaño de cada uno de los eventos. En este caso
+// Puedo manejar hasta 1024 eventos simultaneos.
+#define BUF_LEN     ( 128 * EVENT_SIZE )
+
+
+typedef struct {
+	int sock_lis_con,
+		sock_lis_cpu,
+		sock_inotify,
+		sock_watch,
+		fd_max;
+	fd_set master;
+} ker_socks;
+
 
 #endif /* DEFSKERNEL_H_ */

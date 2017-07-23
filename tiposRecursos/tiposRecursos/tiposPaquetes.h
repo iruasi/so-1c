@@ -28,6 +28,7 @@ typedef enum {
 	BYTES       = 24,
 	SET_GLOBAL  = 25,
 	GET_GLOBAL  = 26,
+	PCB_BLOCK   = 27,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -39,8 +40,8 @@ typedef enum {
 	ESCRIBIR    = 37,
 	LEER        = 38,
 	RESERVAR    = 39,
-
 	ENTREGO_FD  = 40, //KERNEL - CPU
+
 	// API Memoria & Mensaje que recibe/envia Memoria
 	ASIGN_PAG   = 50,
 	INI_PROG    = 51,

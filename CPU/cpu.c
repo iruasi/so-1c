@@ -205,8 +205,8 @@ int *ejecutarPrograma(void){sleep(1);
 	int stat, solics = 0;
 	t_size instr_size;
 	char *linea = NULL;
-	bool fin_quantum = false;
-	termino = false;
+	fin_quantum = false;
+	termino = bloqueado = false;
 	int cantidadDeRafagas = 0;
 
 
@@ -235,17 +235,20 @@ int *ejecutarPrograma(void){sleep(1);
 		}
 		sleep(q_sleep_segs);
 
-	} while(!termino);
+	} while(!termino && !bloqueado);
 
 	if (pcb->pc == pcb->cantidad_instrucciones){
 		puts("Termino de ejecutar...");
 		header.tipo_de_mensaje = FIN_PROCESO;
 		*retval = pcb->exitCode = 0; // exit_success
 
-	} else if(fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
+	} else if (bloqueado){
+		puts("El PCB se bloquea...");
+		*retval = header.tipo_de_mensaje = PCB_BLOCK;
+
+	} else if (fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
 		puts("Fin de quantum...");
-		header.tipo_de_mensaje = PCB_PREEMPT;
-		*retval = PCB_PREEMPT;
+		*retval = header.tipo_de_mensaje = PCB_PREEMPT;
 	}
 
 	else{
@@ -262,7 +265,7 @@ int *ejecutarPrograma(void){sleep(1);
 
 	printf("Se enviaron %d bytes a kernel \n", stat);
 	pthread_mutex_lock(&mux_ejecutando);
-	ejecutando=false;
+	ejecutando = false;
 	pthread_mutex_unlock(&mux_ejecutando);
 	free(linea);
 

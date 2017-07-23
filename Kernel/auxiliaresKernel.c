@@ -40,7 +40,7 @@ extern sem_t eventoPlani;
 int globalPID;
 int globalFD;
 
-t_dictionary *proc_info;
+t_dictionary *dict_proc_info;
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
 t_list *finalizadosPorConsolas;
@@ -52,7 +52,10 @@ extern int grado_mult;
 
 bool estaEnExit(int pid);
 
+// todo: poner TOOODAS las variables globales en defsKernel.h... yafu
+// bueno no, pero un setup por archivo, y se llama a cada setup desde defsKernel.
 extern t_dictionary * tablaGlobal;
+extern t_dictionary *dict_sems_queue;
 
 
 /* Este procedimiento inicializa las variables y listas globales.
@@ -149,13 +152,15 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 }
 /* Mutexes de cosas varias*/
 void setupMutexes(){
+	pthread_mutex_init(&mux_sems_queue,    NULL);
 	pthread_mutex_init(&mux_listaDeCPU,    NULL);
 	pthread_mutex_init(&mux_gl_Programas,  NULL);
 }
 
 void setupVariablesGlobales(void){
 
-	proc_info = dictionary_create();
+	dict_sems_queue = dictionary_create();
+	dict_proc_info  = dictionary_create();
 	gl_Programas = list_create();
 	finalizadosPorConsolas = list_create();
 
@@ -219,8 +224,7 @@ void cpu_manejador(void *infoCPU){
 		}
 
 		head.tipo_de_proceso = KER;
-		head.tipo_de_mensaje = (waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid) == -1)?
-				VAR_NOT_FOUND : S_WAIT;
+		head.tipo_de_mensaje = waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid);
 		informarResultado(cpu_i->cpu.fd_cpu, head);
 
 		freeAndNULL((void **) &buffer);
@@ -243,7 +247,7 @@ void cpu_manejador(void *infoCPU){
 		}
 
 		head.tipo_de_proceso = KER;
-		head.tipo_de_mensaje = (signalSyscall(sem_bytes->bytes, cpu_i->cpu.pid) == -1)?
+		head.tipo_de_mensaje = (signalSyscall(sem_bytes->bytes) == -1)?
 				VAR_NOT_FOUND : S_SIGNAL;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
 
@@ -417,9 +421,6 @@ void cpu_manejador(void *infoCPU){
 			pack_size = 0;
 			file_serial = serializeAbrir(abrir, &pack_size);
 
-
-			head
-			validarRespuesta()
 			/*if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
 				perror("Error al recivir respuesta del fs");
 			}*/
@@ -462,10 +463,10 @@ void cpu_manejador(void *infoCPU){
 			tDatosTablaGlobal * unaTabla;
 
 			unaTabla = encontrarTablaPorFD(*((int *) borrar_fd->bytes),cpu_i->con->pid);
-			if(*unaTabla->cantidadOpen <= 0){
+			if(unaTabla->cantidadOpen <= 0){
 				perror("El archivo no se encuentra abierto");
 				break;
-			}else if(*unaTabla->cantidadOpen > 1){
+			}else if(unaTabla->cantidadOpen > 1){
 				perror("El archivo solicitado esta abierto más de 1 vez al mismo tiempo");
 				break;
 			}
@@ -619,7 +620,8 @@ void cpu_manejador(void *infoCPU){
 			freeAndNULL((void **)&buffer);
 			break;
 
-	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE): case(PCB_PREEMPT): //COLA EXIT
+	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE):
+			case(PCB_PREEMPT): case(PCB_BLOCK): //COLA EXIT o BLOCK
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
 	break;
@@ -1188,7 +1190,7 @@ void mostrarCantHeapUtilizadasDe(tPCB *pcb){
 	//TODO: ROMPE ACA!
 	char spid[6];
 	sprintf(spid, "%d", pcb->id);
-	infoProcess *ip = dictionary_get(proc_info, spid);
+	infoProcess *ip = dictionary_get(dict_proc_info, spid);
 
 	printf("####PROCESO %d####\nCantidad de paginas de heap utilizadas: \t %d \n", pcb->id, ip->cant_heaps);
 	printf("####PROCESO %d####\nCantidad de allocaciones realizadas: \t %d \n",    pcb->id, ip->cant_alloc);
@@ -1200,7 +1202,7 @@ void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
 	//todo:Rompe aca
 	char spid[6];
 	sprintf(spid, "%d", pcb->id);
-	infoProcess *ip = dictionary_get(proc_info, spid);
+	infoProcess *ip = dictionary_get(dict_proc_info, spid);
 
 	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
 }

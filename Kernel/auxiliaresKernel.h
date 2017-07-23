@@ -29,17 +29,6 @@ typedef struct {
 	int pid,ecode;
 }t_finConsola;
 
-
-typedef struct {
-	int pid,
-		cant_syscalls,
-		cant_heaps,
-		cant_alloc,
-		bytes_allocd,
-		cant_frees,
-		bytes_freed;
-} infoProcess;
-
 void cpu_manejador(void *cpuInfo);
 void mem_manejador(void *m_sock);
 void cons_manejador(void *conInfo);
