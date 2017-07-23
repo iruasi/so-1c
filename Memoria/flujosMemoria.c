@@ -1,14 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
-
+#include <commons/log.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
 #include "apiMemoria.h"
-
+extern t_log *logger;
 int manejarSolicitudBytes(int sock_in){
 
 	int ret_val = 0; // setamos 0 como el valor inicial de retorno

@@ -4,6 +4,7 @@
 #include <semaphore.h>
 
 #include <commons/string.h>
+#include <commons/log.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -15,6 +16,7 @@
 extern bool termino;
 extern AnSISOP_funciones functions;
 extern int pag_size, stack_size;
+extern t_log*logger;
 
 extern int err_exec;
 extern sem_t sem_fallo_exec;

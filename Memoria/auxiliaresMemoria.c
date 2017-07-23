@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <math.h>
 #include <string.h>
-
+#include <commons/log.h>
 #include <tiposRecursos/tiposErrores.h>
 
 #include "apiMemoria.h"
@@ -24,7 +24,7 @@ extern tMemoria *memoria;
 extern int marcos_inv;
 extern int pid_free;
 extern int free_page;
-
+extern t_log * logger;
 
 bool pid_match(int pid, int frame, int off){
 	char *dirval = (MEM_FIS + frame * memoria->marco_size + off);

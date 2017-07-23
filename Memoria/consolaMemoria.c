@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "apiMemoria.h"
+#include <commons/log.h>
 
 /* Con este macro verificamos igualdad de strings;
  * es mas expresivo que strcmp porque devuelve true|false mas humanamente
@@ -14,7 +15,7 @@
 void accionarMenu(void);
 int obtenerOpcionDump(void);
 void mostrarMenu(void);
-
+extern t_log*logger;
 // CONSOLA DE LA MEMORIA
 
 void *consolaUsuario(void){

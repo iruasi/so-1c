@@ -11,6 +11,7 @@
 #include <parser/metadata_program.h>
 #include <parser/parser.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
 
 #include "defsKernel.h"
 #include "kernelConfigurators.h"
@@ -49,10 +50,11 @@ extern t_queue *New, *Exit,*Ready;
 extern t_list	*Exec, *Block;
 extern tKernel *kernel;
 extern int grado_mult;
-
+extern t_log*logger;
 bool estaEnExit(int pid);
 
 extern t_dictionary * tablaGlobal;
+extern t_list * tablaProcesos;
 
 
 /* Este procedimiento inicializa las variables y listas globales.
@@ -71,7 +73,6 @@ typedef struct{
 }t_procesoXarchivo;
 
 
-extern t_list * tablaProcesos;
 
 extern int sock_fs;
 
@@ -85,16 +86,16 @@ int globalFD;
 
 void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir){
 	char fd_str[MAXPID_DIG];
-	sprintf(fd_str, "%d", datos->fd);
 
 	memcpy(datos->direccion, abrir->direccion, abrir->longitudDireccion);
 	datos->cantidadOpen = 0;
 	datos->fd = globalFD; globalFD++;
+	sprintf(fd_str, "%d", datos->fd);
 
 	if(!dictionary_has_key(tablaGlobal, fd_str)){
 		printf("La tabla no contiene el archivo, la agregamos\n");
 		dictionary_put(tablaGlobal, fd_str, datos);
-		printf("Los datos del fd #%d fueron agregados a la tabla global \n",datos->fd);
+		printf("Los datos del fd # %s fueron agregados a la tabla global \n",fd_str);
 	}else{
 		printf("El archivo ya se encuentra en la tabla global\n");
 	}
@@ -142,8 +143,10 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 
 	t_procesoXarchivo * _proceso  = list_find(tablaProcesos, encontrarProceso);
 	tProcesoArchivo * _archivo = (tProcesoArchivo *) list_find(_proceso->archivosPorProceso, encontrarFD);
+	char * fd_s[MAXPID_DIG];
 
-	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal,(char *)&fd);
+	sprintf(fd_s,"%d",fd);
+	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal,fd_s);
 
 	return unaTabla;
 }
@@ -192,11 +195,12 @@ void cpu_manejador(void *infoCPU){
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
 
 	bool found;
-	char *buffer, *var, *sfd;
+	char *buffer, *var, *sfd[MAXPID_DIG];;
 	char *file_serial, leer_serial;
 	int stat, pack_size, p;
 	tPackBytes *sem_bytes;
 	tPackVal *alloc, *fd_rta;
+	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
 
 	do {
@@ -400,8 +404,8 @@ void cpu_manejador(void *infoCPU){
 			freeAndNULL((void **) &buffer);
 
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
-			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-
+			//buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+			buffer = serializeAbrir(abrir,&pack_size);
 			printf("La direccion es %s\n", (char *) abrir->direccion);
 			if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
 				perror("No se pudo validar el archivo. error");
@@ -409,21 +413,43 @@ void cpu_manejador(void *infoCPU){
 				informarResultado(cpu_i->cpu.fd_cpu, head); // como fallo ejecucion, avisamos a CPU
 				break;
 			}
-			freeAndNULL((void **) buffer);
+		//	freeAndNULL((void **) buffer);
 
 			tDatosTablaGlobal * datosGlobal = malloc(sizeof *datosGlobal);
 			datosGlobal->direccion = malloc(abrir->longitudDireccion);
 
 			pack_size = 0;
-			file_serial = serializeAbrir(abrir, &pack_size);
+			//file_serial = serializeAbrir(abrir, &pack_size);
 
 
-			head
-			validarRespuesta()
+			tPackHeader h_esp;
+
+			head.tipo_de_mensaje = VALIDAR_RESPUESTA;
+			head.tipo_de_proceso = FS;
+
+			if(true){//validarRespuesta(sock_fs,head,&h_esp)
+				printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
+				agregarArchivoTablaGlobal(datosGlobal,abrir);
+				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
+			}else if (head.tipo_de_mensaje == CREAR_ARCHIVO){
+				printf("Como no fue validado el archivo, fue creado.\n");
+				printf("El archivo %s fue creado con éxito \n",abrir->direccion);
+				printf("Se lo agrega a la lista de procesos y tabla global\n");
+				agregarArchivoTablaGlobal(datosGlobal,abrir);
+				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
+			}else{
+				printf("El archivo no pudo ser validado ni creado, fijese el posible error\n");
+
+			}
+
+			//Ahora me fijo que permisos tiene y si puede crearlos
+
+
+
 			/*if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
 				perror("Error al recivir respuesta del fs");
 			}*/
-			if(false){//Agregar validar_archivo a tiposPaqueteshead.tipo_de_mensaje == VALIDAR_ARCHIVO
+			/*if(false){//Agregar validar_archivo a tiposPaqueteshead.tipo_de_mensaje == VALIDAR_ARCHIVO
 				printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
 
 				agregarArchivoTablaGlobal(datosGlobal,abrir);
@@ -434,16 +460,16 @@ void cpu_manejador(void *infoCPU){
 				if ((stat = send(sock_fs,file_serial,pack_size,0))< 0){
 					perror("No se pudo validar el archivo\n");
 				}
-				/*if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
+				if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
 					perror("Error al recivir respuesta del fs");
-				}*/
+				}
 				if(true){//head.tipo_de_mensaje == ARCHIVO_CREADO
 					agregarArchivoTablaGlobal(datosGlobal,abrir);
 					agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
 					printf("Agregamos el archivo a la tabla de procesos \n");
 
 				}
-			}
+			}*/
 
 			fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
 			fd_rta->val = datosGlobal->fd;
@@ -452,8 +478,8 @@ void cpu_manejador(void *infoCPU){
 				perror("error al enviar el paquete a la cpu. error");
 				break;
 			}
-
-			free(abrir->direccion); freeAndNULL((void **) &abrir);
+			freeAndNULL((void ** )&fd_rta);freeAndNULL((void **)&buffer);
+			//free(abrir->direccion); freeAndNULL((void **) &abrir);
 			puts("Fin case ABRIR");
 			break;
 		case BORRAR:
@@ -462,10 +488,10 @@ void cpu_manejador(void *infoCPU){
 			tDatosTablaGlobal * unaTabla;
 
 			unaTabla = encontrarTablaPorFD(*((int *) borrar_fd->bytes),cpu_i->con->pid);
-			if(*unaTabla->cantidadOpen <= 0){
+			if(unaTabla->cantidadOpen <= 0){
 				perror("El archivo no se encuentra abierto");
 				break;
-			}else if(*unaTabla->cantidadOpen > 1){
+			}else if(unaTabla->cantidadOpen > 1){
 				perror("El archivo solicitado esta abierto más de 1 vez al mismo tiempo");
 				break;
 			}
@@ -553,12 +579,11 @@ void cpu_manejador(void *infoCPU){
 			tPackRW *escr = deserializeEscribir(buffer);
 
 			printf("Se escribe en fd %d, la info %s\n", escr->fd, (char *) escr->info);
-			printf("Se recibió el fd #%d\n", escr->fd);
 
-			sfd[MAXPID_DIG];
-			sprintf(sfd, "%d", (int) escr->fd);
+			printf("Se recibió el fd # %d\n", escr->fd);
+			sprintf(sfd, "%d", escr->fd);
 
-			tDatosTablaGlobal * path =  dictionary_get(tablaGlobal, sfd);
+			tDatosTablaGlobal * path = (tDatosTablaGlobal *) dictionary_get(tablaGlobal, sfd);
 			tProcesoArchivo * banderas = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
 
 			printf("El path del direcctorio elegido es: %s\n", (char *) path->direccion);

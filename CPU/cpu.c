@@ -11,6 +11,7 @@
 
 #include <commons/config.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -34,7 +35,7 @@ void sigusr1Handler(void);
 void sigintHandler(void);
 
 int conectarConServidores(tCPU *cpu_data);
-
+t_log * logger;
 int pag_size, stack_size;
 int q_sleep;
 float q_sleep_segs;
@@ -50,6 +51,22 @@ int err_exec;            // esta variable global va a retener el codigo de error
 sem_t sem_fallo_exec;    // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
 pthread_mutex_t mux_pcb,mux_ejecutando; // sincroniza sobre el PCB global, para enviar un PCB roto antes de obtener uno nuevo
 
+void crearLogger() {
+   char *pathLogger = string_new();
+
+   char cwd[1024];
+
+   string_append(&pathLogger,getcwd(cwd,sizeof(cwd)));
+
+   string_append(&pathLogger, "/logs/CPU_LOG.log");
+
+   char *logCPUFileName = strdup("CPU_LOG.log");
+
+   logger = log_create(pathLogger, logCPUFileName, false, LOG_LEVEL_INFO);
+
+   free(logCPUFileName);
+   logCPUFileName = NULL;
+}
 void err_handler(void){
 
 	int pack_size, stat;
@@ -125,7 +142,7 @@ int main(int argc, char* argv[]){
 	ejecutando = false;
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
-
+	crearLogger();
 	setupCPUFunciones();
 	setupCPUFuncionesKernel();
 

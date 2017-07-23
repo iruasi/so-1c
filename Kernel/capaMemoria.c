@@ -7,7 +7,7 @@
 
 #include <parser/parser.h>
 #include <commons/collections/dictionary.h>
-
+#include <commons/log.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -27,6 +27,7 @@ sem_t sem_end_exec;
 //extern int frames;
 extern int frame_size;
 extern int sock_mem;
+extern t_log * logger;
 
 void setupHeapStructs(void){
 

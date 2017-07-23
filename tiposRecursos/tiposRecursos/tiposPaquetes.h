@@ -70,6 +70,10 @@ typedef enum {
 
 	SYSCALL = 70, //cpu-kernel
 
+	VALIDAR_RESPUESTA = 80,
+	CREAR_ARCHIVO = 81,
+
+
 	FIN         = 71
 } tMensaje;
 

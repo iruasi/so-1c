@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include <tiposRecursos/tiposErrores.h>
-
+#include <commons/log.h>
 #include "structsMem.h"
 #include "manejadoresCache.h"
 #include "apiMemoria.h"
@@ -15,7 +15,7 @@ tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 extern char* MEM_FIS;
 extern tMemoria *memoria;    // configuracion de Memoria
 extern int pid_free; // definiciones para paginas de Memoria, Tabla de Invertidas y paginas libres
-
+extern t_log*logger;
 int setupCache(void){
 
 	if ((CACHE = malloc(memoria->entradas_cache * memoria->marco_size)) == NULL){

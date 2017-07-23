@@ -5,12 +5,14 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/tiposErrores.h>
+#include <commons/log.h>
 
 #include "kernelConfigurators.h"
 #include "planificador.h"
 
 extern tKernel *kernel;
 extern t_valor_variable *shared_vals;
+extern t_log * logger;
 
 int getSemPosByID(const char *sem){
 
