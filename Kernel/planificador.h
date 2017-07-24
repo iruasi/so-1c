@@ -17,26 +17,24 @@
 #define UNLOCK_PLANIF (UNLOCK_MUX(&mux_new), UNLOCK_MUX(&mux_ready), UNLOCK_MUX(&mux_exec), UNLOCK_MUX(&mux_block), UNLOCK_MUX(&mux_exit))
 #endif
 
-#ifndef DISPONIBILIDAD_ESTADOS // todo: no se usan, cierto...?
-#define DISPONIBLE 1
-#define OCUPADO 2
-#endif
-
-typedef struct {
-	int pid;
-	int codeLen;
-	char *srcCode;
-	t_metadata_program *meta;
-} tMetadataPCB;
-
-
-/* SEMAFOROS */
-pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit;
-pthread_mutex_t mux_tablaPorProceso, mux_archivosAbiertos;
+void setupGlobales_planificador(void);
 
 void setupPlanificador(void);
 void setupSemaforosColas(void);
 
+void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu);
+
+void mergePCBs(tPCB **old, tPCB *new);
+
+void planificar(void);
+
+int finalizarEnMemoria(int pid);
+
+void pausarPlanif(void);
+
+int obtenerCPUociosa(void);
+
+int getPCBPositionByPid(int pid, t_list *cola_pcb);
 
 void encolarEnNewPrograma(tPCB *new_PCB, int sock_consola);
 

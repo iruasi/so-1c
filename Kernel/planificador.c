@@ -24,28 +24,10 @@
 
 #define FIFO_INST -1
 
-void mergePCBs(tPCB **old, tPCB *new);
-
-void planificar(void);
-
-int finalizarEnMemoria(int pid);
-void pausarPlanif(){
-
-}
-
-/* Obtiene la posicion en que se encuentra un PCB en una lista,
- * dado el pid por el cual ubicarlo.
- * Es requisito necesario que la lista contenga tPCB*
- * Retorna la posicion si la encuentra.
- * Retorna valor negativo en caso contrario.
- */
-int getPCBPositionByPid(int pid, t_list *cola_pcb);
-int obtenerCPUociosa(void);
-
 extern int sock_mem;
 extern int frame_size;
 extern t_list *gl_Programas;
-t_list *listaDeCpu; // el cpu_manejador deberia crear el entry para esta lista.
+t_list *listaDeCpu;
 
 t_queue *New, *Exit, *Ready;
 t_list	*cpu_exec, *Exec, *Block;
@@ -56,15 +38,21 @@ extern t_log * logger;
 int grado_mult;
 extern tKernel *kernel;
 
-extern sem_t eventoPlani;
+sem_t eventoPlani;
+pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU;
+extern pthread_mutex_t mux_gl_Programas;
 
-void setupSemaforosColas(void){
+void pausarPlanif(void){
+
+}
+
+void setupGlobales_planificador(void){
 	pthread_mutex_init(&mux_new,   NULL);
 	pthread_mutex_init(&mux_ready, NULL);
 	pthread_mutex_init(&mux_exec,  NULL);
 	pthread_mutex_init(&mux_block, NULL);
-	pthread_mutex_init(&mux_listaFinalizados,NULL);
 
+	sem_init(&eventoPlani, 0, 0);
 }
 
 void setupPlanificador(void){
@@ -77,8 +65,6 @@ void setupPlanificador(void){
 
 	Exec  = list_create();
 	Block = list_create();
-
-	setupSemaforosColas();
 
 	listaDeCpu = list_create();
 	cpu_exec   = list_create();
@@ -93,7 +79,7 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 	int pack_size, stat;
 	pack_size = 0;
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
-	puts("Comenzamos a serializar el PCB");
+	log_trace(logger, "Comenzamos a serializar el PCB");
 
 	pcb->proxima_rafaga = (kernel->algo == FIFO)? FIFO_INST : kernel->quantum;
 
@@ -129,7 +115,6 @@ void asociarProgramaACPU(t_RelCC *cpu){
 
 void planificar(void){
 
-	grado_mult = kernel->grado_multiprog;
 	tPCB * pcbAux;
 	t_RelCC * cpu;
 	int pos;
