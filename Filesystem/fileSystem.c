@@ -85,7 +85,7 @@ int main(int argc, char* argv[]){
 	printf("Ruta donde se crea la carpeta: %s\n", argumentos[1]);
 	int ret= fuse_main(args.argc, args.argv, &oper, NULL);
 
-	int sock_lis_kern, sock_kern;
+	int sock_lis_kern;
 	if ((sock_lis_kern = makeListenSock(fileSystem->puerto_entrada)) < 0){
 		printf("No se pudo crear socket listen en puerto: %s", fileSystem->puerto_entrada);
 	}

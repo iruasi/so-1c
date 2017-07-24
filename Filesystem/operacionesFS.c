@@ -50,8 +50,9 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t of
 }
 
 static int open2(const char *path, struct fuse_file_info *fi) {
-	int hayBloque = -1;
+	int bloque=-1;
 	int i=0;
+	tArchivos* arch = malloc(sizeof(tArchivos));
 	/*
 	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
 		return -ENOENT;
@@ -64,16 +65,25 @@ static int open2(const char *path, struct fuse_file_info *fi) {
 	 * todo: habria que poner un mutex aca? por si se quieren crear
 	 * dos archivos al mismo tiempo..
 	 */
-	while(i<meta->cantidad_bloques && hayBloque==-1){
+	while(i<meta->cantidad_bloques && bloque==-1){
 		if(!bitarray_test_bit(bitArray, i)){
 			bitarray_set_bit(bitArray, i);
-			hayBloque=1;
+			bloque=i;
 		}
 	}
-	if(hayBloque==1){
+	if(bloque >= 0){
 		fopen(path, "w"); //todo: ver como manejar las banderas
 		//todo: el modo creacion seria ese?
+		sprintf(arch->bloques[0], bloque);
+		memcpy(arch->ruta, path, sizeof(path));
+		arch->fd = fileno(path);
+		list_add(lista_archivos, arch);
 		puts("Se creo el archivo!\n");
+	}
+	else{
+		perror("No hay espacio para crear el archivo..");
+		free(arch);
+		return -1;
 	}
 
 
@@ -147,6 +157,7 @@ static int unlink2 (const char *path){
 	for(i=0; i<sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++){
 		bitarray_clean_bit(bitArray, atoi(archivo->bloques[i]));
 	}
+	//todo: sacar el archivo de lista_archivos
 	remove(path);
 	free(archivo);
 	config_destroy(conf);

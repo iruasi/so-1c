@@ -1,6 +1,8 @@
 #include <fuse.h>
 #include <sys/mman.h>
 
+#include <funcionesPaquetes/funcionesPaquetes.h>
+
 #include "manejadorSadica.h"
 
 void crearArchivo(char* ruta){
@@ -137,4 +139,75 @@ t_bitarray* mapearBitArray(char* path){
 	return bitmap;
 }
 
+void escucharKernel(){
+	char* bufHead = malloc(2*sizeof(int));
+	char* bufRW = malloc(sizeof(tPackRW));
+	char* bufAbrir = malloc(sizeof(tPackAbrir));
+	char* bufBorrar = malloc(sizeof(tPackBytes));
+	int stat, resultado;
+	tPackHeader msj;
+	tPackRW* rw = malloc(sizeof(tPackRW));
+	tPackAbrir* abrir = malloc(sizeof(tPackAbrir));
+	tPackBytes* borrar = malloc(sizeof(tPackBytes));
+	struct fuse_file_info* fi; //se va a usar para pasar por parametro en las operaciones
+	//todo: agregar header a los packs, o hacer dos sends/recvs entre ker y fs
 
+	if((stat=recv(sock_kern, bufHead, 2*sizeof(int), 0))< 0){
+		perror("Error al recibir mensaje de kernel...");
+		return;
+	}
+
+	msj.tipo_de_proceso = KER;
+	memcpy(&msj.tipo_de_mensaje, bufHead+sizeof(int), sizeof(int));
+
+	/*
+	 * TODO: (IMPORTANTE) inconsistencia de datos y parametros
+	 * entre las operaciones del fs y los datos del pack
+	 */
+	switch(msj.tipo_de_mensaje){
+	case LEER:
+		recv(sock_kern, bufRW, sizeof(tPackRW), 0);
+		rw = deserializeEscribir(bufRW);
+		//resultado = read2(rw->path, rw->info, rw->tamanio, rw->offset, fi)
+		break;
+	case ABRIR:
+		recv(sock_kern, bufAbrir, sizeof(tPackAbrir), 0);
+		abrir = deserializeAbrir(bufAbrir);
+		resultado = open2(abrir->direccion, fi);
+		break;
+	case BORRAR:
+		recv(sock_kern, bufBorrar, sizeof(tPackBytes), 0);
+		borrar = deserializeBytes(bufBorrar);
+		resultado = unlink2(borrar->bytes);
+		break;
+	case ESCRIBIR:
+		recv(sock_kern, bufRW, sizeof(tPackRW), 0);
+		rw = deserializeEscribir(bufRW);
+		//resultado = write2(getPathFromFD(rw->fd), rw->info, rw->tamanio, rw->offset, fi);
+		break;
+	default:
+		perror("Operacion no reconocida...");
+		break;
+	}
+
+	free(bufHead);
+	free(bufRW);
+	free(bufAbrir);
+	free(bufBorrar);
+	free(rw);
+	free(abrir);
+	free(borrar);
+}
+
+char* getPathFromFD(int fd){
+	int i=0;
+	tArchivos* arch = malloc(sizeof(tArchivos));
+	while(i<list_size(lista_archivos)){
+		arch = list_get(lista_archivos, i);
+		if(arch->fd==fd){
+			return arch->ruta;
+		}
+	}
+	free(arch);
+	return "NOT FOUND";
+}
