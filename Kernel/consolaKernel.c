@@ -24,10 +24,13 @@ extern pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_li
 extern t_dictionary *tablaGlobal;
 extern t_list *tablaProcesos, *list_infoProc, *finalizadosPorConsolas;
 
-extern bool planificacionBloqueada;
+bool planificacionBloqueada;
 
-extern pthread_mutex_t mux_planificacionBloqueada;
+pthread_mutex_t mux_planificacionBloqueada;
 
+void setupGlobales_consolaKernel(void){
+	pthread_mutex_init(&mux_planificacionBloqueada, NULL);
+}
 
 
 void consolaKernel(void){

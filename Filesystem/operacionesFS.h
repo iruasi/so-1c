@@ -93,7 +93,7 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t of
  * 	@RETURN
  * 		O archivo fue encontrado. -EACCES archivo no es accesible
  */
-static int open2(const char *path, struct fuse_file_info *fi);
+int open2(const char *path, struct fuse_file_info *fi);
 
 /*
  * @DESC
@@ -117,7 +117,7 @@ static int read2(const char *path, char *buf, size_t size, off_t offset, struct 
 
 static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi);
 
-static int unlink2 (const char *path);
+int unlink2 (const char *path);
 
 int validarArchivo(char* path);
 

@@ -37,10 +37,6 @@ tKernel *kernel;
 
 t_log * logger;
 
-bool planificacionBloqueada;
-
-extern pthread_mutex_t mux_planificacionBloqueada;
-
 int interconectarProcesos(ker_socks *ks, const char* path);
 void inotifyer(char *path);
 
@@ -155,10 +151,6 @@ int main(int argc, char* argv[]){
 //		return FALLO_GRAL;
 //	}
 
-	pthread_mutex_lock(&mux_planificacionBloqueada);
-	planificacionBloqueada = false;
-	pthread_mutex_unlock(&mux_planificacionBloqueada);
-
 	pthread_attr_t attr_ondemand;
 	pthread_attr_init(&attr_ondemand);
 	pthread_attr_setdetachstate(&attr_ondemand, PTHREAD_CREATE_DETACHED);
@@ -181,13 +173,13 @@ int main(int argc, char* argv[]){
 	crearLogger();
 	kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
+	setupVariablesPorSubsistema();
 
 	if (interconectarProcesos(ks, argv[1]) != 0){
 		puts("Fallo en la conexion con el resto de los procesos");
 		return ABORTO_KERNEL;
 	}
 
-	setupVariablesPorSubsistema();
 
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
 		perror("no pudo crear hilo. error");

@@ -5,8 +5,10 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 
 #include <commons/collections/list.h>
+#include <commons/config.h>
 
 #include "operacionesFS.h"
 #include "manejadorSadica.h"
@@ -49,7 +51,7 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t of
 	return 0;
 }
 
-static int open2(const char *path, struct fuse_file_info *fi) {
+int open2(const char *path, struct fuse_file_info *fi) {
 	int bloque=-1;
 	int i=0;
 	tArchivos* arch = malloc(sizeof(tArchivos));
@@ -114,7 +116,7 @@ static int read2(const char *path, char *buf, size_t size, off_t offset, struct 
 }
 
 static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi){
-	int cantidadBloques = (int) ceil(size/meta->tamanio_bloques);
+	int cantidadBloques = (int) ceil((float) size/meta->tamanio_bloques);
 	int bloquesLibres=0,
 			i=0;
 	t_list* bloques;
@@ -143,7 +145,7 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 	return size;
 }
 
-static int unlink2 (const char *path){
+int unlink2 (const char *path){
 	//int rem;
 	printf("Se quiere borrar el archivo el archivo %s\n", path);
 	if(validarArchivo(path)==-1){

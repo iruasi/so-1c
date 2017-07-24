@@ -1,9 +1,16 @@
 #include <fuse.h>
 #include <sys/mman.h>
 
+#include <commons/config.h>
+#include <commons/bitarray.h>
+
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
+#include "fileSystemConfigurators.h"
 #include "manejadorSadica.h"
+#include "operacionesFS.h"
+
+extern tFileSystem *fileSystem;
 
 void crearArchivo(char* ruta){
 	int off=0;

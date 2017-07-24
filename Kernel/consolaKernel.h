@@ -1,6 +1,7 @@
 #ifndef CONSOLA_KERNEL_H_
 #define CONSOLA_KERNEL_H_
 
+void setupGlobales_consolaKernel(void);
 
 void consolaKernel(void);
 

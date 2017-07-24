@@ -29,11 +29,13 @@
 								<option id="gnu.c.compiler.exe.debug.option.debugging.level.2117860825" name="Debug Level" superClass="gnu.c.compiler.exe.debug.option.debugging.level" value="gnu.c.debugging.level.max" valueType="enumerated"/>
 								<option id="gnu.c.compiler.option.warnings.extrawarn.605771332" name="Extra warnings (-Wextra)" superClass="gnu.c.compiler.option.warnings.extrawarn" value="true" valueType="boolean"/>
 								<option id="gnu.c.compiler.option.misc.other.1164227047" name="Other flags" superClass="gnu.c.compiler.option.misc.other" value="-DFUSE_USE_VERSION=27 -D_FILE_OFFSET_BITS=64 -c -fmessage-length=0" valueType="string"/>
+								<option id="gnu.c.compiler.option.include.paths.1003419395" name="Include paths (-I)" superClass="gnu.c.compiler.option.include.paths" valueType="includePath"/>
 								<inputType id="cdt.managedbuild.tool.gnu.c.compiler.input.1207174687" superClass="cdt.managedbuild.tool.gnu.c.compiler.input"/>
 							</tool>
 							<tool id="cdt.managedbuild.tool.gnu.c.linker.exe.debug.1539871497" name="GCC C Linker" superClass="cdt.managedbuild.tool.gnu.c.linker.exe.debug">
 								<option id="gnu.c.link.option.libs.840777004" name="Libraries (-l)" superClass="gnu.c.link.option.libs" valueType="libs">
 									<listOptionValue builtIn="false" value="funcionesCompartidas"/>
+									<listOptionValue builtIn="false" value="m"/>
 									<listOptionValue builtIn="false" value="fuse"/>
 									<listOptionValue builtIn="false" value="funcionesPaquetes"/>
 									<listOptionValue builtIn="false" value="commons"/>

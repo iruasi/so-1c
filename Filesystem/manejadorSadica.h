@@ -1,8 +1,13 @@
 #ifndef MANEJADORSADICA_H_
 #define MANEJADORSADICA_H_
 
+#include <commons/bitarray.h>
+
+#include <tiposRecursos/tiposPaquetes.h>
+
 #define carpetaBitMap "/Metadata/Bitmap.bin"
 #define carpetaMetadata "/Metadata/Metadata.bin"
+
 
 typedef struct{
 	int size;

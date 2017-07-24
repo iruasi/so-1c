@@ -26,13 +26,6 @@
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/misc/pcb.h>
 
-<<<<<<< HEAD
-extern sem_t sem_heapDict, sem_bytes, sem_end_exec; // semaforos para IPC con capaMemoria
-pthread_mutex_t mux_list_infoP, mux_gl_Programas, mux_listaDeCPU, mux_listaFinalizados,mux_planificacionBloqueada,mux_gradoMultiprog;
-extern pthread_mutex_t mux_exec, mux_ready;
-
-=======
->>>>>>> 51c08905cef421c685766c750e597122c0aecf2f
 //extern sem_t haySTDIN;
 
 extern t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
@@ -56,13 +49,6 @@ void setupGlobales_auxiliares(void){ // todo: por ahi esto entero se puede deleg
 
 	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
 	pthread_mutex_init(&mux_archivosAbiertos, NULL);
-<<<<<<< HEAD
-	pthread_mutex_init(&mux_list_infoP,       NULL);
-	pthread_mutex_init(&mux_planificacionBloqueada,       NULL);
-
-
-=======
->>>>>>> 51c08905cef421c685766c750e597122c0aecf2f
 }
 
 
