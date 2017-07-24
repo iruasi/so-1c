@@ -6,6 +6,8 @@
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 
+#include <commons/log.h>
+
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
 #include "apiMemoria.h"
@@ -16,7 +18,7 @@ float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
 extern int pid_free, free_page;
-
+extern t_log* logger;
 // OPERACIONES DE LA MEMORIA
 
 void retardo(int ms){

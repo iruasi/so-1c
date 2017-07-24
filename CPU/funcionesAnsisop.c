@@ -4,6 +4,7 @@
 #include <semaphore.h>
 
 #include <commons/string.h>
+#include <commons/log.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -14,6 +15,7 @@
 
 extern AnSISOP_funciones functions;
 extern int pag_size, stack_size;
+extern t_log*logger;
 
 extern int err_exec;
 extern sem_t sem_fallo_exec;
@@ -578,15 +580,16 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 		err_exec = FALLO_RECV;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
-
 	}
-
+	t_descriptor_archivo fd;
 	if ((bytes = deserializeBytes(buffer)) == NULL){
 				err_exec = FALLO_DESERIALIZAC;
 				sem_post(&sem_fallo_exec);
 				pthread_exit(&err_exec);
+			}else{
+				pcb->cantSyscalls ++;
 			}
-	t_descriptor_archivo fd = *((int *) bytes->bytes);
+	fd = *((int *) bytes->bytes);
 	return fd;
 }
 
@@ -604,6 +607,16 @@ void borrar (t_descriptor_archivo direccion){
 	}
 
 	enviar(borrar_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=ARCHIVO_BORRADO};
+	tPackHeader header;
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 void cerrar (t_descriptor_archivo descriptor_archivo){
@@ -620,6 +633,17 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 	}
 
 	enviar(cerrar_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=ARCHIVO_CERRADO};
+	tPackHeader header;
+
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
@@ -635,6 +659,17 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 	}
 
 	enviar(mov_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=CURSOR_MOVIDO};
+	tPackHeader header;
+
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
@@ -650,6 +685,17 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 	}
 
 	enviar(esc_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ARCHIVO_ESCRITO};
+	tPackHeader header;
+
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 

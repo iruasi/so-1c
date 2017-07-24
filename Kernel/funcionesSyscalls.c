@@ -6,6 +6,7 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <tiposRecursos/tiposErrores.h>
+#include <commons/log.h>
 
 #include "kernelConfigurators.h"
 #include "planificador.h"
@@ -13,6 +14,7 @@
 
 extern tKernel *kernel;
 extern t_valor_variable *shared_vals;
+extern t_log * logger;
 
 t_dictionary *dict_sems_queue; // queue de PIDs que esperan signal de algun SEM
 pthread_mutex_t mux_sems_queue;

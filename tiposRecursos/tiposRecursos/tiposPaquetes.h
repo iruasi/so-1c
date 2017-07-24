@@ -71,6 +71,16 @@ typedef enum {
 
 	SYSCALL = 70, //cpu-kernel
 
+	VALIDAR_RESPUESTA = 80, //fs-kernel
+	CREAR_ARCHIVO = 81,//fs-kernel
+
+	ARCHIVO_CERRADO = 90, //fs-kernel-cpu
+	ARCHIVO_BORRADO = 91,//fs-kernel-cpu
+	CURSOR_MOVIDO = 92,//fs-kernel-cpu
+	ARCHIVO_ESCRITO = 93,//fs-kernel-cpu
+	ARCHIVO_LEIDO = 94,//fs-kernel-cpu
+
+
 	FIN         = 71
 } tMensaje;
 

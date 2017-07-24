@@ -16,6 +16,8 @@
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
+#include <commons/log.h>
+
 #include "apiMemoria.h"
 #include "auxiliaresMemoria.h"
 #include "manejadoresMem.h"
@@ -37,13 +39,29 @@ tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
 int sock_kernel;
-
+t_log*logger;
 pthread_mutex_t mux_mem_access;
 
 struct infoKer{
 	int *sock_ker;
 	bool kernExists;
 };
+void crearLogger() {
+   char *pathLogger = string_new();
+
+   char cwd[1024];
+
+   string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+
+   string_append(&pathLogger, "/logs/Memory_LOG.log");
+
+   char *logMemoria = strdup("Memory_LOG.log");
+
+   logger = log_create(pathLogger, logMemoria, false, LOG_LEVEL_TRACE);
+
+   free(pathLogger);
+   free(logMemoria);
+}
 
 int main(int argc, char* argv[]){
 
@@ -55,7 +73,7 @@ int main(int argc, char* argv[]){
 	int stat;
 
 	pthread_mutex_init(&mux_mem_access, NULL);
-
+	crearLogger();
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 

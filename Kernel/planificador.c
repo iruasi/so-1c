@@ -8,6 +8,7 @@
 #include <semaphore.h>
 
 #include <commons/collections/queue.h>
+#include <commons/log.h>
 
 #include "defsKernel.h"
 #include "planificador.h"
@@ -50,7 +51,7 @@ t_queue *New, *Exit, *Ready;
 t_list	*cpu_exec, *Exec, *Block;
 t_list *listaProgramas;
 extern t_list *finalizadosPorConsolas;
-
+extern t_log * logger;
 
 int grado_mult;
 extern tKernel *kernel;

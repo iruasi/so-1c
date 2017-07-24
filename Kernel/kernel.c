@@ -41,10 +41,29 @@ t_dictionary * tablaGlobal;
 sem_t eventoPlani;
 sem_t codigoEnviado;
 
+t_log * logger;
+
 int fdInotify;
 
 int interconectarProcesos(ker_socks *ks, const char* path);
 void inotifyer(char *path);
+
+void crearLogger() {
+   char *pathLogger = string_new();
+
+   char cwd[1024];
+
+   string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+
+   string_append(&pathLogger, "/KERNEL_LOG.log");
+
+   char *logKernelFileName = strdup("KERNEL_LOG.log");
+
+   logger = log_create(pathLogger, logKernelFileName, false, LOG_LEVEL_INFO);
+
+   free(logKernelFileName);
+   logKernelFileName = NULL;
+}
 
 int interconectarProcesos(ker_socks *ks, const char* path){
 
@@ -167,7 +186,7 @@ int main(int argc, char* argv[]){
 	FD_ZERO(&read_fd);
 	FD_ZERO(&ks->master);
 	//FD_SET(0, &ks->master); por ahora lo deshabilitamos, no lo necesitamos
-
+	crearLogger();
 	kernel = getConfigKernel(argv[1]);
 	mostrarConfiguracion(kernel);
 

@@ -6,6 +6,8 @@
 #include <math.h>
 #include <unistd.h>
 
+#include <commons/log.h>
+
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
 #include "auxiliaresMemoria.h"
@@ -26,7 +28,7 @@ extern char *MEM_FIS;       // MEMORIA FISICA
 extern char *CACHE;         // memoria CACHE
 extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
-
+extern t_log*logger;
 extern int sock_kernel;
 t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 

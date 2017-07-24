@@ -11,6 +11,7 @@
 #include <parser/metadata_program.h>
 #include <parser/parser.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
 
 #include "defsKernel.h"
 #include "kernelConfigurators.h"
@@ -40,6 +41,8 @@ extern sem_t eventoPlani;
 int globalPID;
 int globalFD;
 
+extern pthread_mutex_t mux_sems_queue;
+
 t_dictionary *dict_proc_info;
 t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
 t_list *listaDeCpu;
@@ -49,13 +52,14 @@ extern t_queue *New, *Exit,*Ready;
 extern t_list	*Exec, *Block;
 extern tKernel *kernel;
 extern int grado_mult;
-
+extern t_log*logger;
 bool estaEnExit(int pid);
 
 // todo: poner TOOODAS las variables globales en defsKernel.h... yafu
 // bueno no, pero un setup por archivo, y se llama a cada setup desde defsKernel.
 extern t_dictionary * tablaGlobal;
 extern t_dictionary *dict_sems_queue;
+extern t_list * tablaProcesos;
 
 
 /* Este procedimiento inicializa las variables y listas globales.
@@ -74,7 +78,6 @@ typedef struct{
 }t_procesoXarchivo;
 
 
-extern t_list * tablaProcesos;
 
 extern int sock_fs;
 
@@ -88,16 +91,16 @@ int globalFD;
 
 void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir){
 	char fd_str[MAXPID_DIG];
-	sprintf(fd_str, "%d", datos->fd);
 
 	memcpy(datos->direccion, abrir->direccion, abrir->longitudDireccion);
 	datos->cantidadOpen = 0;
 	datos->fd = globalFD; globalFD++;
+	sprintf(fd_str, "%d", datos->fd);
 
 	if(!dictionary_has_key(tablaGlobal, fd_str)){
 		printf("La tabla no contiene el archivo, la agregamos\n");
 		dictionary_put(tablaGlobal, fd_str, datos);
-		printf("Los datos del fd #%d fueron agregados a la tabla global \n",datos->fd);
+		printf("Los datos del fd # %s fueron agregados a la tabla global \n",fd_str);
 	}else{
 		printf("El archivo ya se encuentra en la tabla global\n");
 	}
@@ -145,8 +148,10 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 
 	t_procesoXarchivo * _proceso  = list_find(tablaProcesos, encontrarProceso);
 	tProcesoArchivo * _archivo = (tProcesoArchivo *) list_find(_proceso->archivosPorProceso, encontrarFD);
+	char * fd_s[MAXPID_DIG];
 
-	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal,(char *)&fd);
+	sprintf(fd_s,"%d",fd);
+	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal,fd_s);
 
 	return unaTabla;
 }
@@ -155,6 +160,8 @@ void setupMutexes(){
 	pthread_mutex_init(&mux_sems_queue,    NULL);
 	pthread_mutex_init(&mux_listaDeCPU,    NULL);
 	pthread_mutex_init(&mux_gl_Programas,  NULL);
+	pthread_mutex_init(&mux_tablaPorProceso, NULL);
+	pthread_mutex_init(&mux_archivosAbiertos, NULL);
 }
 
 void setupVariablesGlobales(void){
@@ -184,6 +191,7 @@ tPCB *crearPCBInicial(void){
 	pcb->contextoActual     = 0;
 	pcb->exitCode           = 0;
 	pcb->rafagasEjecutadas  = 0;
+	pcb->cantSyscalls 		= 0;
 
 	return pcb;
 }
@@ -197,11 +205,12 @@ void cpu_manejador(void *infoCPU){
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
 
 	bool found;
-	char *buffer, *var, *sfd;
+	char *buffer, *var, *sfd[MAXPID_DIG];;
 	char *file_serial, leer_serial;
 	int stat, pack_size, p;
 	tPackBytes *sem_bytes;
 	tPackVal *alloc, *fd_rta;
+	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
 
 	do {
@@ -404,8 +413,8 @@ void cpu_manejador(void *infoCPU){
 			freeAndNULL((void **) &buffer);
 
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
-			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-
+			//buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+			buffer = serializeAbrir(abrir,&pack_size);
 			printf("La direccion es %s\n", (char *) abrir->direccion);
 			if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
 				perror("No se pudo validar el archivo. error");
@@ -413,18 +422,41 @@ void cpu_manejador(void *infoCPU){
 				informarResultado(cpu_i->cpu.fd_cpu, head); // como fallo ejecucion, avisamos a CPU
 				break;
 			}
-			freeAndNULL((void **) buffer);
+		//	freeAndNULL((void **) buffer);
 
 			tDatosTablaGlobal * datosGlobal = malloc(sizeof *datosGlobal);
 			datosGlobal->direccion = malloc(abrir->longitudDireccion);
 
 			pack_size = 0;
-			file_serial = serializeAbrir(abrir, &pack_size);
+			//file_serial = serializeAbrir(abrir, &pack_size);
+
+
+			tPackHeader h_esp;
+
+			head.tipo_de_mensaje = VALIDAR_RESPUESTA;
+			head.tipo_de_proceso = FS;
+
+			if(true){//validarRespuesta(sock_fs,head,&h_esp)
+				printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
+				agregarArchivoTablaGlobal(datosGlobal,abrir);
+				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
+			}else if (head.tipo_de_mensaje == CREAR_ARCHIVO){
+				printf("Como no fue validado el archivo, fue creado.\n");
+				printf("El archivo %s fue creado con éxito \n",abrir->direccion);
+				printf("Se lo agrega a la lista de procesos y tabla global\n");
+				agregarArchivoTablaGlobal(datosGlobal,abrir);
+				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
+			}else{
+				printf("El archivo no pudo ser validado ni creado, fijese el posible error\n");
+
+			}
+
+			//Ahora me fijo que permisos tiene y si puede crearlos
 
 			/*if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
 				perror("Error al recivir respuesta del fs");
 			}*/
-			if(false){//Agregar validar_archivo a tiposPaqueteshead.tipo_de_mensaje == VALIDAR_ARCHIVO
+			/*if(false){//Agregar validar_archivo a tiposPaqueteshead.tipo_de_mensaje == VALIDAR_ARCHIVO
 				printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
 
 				agregarArchivoTablaGlobal(datosGlobal,abrir);
@@ -435,16 +467,16 @@ void cpu_manejador(void *infoCPU){
 				if ((stat = send(sock_fs,file_serial,pack_size,0))< 0){
 					perror("No se pudo validar el archivo\n");
 				}
-				/*if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
+				if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
 					perror("Error al recivir respuesta del fs");
-				}*/
+				}
 				if(true){//head.tipo_de_mensaje == ARCHIVO_CREADO
 					agregarArchivoTablaGlobal(datosGlobal,abrir);
 					agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
 					printf("Agregamos el archivo a la tabla de procesos \n");
 
 				}
-			}
+			}*/
 
 			fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
 			fd_rta->val = datosGlobal->fd;
@@ -453,8 +485,8 @@ void cpu_manejador(void *infoCPU){
 				perror("error al enviar el paquete a la cpu. error");
 				break;
 			}
-
-			free(abrir->direccion); freeAndNULL((void **) &abrir);
+			freeAndNULL((void ** )&fd_rta);freeAndNULL((void **)&buffer);
+			//free(abrir->direccion); freeAndNULL((void **) &abrir);
 			puts("Fin case ABRIR");
 			break;
 		case BORRAR:
@@ -554,12 +586,11 @@ void cpu_manejador(void *infoCPU){
 			tPackRW *escr = deserializeEscribir(buffer);
 
 			printf("Se escribe en fd %d, la info %s\n", escr->fd, (char *) escr->info);
-			printf("Se recibió el fd #%d\n", escr->fd);
 
-			sfd[MAXPID_DIG];
-			sprintf(sfd, "%d", (int) escr->fd);
+			printf("Se recibió el fd # %d\n", escr->fd);
+			sprintf(sfd, "%d", escr->fd);
 
-			tDatosTablaGlobal * path =  dictionary_get(tablaGlobal, sfd);
+			tDatosTablaGlobal * path = (tDatosTablaGlobal *) dictionary_get(tablaGlobal, sfd);
 			tProcesoArchivo * banderas = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
 
 			printf("El path del direcctorio elegido es: %s\n", (char *) path->direccion);
@@ -1181,9 +1212,40 @@ void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
 	cantRafagas =  pcb->rafagasEjecutadas;
 	printf("####PROCESO %d####\nCantidad de rafagas ejecutadas: %d\n",pcb->id,cantRafagas);
 }
-void mostrarTablaDeArchivosDe(tPCB *pcb){
+void armarStringPermisos(char* permisos, int creacion, int lectura,
+		int escritura) {
 
-	printf("####PROCESO %d####\nTabla de archivos abiertos del proceso: x!!!!!!x\n",pcb->id);
+	if (creacion) {
+		string_append(&permisos, "c");
+	}
+	if (lectura) {
+		string_append(&permisos, "r");
+	}
+	if (escritura) {
+		string_append(&permisos, "w");
+	}
+}
+void mostrarTablaDeArchivosDe(tPCB *pcb){
+	char pid[MAXPID_DIG];
+	sprintf(pid,"%d",pcb->id);
+	bool encontrarPid(t_procesoXarchivo * proceso){
+			return proceso->pid == pid;
+		}
+	t_procesoXarchivo * pa = list_find(tablaProcesos,encontrarPid);
+	tProcesoArchivo * _unArchivo;
+	if(list_is_empty(pa->archivosPorProceso)){
+		printf("La tabla de procesos del proceso %d se encuentra vacía",pcb->id);
+		return;
+	}
+	char * permisos = string_new();
+	armarStringPermisos(permisos,_unArchivo->flag.creacion,_unArchivo->flag.escritura,_unArchivo->flag.lectura);
+	int i;
+	for(i = 0; i < list_size(pa->archivosPorProceso); i++){
+		_unArchivo = (tProcesoArchivo *) list_get(pa->archivosPorProceso,i);
+		printf("####PROCESO %d####\nTabla de archivos abiertos del proceso\n",pcb->id);
+		printf("Permisos: %s --fdGlobalAsociado: %d -- cursor: %d",permisos,_unArchivo->fd,_unArchivo->posicionCursor);
+
+	}
 }
 void mostrarCantHeapUtilizadasDe(tPCB *pcb){
 
@@ -1204,7 +1266,9 @@ void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
 	sprintf(spid, "%d", pcb->id);
 	infoProcess *ip = dictionary_get(dict_proc_info, spid);
 
-	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
+	//printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
+	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, pcb->cantSyscalls);
+
 }
 
 void cambiarGradoMultiprogramacion(int nuevoGrado){
@@ -1227,6 +1291,21 @@ void finalizarProceso(int pidAFinalizar){
 
 void mostrarTablaGlobal(){
 	puts("Mostrar tabla global");
+	if(dictionary_is_empty(tablaGlobal)){
+		printf("La tabla global de archivos se encuentra vacía\n");
+		return;
+	}
+	tDatosTablaGlobal * datosGlobal;
+	int i ;
+	char * contAux[MAXPID_DIG];
+	for(i = 0 ; i < dictionary_size(tablaGlobal);i++){
+		sprintf(contAux,"%d",i);
+		datosGlobal = (tDatosTablaGlobal *) dictionary_get(tablaGlobal,contAux);
+		printf("Los datos de la tabla global son: \n");
+		printf("FD: %d --- Direccion: %s --- Cantidad de veces abierta: %d\n",datosGlobal->fd,datosGlobal->direccion,datosGlobal->cantidadOpen);
+	}
+
+
 }
 void stopKernel(){
 	puts("Stop kernel");
