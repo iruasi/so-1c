@@ -7,7 +7,7 @@
 #include <tiposRecursos/tiposPaquetes.h>
 
 #include "auxiliaresConsola.h"
-extern t_log *logger,*logTrace;
+extern t_log *logger;
 
 /* Dado un archivo, lo lee e inserta en un paquete de codigo fuente
  */

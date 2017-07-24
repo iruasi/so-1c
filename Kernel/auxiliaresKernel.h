@@ -5,6 +5,7 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <commons/collections/queue.h>
 
+#include "capaMemoria.h"
 
 typedef struct{
 	int fd_cpu,pid;
@@ -29,6 +30,31 @@ typedef struct {
 	int pid,ecode;
 }t_finConsola;
 
+typedef struct {
+	int pid,
+		cant_syscalls;
+	infoHeap *ih;
+} t_infoProcess;
+
+typedef struct{
+	t_direccion_archivo direccion;
+	int cantidadOpen;
+	t_descriptor_archivo fd;
+}tDatosTablaGlobal;
+
+typedef struct{
+	t_banderas flag;
+	t_descriptor_archivo fd;
+	t_valor_variable posicionCursor;
+}tProcesoArchivo;
+
+typedef struct{
+	int pid;
+	t_list * archivosPorProceso; //Esta lista va a contener tProcesoArchivo
+}t_procesoXarchivo;
+
+
+
 void cpu_manejador(void *cpuInfo);
 void mem_manejador(void *m_sock);
 void cons_manejador(void *conInfo);
@@ -37,8 +63,11 @@ int *formarPtrPIDs(int *len);
 
 void liberarCC(t_RelCC *cc);
 
+int getConPosByFD(int fd, t_list *list);
+
 int getCPUPosByFD(int fd, t_list *list);
 
+int getInfoProcPosByPID(t_list *infoProc, int pid);
 
 /* Crea un t_RelPF* y lo guarda en la lista global de Programas,
  * asi quedan asociados el socket de un Programa y su source code.
@@ -50,7 +79,15 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src);
  */
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size);
 
-void setupVariablesGlobales(void);
+void setupGlobales_auxiliares(void);
+
+void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir);
+void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid);
+
+tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid);
+
+tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid);
+
 
 /* Crea un PCB que aun no tiene la info importante
  * que se obtiene a partir del meta y codigo fuente.
@@ -65,45 +102,10 @@ tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog);
 int setGlobal(tPackValComp *val_comp);
 t_valor_variable getGlobal(t_nombre_variable *var, bool *found);
 
-void consolaKernel(void);
-
-void mostrarColaDe (char* cola);
-
-void mostrarInfoDe(int pidElegido);
-
-void cambiarGradoMultiprogramacion(int nuevoGrado);
-
-void finalizarProceso(int pidAFinalizar);
-
-void stopKernel();
-
-void mostrarTablaGlobal();
-
-void mostrarColaNew();
-
-void mostrarColaReady();
-
-void mostrarColaExec();
-
-void mostrarColaExit();
-
-void mostrarColaBlock();
-
-void mostrarCantRafagasEjecutadasDe(tPCB *pcb);
-
-void mostrarCantPrivilegiadasDe(tPCB *pcb);
-
-void mostrarTablaDeArchivosDe(tPCB *pcb);
-
-void mostrarCantHeapUtilizadasDe(tPCB *pcb);
-
-void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
-
-void* queue_get(t_queue *self,int posicion);
-
-int getQueuePositionByPid(int pid, t_queue *queue);
+void* queue_get(t_queue *self, int posicion);
 
 void desconexionCpu(t_RelCC *cpu_i);
 
+bool estaEnExit(int pid);
 
 #endif // AUXILIARESKERNEL_H_

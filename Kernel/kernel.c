@@ -27,23 +27,17 @@
 #include "kernelConfigurators.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
+#include "consolaKernel.h"
 //#include "manejadores.h"
 
 int frames, frame_size; // para guardar datos a recibir de Memoria
-int sock_mem;
-int sock_fs;
+int sock_mem, sock_fs, fdInotify;
 tKernel *kernel;
 
-t_list * tablaProcesos;
-t_dictionary * tablaGlobal;
-
 //sem_t haySTDIN;
-sem_t eventoPlani;
-sem_t codigoEnviado;
 
 t_log * logger;
 
-int fdInotify;
 
 int interconectarProcesos(ker_socks *ks, const char* path);
 void inotifyer(char *path);
@@ -158,14 +152,6 @@ int main(int argc, char* argv[]){
 //		perror("No se pudo inicializar semaforo. error");
 //		return FALLO_GRAL;
 //	}
-	if (sem_init(&eventoPlani, 0, 0) == -1){
-		perror("No se pudo inicializar semaforo. error");
-		return FALLO_GRAL;
-	}
-	if (sem_init(&codigoEnviado, 0, 0) == -1){
-		perror("No se pudo inicializar semaforo. error");
-		return FALLO_GRAL;
-	}
 
 	pthread_attr_t attr_ondemand;
 	pthread_attr_init(&attr_ondemand);
@@ -195,12 +181,7 @@ int main(int argc, char* argv[]){
 		return ABORTO_KERNEL;
 	}
 
-	setupHeapStructs();
-	void setupMutexes();
-	setupVariablesGlobales();
-
-	tablaGlobal = dictionary_create();
-	tablaProcesos = list_create();
+	setupVariablesPorSubsistema();
 
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
 		perror("no pudo crear hilo. error");

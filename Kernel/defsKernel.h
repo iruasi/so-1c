@@ -1,6 +1,8 @@
 #ifndef DEFSKERNEL_H_
 #define DEFSKERNEL_H_
 
+#include <sys/select.h>
+
 #ifndef PID_IDLE
 #define PID_IDLE -1
 #endif
@@ -9,8 +11,7 @@
 #define SIZEOF_HMD 5
 #endif
 
-#ifdef HEAD_SIZE
-#undef HEAD_SIZE
+#ifndef HEAD_SIZE
 #define HEAD_SIZE 8
 #endif
 
@@ -56,5 +57,10 @@ typedef struct {
 	fd_set master;
 } ker_socks;
 
+/* Llama a los setups de cada archivo que inicialice variables globales,
+ * semaforos y mutexes.
+ * Es util para controlar un poco el scope de las variables globales.
+ */
+void setupVariablesPorSubsistema(void);
 
 #endif /* DEFSKERNEL_H_ */

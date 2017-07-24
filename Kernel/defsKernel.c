@@ -2,12 +2,15 @@
  * Implementa las cosas que hay en defsKernel.h
  */
 
-/* Llama a los setups de cada archivo que inicialice variables globales,
- * semaforos y mutexes.
- * Es util para controlar un poco el scope de las variables globales.
- */
+#include "defsKernel.h"
+#include "capaMemoria.h"
+#include "auxiliaresKernel.h"
+#include "funcionesSyscalls.h"
+
 void setupVariablesPorSubsistema(void){
 
+	setupGlobales_capaMemoria();
+	setupGlobales_auxiliares();
+	setupGlobales_syscalls();
  // todo: si
 }
-

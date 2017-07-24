@@ -15,30 +15,29 @@
 
 #include "capaMemoria.h"
 #include "defsKernel.h"
+#include "auxiliaresKernel.h"
 
-extern int MAX_ALLOC_SIZE;
+t_dictionary *dict_heap; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
+pthread_mutex_t mux_dict_heap;
+extern t_list *list_infoProc; // contiene t_infoProcess;
+extern pthread_mutex_t mux_list_infoP;
+sem_t sem_heapDict, sem_bytes, sem_end_exec;
 
-t_dictionary *heapDict; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
-sem_t sem_heapDict;
-pthread_mutex_t mux_heapDict;
-sem_t sem_bytes;
-sem_t sem_end_exec;
-
-//extern int frames;
+int MAX_ALLOC_SIZE;
 extern int frame_size;
 extern int sock_mem;
 extern t_log * logger;
 
-void setupHeapStructs(void){
+void setupGlobales_capaMemoria(void){
 
 	MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
-	heapDict = dictionary_create();
+	dict_heap = dictionary_create();
 
 	sem_init(&sem_heapDict, 0, 0);
 	sem_init(&sem_bytes,    0, 0);
 	sem_init(&sem_end_exec, 0, 0);
 
-	pthread_mutex_init(&mux_heapDict, NULL);
+	pthread_mutex_init(&mux_dict_heap, NULL);
 }
 
 bool esReservable(int size_req, tHeapMeta *hmd){
@@ -58,9 +57,9 @@ void crearNuevoHMD(tHeapMeta *dir_mem, int size){
 /* retorna posicion relativa la pagina de heap, NO ES ABSOLUTA
  */
 t_puntero reservarBytes(char* heap_page, int sizeReserva){
-	printf("Se tratan de reservar %d bytes en pagina de Heap\n", sizeReserva);
+	log_trace(logger, "Se tratan de reservar %d bytes en pagina de Heap\n", sizeReserva);
 
-	int dist      = MAX_ALLOC_SIZE + SIZEOF_HMD;
+	int dist = MAX_ALLOC_SIZE + SIZEOF_HMD;
 	tHeapMeta *hmd, *hmd_next;
 
 	hmd = (tHeapMeta *) heap_page;
@@ -122,9 +121,9 @@ t_puntero intentarReservaUnica(int pid, int size){
 		return 0;
 	}
 
-	MUX_LOCK(&mux_heapDict);
-	heaps = dictionary_get(heapDict, spid);
-	MUX_UNLOCK(&mux_heapDict);
+	MUX_LOCK(&mux_dict_heap);
+	heaps = dictionary_get(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
 
 	hp = list_get(heaps, list_size(heaps)-1);
 	if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL)
@@ -178,9 +177,9 @@ t_puntero reservarEnHeap(int pid, int size){
 	t_list *heaps_pid;
 	tHeapProc *hp;
 
-	MUX_LOCK(&mux_heapDict);
-	heaps_pid = dictionary_get(heapDict, spid);
-	MUX_UNLOCK(&mux_heapDict);
+	MUX_LOCK(&mux_dict_heap);
+	heaps_pid = dictionary_get(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
 
 	for (i = 0; i < list_size(heaps_pid); ++i){
 		hp = list_get(heaps_pid, i);
@@ -368,7 +367,7 @@ int liberar(int pid, t_puntero ptr){
 bool paginaPerteneceAPID(char *spid, int pag, tHeapProc **hp){
 
 	int i;
-	t_list *heaps = dictionary_get(heapDict, spid);
+	t_list *heaps = dictionary_get(dict_heap, spid);
 
 	for (i = 0; i < list_size(heaps); ++i){
 		*hp = list_get(heaps, i);
@@ -454,12 +453,12 @@ void agregarHeapAPID(int pid, int pag){
 
 	if (!tieneHeap(pid)){
 		t_list *heaps = list_create();
-		MUX_LOCK(&mux_heapDict);
-		dictionary_put(heapDict, spid, heaps);
-		MUX_UNLOCK(&mux_heapDict);
+		MUX_LOCK(&mux_dict_heap);
+		dictionary_put(dict_heap, spid, heaps);
+		MUX_UNLOCK(&mux_dict_heap);
 	}
 
-	t_list *heaps = dictionary_get(heapDict, spid);
+	t_list *heaps = dictionary_get(dict_heap, spid);
 	list_add(heaps, hp);
 }
 
@@ -471,9 +470,9 @@ void liberarHeapEnKernel(int pid){
 	if (!tieneHeap(pid))
 		return;
 
-	MUX_LOCK(&mux_heapDict);
-	t_list *heaps = dictionary_remove(heapDict, spid);
-	MUX_UNLOCK(&mux_heapDict);
+	MUX_LOCK(&mux_dict_heap);
+	t_list *heaps = dictionary_remove(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
 
 	while (list_size(heaps))
 		free(list_remove(heaps, 0));
@@ -483,9 +482,9 @@ bool tieneHeap(int pid){
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 
-	MUX_LOCK(&mux_heapDict);
-	bool rta = dictionary_has_key(heapDict, spid);
-	MUX_UNLOCK(&mux_heapDict);
+	MUX_LOCK(&mux_dict_heap);
+	bool rta = dictionary_has_key(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
 
 	return rta;
 }
