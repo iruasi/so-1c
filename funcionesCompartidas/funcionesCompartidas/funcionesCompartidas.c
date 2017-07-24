@@ -17,6 +17,28 @@
 
 #define BACKLOG 20
 
+char *eliminarWhitespace(char *string){
+
+	int i;
+	char *var = NULL;
+	int var_len = strlen(string);
+
+	for (i = 0; i < var_len; ++i){
+		if (CHAR_WHITESPACE(string[i])){
+			var = malloc(i + 1);
+			memcpy(var, string, i);
+			var[i] = '\0';
+			return var;
+		}
+	}
+
+	var = malloc(var_len + 1);
+	memcpy(var, string, var_len);
+	var[var_len] = '\0';
+	return var;
+}
+
+
 bool assertEq(int expected, int actual, const char* errmsg){
 	if (expected != actual){
 		fprintf(stderr, "%s\n", errmsg);
@@ -24,6 +46,27 @@ bool assertEq(int expected, int actual, const char* errmsg){
 		return false;
 	}
 	return true;
+}
+
+int validarRespuesta(int sock, tPackHeader h_esp, tPackHeader *h_obt){
+
+	if ((recv(sock, h_obt, HEAD_SIZE, 0)) == -1){
+		perror("Fallo recv de Header. error");
+		return FALLO_RECV;
+	}
+
+	if (h_esp.tipo_de_proceso != h_obt->tipo_de_proceso){
+		printf("Fallo de comunicacion. Se espera un mensaje de %d, se recibio de %d\n",
+				h_esp.tipo_de_proceso, h_obt->tipo_de_proceso);
+		return FALLO_GRAL;
+	}
+
+	if (h_esp.tipo_de_mensaje != h_obt->tipo_de_mensaje){
+		printf("Fallo ejecucion de funcion con valor %d\n", h_obt->tipo_de_mensaje);
+		return FALLO_GRAL;
+	}
+
+	return 0;
 }
 
 void freeAndNULL(void **ptr){
@@ -185,4 +228,52 @@ indiceStack *crearStackVacio(void){
 	stack->retVar.size   = -1;
 
 	return stack;
+}
+
+void liberarPCB(tPCB *pcb){
+
+	free(pcb->indiceDeCodigo);
+	if (pcb->indiceDeEtiquetas) // if hay etiquetas de algun tipo
+		free(pcb->indiceDeEtiquetas);
+	liberarStack(pcb->indiceDeStack);
+	freeAndNULL((void **) &pcb);
+}
+
+void liberarStack(t_list *stack_ind){
+
+	int i, j;
+	indiceStack *stack;
+
+	for (i = 0; i < list_size(stack_ind); ++i){
+		stack = list_remove(stack_ind, i);
+
+		for (j = 0; j < list_size(stack->args); ++j)
+			list_remove(stack->args, j);
+		list_destroy(stack->args);
+
+		for (j = 0; j < list_size(stack->vars); ++j)
+			list_remove(stack->vars, j);
+		list_destroy(stack->vars);
+	}
+	list_destroy(stack_ind);
+}
+
+
+int sendall(int sock, char *buff, int *len){
+
+	int total = 0;
+	int left  = *len;
+	int stat;
+
+	while (total < *len){
+		if ((stat = send(sock, buff, left, 0)) == -1){
+			perror("No se pudo sendall'ear el paquete. error");
+			break;
+		}
+		total += stat;
+		left  -= stat;
+	}
+
+	*len = total;
+	return (stat == -1)? FALLO_SEND : 0;
 }

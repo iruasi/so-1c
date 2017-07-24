@@ -5,38 +5,24 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <commons/collections/queue.h>
 
-
-typedef struct{
-	int fd_cpu,pid;
-}t_cpu;
-
-typedef struct{
-	int fd_con,pid;
-}t_consola;
-
-
+#include "capaMemoria.h"
+#include "defsKernel.h"
 
 typedef struct {
-	t_cpu     cpu;
-	t_consola *con;
-	tMensaje msj;
-} t_RelCC; // Relacion Consola <---> CPU
+	int pid,
+		cant_syscalls;
+	infoHeap *ih;
+} t_infoProcess;
 
-typedef struct {
-	t_RelCC *prog;
-	tPackSrcCode *src;
-} t_RelPF; // Relacion Programa <---> Codigo Fuente
-
-typedef struct {
-	int pid,ecode;
-}t_finConsola;
-
-
+int *formarPtrPIDs(int *len);
 
 void liberarCC(t_RelCC *cc);
 
+int getConPosByFD(int fd, t_list *list);
+
 int getCPUPosByFD(int fd, t_list *list);
 
+int getInfoProcPosByPID(t_list *infoProc, int pid);
 
 /* Crea un t_RelPF* y lo guarda en la lista global de Programas,
  * asi quedan asociados el socket de un Programa y su source code.
@@ -48,7 +34,15 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src);
  */
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size);
 
-void setupVariablesGlobales(void);
+void setupGlobales_auxiliares(void);
+
+void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir);
+void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid);
+
+tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid);
+
+tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid);
+
 
 /* Crea un PCB que aun no tiene la info importante
  * que se obtiene a partir del meta y codigo fuente.
@@ -60,57 +54,13 @@ tPCB *crearPCBInicial(void);
  */
 tPCB *nuevoPCB(tPackSrcCode *src_code, int cant_pags, t_RelCC *prog);
 
-/* Es un recv() constante al socket del hilo CPU.
- * Gestiona los mensaje recibidos del hilo.
- * Tiene que redireccionar a Planificador lo que corresponda.
- * El resto son en su mayoria Syscalls.
- */
-void cpu_manejador(void *cpuInfo);
-
-void mem_manejador(void *m_sock);
-
-/* Es un recv() constante al socket del hilo Programa.
- * Gestiona los mensaje recibidos del hilo.
- */
-void cons_manejador(void *conInfo);
-
 int setGlobal(tPackValComp *val_comp);
 t_valor_variable getGlobal(t_nombre_variable *var, bool *found);
 
-void consolaKernel(void);
+void* queue_get(t_queue *self, int posicion);
 
-void mostrarColaDe (char* cola);
+void desconexionCpu(t_RelCC *cpu_i);
 
-void mostrarInfoDe(int pidElegido);
-
-void cambiarGradoMultiprogramacion(int nuevoGrado);
-
-void finalizarProceso(int pidAFinalizar);
-
-void stopKernel();
-
-void mostrarTablaGlobal();
-
-void mostrarColaNew();
-
-void mostrarColaReady();
-
-void mostrarColaExec();
-
-void mostrarColaExit();
-
-void mostrarColaBlock();
-
-void mostrarCantRafagasEjecutadasDe(tPCB *pcb);
-
-void mostrarCantPrivilegiadasDe(tPCB *pcb);
-
-void mostrarTablaDeArchivosDe(tPCB *pcb);
-
-void mostrarCantHeapUtilizadasDe(tPCB *pcb);
-
-void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
-
-void* queue_get(t_queue *self,int posicion);
+bool estaEnExit(int pid);
 
 #endif // AUXILIARESKERNEL_H_

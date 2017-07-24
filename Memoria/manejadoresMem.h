@@ -12,6 +12,11 @@ extern char *MEM_FIS;
 #define SIZEOF_HMD 5
 #endif
 
+typedef struct{
+	int pid;
+	int stack_lim;
+} t_procCtl;
+
 /* Libera todas las estructuras del proceso Memoria,
  * desde la Memoria Fisica hasta los componentes de la Cache
  */
@@ -54,5 +59,10 @@ void dumpMemStructs(void);
  * o de todos los procesos en Memoria Fisica
  */
 void dumpMemContent(int pid);
+
+int *obtenerPIDsKernel(int *len);
+
+/* obtenida de codigo publicado en git */
+void DumpHex(const void* data, size_t size);
 
 #endif

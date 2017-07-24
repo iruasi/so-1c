@@ -16,6 +16,8 @@
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
+#include <commons/log.h>
+
 #include "apiMemoria.h"
 #include "auxiliaresMemoria.h"
 #include "manejadoresMem.h"
@@ -36,7 +38,30 @@ char *CACHE;                // memoria CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 int  *CACHE_accs;           // vector de accesos hechos a CACHE
 
+int sock_kernel;
+t_log*logger;
 pthread_mutex_t mux_mem_access;
+
+struct infoKer{
+	int *sock_ker;
+	bool kernExists;
+};
+void crearLogger() {
+   char *pathLogger = string_new();
+
+   char cwd[1024];
+
+   string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
+
+   string_append(&pathLogger, "/logs/Memory_LOG.log");
+
+   char *logMemoria = strdup("Memory_LOG.log");
+
+   logger = log_create(pathLogger, logMemoria, false, LOG_LEVEL_TRACE);
+
+   free(pathLogger);
+   free(logMemoria);
+}
 
 int main(int argc, char* argv[]){
 
@@ -48,20 +73,17 @@ int main(int argc, char* argv[]){
 	int stat;
 
 	pthread_mutex_init(&mux_mem_access, NULL);
-
+	crearLogger();
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
-
-
-
-
 
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
 	pthread_t kern_thread;
 	pthread_t consMemoria_thread;
-	bool kernExists = false;
+	struct infoKer infoKer;
+	infoKer.kernExists = false;
 	int sock_entrada , client_sock , clientSize;
 
 	struct sockaddr_in client;
@@ -72,8 +94,6 @@ int main(int argc, char* argv[]){
 		perror("No pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
-
-
 
 	if ((sock_entrada = makeListenSock(memoria->puerto_entrada)) < 0){
 		fprintf(stderr, "No se pudo crear un socket de listen. fallo: %d", sock_entrada);
@@ -100,23 +120,24 @@ int main(int argc, char* argv[]){
 
 		case KER:
 
-			if (!kernExists){
-				int *sock_ker = malloc(sizeof(int));
-				*sock_ker     = client_sock;
-				kernExists    = true;
+			if (!infoKer.kernExists){
+				infoKer.sock_ker   = malloc(sizeof(int));
+				*infoKer.sock_ker  = client_sock;
+				infoKer.kernExists = true;
 
-				if ((stat = contestarMemoriaKernel(memoria->marco_size, memoria->marcos, *sock_ker)) == -1){
+				head.tipo_de_proceso = MEM; head.tipo_de_mensaje = MEMINFO;
+				if ((stat = contestar2ProcAProc(head, memoria->marcos, memoria->marco_size, *infoKer.sock_ker)) == -1){
 					puts("No se pudo enviar la informacion relevante a Kernel!");
 					return FALLO_GRAL;
 				}
 
-				if( pthread_create(&kern_thread, NULL, (void*) kernel_handler, (void*) sock_ker) < 0){
+				if(pthread_create(&kern_thread, NULL, (void*) kernel_handler, (void*) &infoKer) < 0){
 					perror("No pudo crear hilo. error");
 					return FALLO_GRAL;
 				}
 
 			} else
-				fprintf(stderr, "Se trato de conectar otro Kernel. Ignoramos el paquete...\n");
+				puts("Se trato de conectar otro Kernel. Ignoramos el paquete...");
 
 			break;
 
@@ -157,17 +178,18 @@ int main(int argc, char* argv[]){
 
 /* dado el socket de Kernel, maneja las acciones que de este reciba
  */
-void* kernel_handler(void *sock_kernel){
+void* kernel_handler(void *infoKer){
 
-	int *sock_ker = (int *) sock_kernel;
+	struct infoKer *ik = (struct infoKer *) infoKer;
+	sock_kernel = *ik->sock_ker;
 	int stat, new_page, pack_size;
-	int pid;
 	char *buffer;
 
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = THREAD_INIT};
 	tPackPidPag *pp;
+	tPackPID *ppid;
 
-	printf("Esperamos que lleguen cosas del socket Kernel: %d\n", *sock_ker);
+	printf("(KERNEL_THR) Esperamos cosas del socket Kernel: %d\n", *ik->sock_ker);
 
 	do {
 
@@ -175,7 +197,7 @@ void* kernel_handler(void *sock_kernel){
 		case INI_PROG:
 			puts("Kernel quiere inicializar un programa.");
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL)
+			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;
 
 			if ((pp = deserializePIDPaginas(buffer)) == NULL)
@@ -197,13 +219,13 @@ void* kernel_handler(void *sock_kernel){
 			puts("Kernel quiere Solicitar Bytes");
 
 			pthread_mutex_lock(&mux_mem_access);
-			stat = manejarSolicitudBytes(*sock_ker);
+			stat = manejarSolicitudBytes(*ik->sock_ker);
 			pthread_mutex_unlock(&mux_mem_access);
 
 			if (stat != 0){
 				printf("Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 				head.tipo_de_proceso = MEM; head.tipo_de_mensaje = stat;
-				informarFallo(*sock_ker, head);
+				informarResultado(*ik->sock_ker, head);
 
 			} else
 				puts("Se completo Solicitud de Bytes");
@@ -214,7 +236,7 @@ void* kernel_handler(void *sock_kernel){
 			puts("Kernel quiere almacenar bytes");
 
 			pthread_mutex_lock(&mux_mem_access);
-			stat = manejarAlmacenamientoBytes(*sock_ker);
+			stat = manejarAlmacenamientoBytes(*ik->sock_ker);
 			pthread_mutex_unlock(&mux_mem_access);
 
 			if (stat != 0)
@@ -226,7 +248,7 @@ void* kernel_handler(void *sock_kernel){
 		case ASIGN_PAG:
 			puts("Kernel quiere asignar paginas!");
 
-			if ((buffer = recvGeneric(*sock_ker)) == NULL)
+			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;
 
 			if ((pp = deserializePIDPaginas(buffer)) == NULL)
@@ -243,10 +265,11 @@ void* kernel_handler(void *sock_kernel){
 			pack_size = 0;
 			buffer = serializePIDPaginas(pp, &pack_size);
 
-			if ((stat = send(*sock_ker, buffer, pack_size, 0)) == -1){
+			if ((stat = send(*ik->sock_ker, buffer, pack_size, 0)) == -1){
 				perror("Fallo send de pagina asignada a Kernel. error");
 				break;
 			}
+			printf("Se enviaron %d bytes del paquete PIDPaginas a Kernel\n", stat);
 
 			freeAndNULL((void **) &pp);
 			freeAndNULL((void **) &buffer);
@@ -255,29 +278,29 @@ void* kernel_handler(void *sock_kernel){
 
 		case FIN_PROG:
 
-			recv(*sock_ker, &pid, sizeof pid, 0);
-			// TODO: desalojarDatosPrograma(pid)
+			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
+				break;
 
-			break;
+			if ((ppid = deserializeVal(buffer)) == NULL)
+				break;
 
-		case FIN:
-			// se quiere desconectar el Kernel de forma normal. Vamos a apagarnos aca...
-			// TODO: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
+			finalizarPrograma(ppid->val);
 			break;
 
 		default:
 			break;
 		}
-	} while((stat = recv(*sock_ker, &head, HEAD_SIZE, 0)) > 0);
+	} while((stat = recv(*ik->sock_ker, &head, HEAD_SIZE, 0)) > 0);
 
 	if (stat == -1){
 		perror("Se perdio conexion con Kernel. error");
 		return NULL;
 	}
 
-	//se desconecto Kernel de forma normal. Vamos a apagarnos aca...
-	//todo: limpiarProcesamientosDeThreadsYTodasLasCosasAllocatedDeMemoria(void *cualquierCosa);
-
+	puts("Kernel cerro la conexion.");
+	ik->kernExists = false;
+	close(*ik->sock_ker);
+	freeAndNULL((void **) &ik->sock_ker);
 	return NULL;
 }
 
@@ -301,7 +324,7 @@ void* cpu_handler(void *socket_cpu){
 			pthread_mutex_lock(&mux_mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0)
-				fprintf(stderr, "Fallo el manejo de la Solicitud de Byes. status: %d\n", stat);
+				fprintf(stderr, "Fallo el manejo de la Solicitud de Bytes. status: %d\n", stat);
 
 			pthread_mutex_unlock(&mux_mem_access);
 			puts("Se completo Solicitud de Bytes");
@@ -354,43 +377,38 @@ void consolaMemoria(void){
 
 
 	int finalizar = 0;
-	while(finalizar !=1){
-			printf("Seleccione opcion: \n");
-			char *opcion=malloc(MAXOPCION);
-			fgets(opcion,MAXOPCION,stdin);
-			opcion[strlen(opcion) - 1] = '\0';
-			if (strncmp(opcion,"retardo",7)==0){
-				puts("Opcion retardo");
-				char *msChar = opcion+8;
-				int ms = atoi(msChar);
-				printf("Ms a retardar %d\n",ms);
-				retardo(ms);
+	while(finalizar != 1){
+		printf("Seleccione opcion: \n");
+		char opcion[MAXOPCION];
+		fgets(opcion, MAXOPCION, stdin);
+		opcion[strlen(opcion) - 1] = '\0';
 
-			}
-			if (strncmp(opcion,"dump",4)==0){
-				puts("Opcion dump");
-				//todo: dump recibe parmetros??
-				//dump();
+		if (strncmp(opcion, "retardo", 7) == 0){
+			puts("Opcion retardo");
+			char *msChar = opcion + 8;
+			int ms = atoi(msChar);
+			retardo(ms);
 
-			}
-			if (strncmp(opcion,"flush",5)==0){
-				puts("Opcion flush");
-				flush();
-			}
-			if (strncmp(opcion,"sizeMemoria",11)==0){
-				puts("Opcion sizeMemoria");
-					size(-1);
-			}
-			if (strncmp(opcion,"sizeProceso",11)==0){
-				puts("Opcion sizeProceso");
-				char *pidProceso = opcion+12;
-				int pid = atoi(pidProceso);
-				size(pid);
+		} else if (strncmp(opcion, "dump", 4) == 0){
+			puts("Opcion dump");
+			char *dpChar = opcion + 5;
+			int dp = atoi(dpChar);
+			dump(dp);
 
-			}
+		} else if (strncmp(opcion, "flush", 5) == 0){
+			puts("Opcion flush");
+			flush();
 
+		} else if (strncmp(opcion, "sizeMemoria", 11) == 0){
+			puts("Opcion sizeMemoria");
+			size(-1);
 
-
+		} else if (strncmp(opcion, "sizeProceso", 11) == 0){
+			puts("Opcion sizeProceso");
+			char *pidProceso = opcion+12;
+			int pid = atoi(pidProceso);
+			size(pid);
 		}
+	}
 }
 

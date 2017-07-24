@@ -7,9 +7,11 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <math.h>
+#include <signal.h>
 
 #include <commons/config.h>
 #include <commons/collections/list.h>
+#include <commons/log.h>
 
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -25,14 +27,19 @@
 
 void pedirInstruccion(int instr_size, int *solics);
 void recibirInstruccion(char **linea, int instr_size, int solics);
-
 int *ejecutarPrograma(void);
-void set_quantum_sleep(void);
-int conectarConServidores(tCPU *cpu_data);
 
-int pag_size;
+void set_quantum_sleep(void);
+void signal_handler(void);
+void sigusr1Handler(void);
+void sigintHandler(void);
+
+int conectarConServidores(tCPU *cpu_data);
+t_log * logger;
+int pag_size, stack_size;
 int q_sleep;
 float q_sleep_segs;
+bool ejecutando;
 
 void set_quantum_sleep(void){
 	q_sleep_segs = q_sleep / 1000.0;
@@ -40,24 +47,88 @@ void set_quantum_sleep(void){
 }
 
 
-int err_exec;         // esta variable global va a retener el codigo de error con el que se rompio una primitiva
-sem_t sem_fallo_exec; // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
+int err_exec;            // esta variable global va a retener el codigo de error con el que se rompio una primitiva
+sem_t sem_fallo_exec;    // este semaforo activa el err_handler para que maneje la correcta comunicacion del error
+pthread_mutex_t mux_pcb,mux_ejecutando; // sincroniza sobre el PCB global, para enviar un PCB roto antes de obtener uno nuevo
 
+void crearLogger() {
+   char *pathLogger = string_new();
+
+   char cwd[1024];
+
+   string_append(&pathLogger,getcwd(cwd,sizeof(cwd)));
+
+   string_append(&pathLogger, "/logs/CPU_LOG.log");
+
+   char *logCPUFileName = strdup("CPU_LOG.log");
+
+   logger = log_create(pathLogger, logCPUFileName, false, LOG_LEVEL_INFO);
+
+   free(logCPUFileName);
+   logCPUFileName = NULL;
+}
 void err_handler(void){
-while(1){
-	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_PCB};
+	int pack_size, stat;
+	char *pcb_serial;
+	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ABORTO_PROCESO};
+
+	while(1){
+	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
+	pthread_mutex_lock(&mux_pcb);
 	pcb->exitCode = err_exec;
 	printf("Fallo ejecucion del PID %d con el error numero %d\n", pcb->id, pcb->exitCode);
 
+	if ((pcb_serial = serializePCB(pcb, head, &pack_size)) == NULL){
+		pthread_mutex_unlock(&mux_pcb); break;
+	}
 
-	puts("Creo el paquete de comunicacion de error para cpu_manejador del Kernel");
-	puts("Envio el paquete (podria ser un pcb limpio y ligero, solo nos importa el pid y el exit_code)");
-	puts("Podria limpiar el PCB y algunas variables globales que controlaban ejecucion?");
-	puts("El CPU vuelve a un estado consistente, listo para recibir un pcb nuevo");
+	printf("Tenemos que mandar %d bytes de PCB a Kernel\n", pack_size);
+	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1){
+		perror("Fallo envio de PCB a Kernel. error");
+		pthread_mutex_unlock(&mux_pcb); break;
+	}
+	printf("Se enviaron %d bytes a Kernel\n", stat);
+	puts("Se envio el PCB abortado a Kernel");
 
+	freeAndNULL((void **) &pcb_serial);
+	liberarPCB(pcb);
+	pthread_mutex_unlock(&mux_pcb);
+
+	puts(" *** El CPU vuelve a un estado consistente y listo para recibir un pcb nuevo ***\n");
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
+
+
+
+void signal_handler(void){
+
+
+	signal(SIGUSR1, sigusr1Handler);
+	signal(SIGINT, sigintHandler);
+}
+
+void sigusr1Handler(void){
+
+	puts("Señal SIGUSR1 detectada");
+	if(ejecutando){
+		puts("Esperamos a que termine al rafaga para desconectar esta cpu");
+	}
+	else{
+		puts("No hay rafaga ejecutando, procedemos a desconectar esta cpu");
+//		close(sock_kern);
+//		close(sock_mem);
+//		free(head);
+//		liberarConfiguracionCPU(cpu_data);
+//		exit(1);
+	}
+}
+
+void sigintHandler(void){
+
+	puts("Señal SIGINT detectada");
+
+}
+
 
 int main(int argc, char* argv[]){
 
@@ -68,16 +139,22 @@ int main(int argc, char* argv[]){
 
 	int stat;
 	int *retval;
-
+	ejecutando = false;
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
-
+	crearLogger();
 	setupCPUFunciones();
 	setupCPUFuncionesKernel();
 
+	sem_init(&sem_fallo_exec,  0, 0);
+	pthread_mutex_init(&mux_pcb, NULL);
 	pthread_t pcb_th;
 	pthread_t errores_th;
+	pthread_t signalH_th;
 	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
+
+	pthread_create(&signalH_th, NULL, (void *) signal_handler, NULL);
+
 
 	if ((stat = conectarConServidores(cpu_data)) != 0){
 		puts("No se pudo conectar con ambos servidores");
@@ -103,7 +180,9 @@ int main(int argc, char* argv[]){
 				return FALLO_RECV;
 			}
 
+			pthread_mutex_lock(&mux_pcb);
 			pcb = deserializarPCB(pcb_serial);
+			pthread_mutex_unlock(&mux_pcb);
 
 			puts("Recibimos un PCB para ejecutar...");
 			pthread_create(&pcb_th, NULL, (void *) ejecutarPrograma, NULL);
@@ -119,46 +198,53 @@ int main(int argc, char* argv[]){
 
 	if (stat == -1){
 		perror("Error en la recepcion con Kernel. error");
-		return FALLO_RECV;
+		puts("Se limpia el proceso y se cierra..");
+		close(sock_kern);
+		close(sock_mem);
+		free(head);
+		liberarConfiguracionCPU(cpu_data);
+		return FALLO_GRAL;
 	}
 
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);
 	close(sock_mem);
-	free(pcb);
+	free(head);
 	liberarConfiguracionCPU(cpu_data);
 	return 0;
 }
 
 
-int *ejecutarPrograma(void){
-	sleep(2); // todo: esto esta por race condition vs Kernel para escribir/leer a Memoria las instrucciones
+int *ejecutarPrograma(void){sleep(1);
 
 	tPackHeader header;
 	int *retval = malloc(sizeof(int));
 	int stat, solics = 0;
 	t_size instr_size;
-	char **linea = malloc(0);
-	*linea = NULL;
-	bool fin_quantum = false;
-	termino = false;
+	char *linea = NULL;
+	fin_quantum = false;
+	termino = bloqueado = false;
 	int cantidadDeRafagas = 0;
 
+
 	puts("Empieza a ejecutar...");
+	ejecutando=true;
 	do{
 		instr_size = (pcb->indiceDeCodigo + pcb->pc)->offset;
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
 		pedirInstruccion(instr_size, &solics);
 
-		recibirInstruccion(linea, instr_size, solics);
+		recibirInstruccion(&linea, instr_size, solics);
 
-		printf("La linea %d es: %s\n", (pcb->pc+1), *linea);
+		printf("La linea %d es: %s\n", (pcb->pc+1), linea);
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
-		analizadorLinea(*linea, &functions, &kernel_functions);
+		analizadorLinea(linea, &functions, &kernel_functions);
 
 		cantidadDeRafagas++;
 		pcb->pc++;
+
+		pcb->rafagasEjecutadas++;
 
 		if(cantidadDeRafagas == pcb->proxima_rafaga){
 			fin_quantum = true;
@@ -166,19 +252,20 @@ int *ejecutarPrograma(void){
 		}
 		sleep(q_sleep_segs);
 
-	} while(!termino);
-	termino = false;
-
+	} while(!termino && !bloqueado);
 
 	if (pcb->pc == pcb->cantidad_instrucciones){
 		puts("Termino de ejecutar...");
 		header.tipo_de_mensaje = FIN_PROCESO;
 		*retval = pcb->exitCode = 0; // exit_success
 
-	} else if(fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
+	} else if (bloqueado){
+		puts("El PCB se bloquea...");
+		*retval = header.tipo_de_mensaje = PCB_BLOCK;
+
+	} else if (fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
 		puts("Fin de quantum...");
-		header.tipo_de_mensaje = PCB_PREEMPT;
-		*retval = PCB_PREEMPT;
+		*retval = header.tipo_de_mensaje = PCB_PREEMPT;
 	}
 
 	else{
@@ -188,15 +275,19 @@ int *ejecutarPrograma(void){
 	header.tipo_de_proceso = CPU;
 
 	int pack_size = 0;
-	char * pcb_serial = serializePCB(pcb, header, &pack_size); // todo: Necesitamos retornar el PCB completo siempre?
+	char *pcb_serial = serializePCB(pcb, header, &pack_size);
 	printf("Se serializo bien el pcb con tamanio: %d\n", pack_size);
 	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1)
 		perror("Fallo envio de PCB a Kernel. error");
 
 	printf("Se enviaron %d bytes a kernel \n", stat);
-
+	pthread_mutex_lock(&mux_ejecutando);
+	ejecutando = false;
+	pthread_mutex_unlock(&mux_ejecutando);
 	free(linea);
+
 	free(pcb_serial);
+	liberarPCB(pcb);
 	return retval;
 }
 
@@ -262,7 +353,7 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 
 	//rompe el RR aca
 
-	if ((*linea = realloc(*linea, instr_size)) == NULL){
+	if ((*linea = realloc(*linea, instr_size + 1)) == NULL){
 		printf("No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		err_exec = FALLO_GRAL;
 		sem_post(&sem_fallo_exec);
@@ -347,14 +438,13 @@ int conectarConServidores(tCPU *cpu_data){
 	printf("Se enviaron: %d bytes a KERNEL\n", stat);
 
 	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = KERINFO;
-	if ((stat = recibirInfoProcSimple(sock_kern, h_esp, &q_sleep)) != 0){
-		puts("No se pudo recibir el quantum sleep de Kernel!");
+	if ((stat = recibirInfo2ProcAProc(sock_kern, h_esp, &q_sleep, &stack_size)) != 0){
+		puts("No se pudo recibir el quantum sleep y stack size de Kernel!");
 		return ABORTO_CPU;
 	}
+	printf("Se trabaja con quant_sleep %d y stack_size %d\n", q_sleep, stack_size);
 	set_quantum_sleep();
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
 	return 0;
 }
-
-

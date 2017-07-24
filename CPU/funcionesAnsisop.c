@@ -4,6 +4,7 @@
 #include <semaphore.h>
 
 #include <commons/string.h>
+#include <commons/log.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -12,10 +13,9 @@
 
 #include "funcionesAnsisop.h"
 
-extern bool termino;
 extern AnSISOP_funciones functions;
-extern int pag_size;
-char *eliminarWhitespace(char *string);
+extern int pag_size, stack_size;
+extern t_log*logger;
 
 extern int err_exec;
 extern sem_t sem_fallo_exec;
@@ -36,7 +36,7 @@ void setupCPUFunciones(void){
 
 void setupCPUFuncionesKernel(void){
 	kernel_functions.AnSISOP_wait 					= wait;
-	kernel_functions.AnSISOP_signal					= signal;
+	kernel_functions.AnSISOP_signal					= signal_so;
 	kernel_functions.AnSISOP_abrir					= abrir;
 	kernel_functions.AnSISOP_borrar					= borrar;
 	kernel_functions.AnSISOP_cerrar					= cerrar;
@@ -125,6 +125,13 @@ t_puntero definirVariable(t_nombre_variable variable) {
 	var->pos.offset = (off + size) % pag_size;
 	var->pos.pag    = pag + (off + size) / pag_size;
 	var->pos.size   = sizeof (t_valor_variable);
+
+	if (stack_ptr / pag_size >= stack_size){ // nos pasamos del limite
+		printf("No se pudo definir la variable %c: Stack del proceso lleno\n", variable);
+		err_exec = MEM_OVERALLOC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
 
 	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
 	printf("Contexto: %d\n", pcb->contextoActual);
@@ -284,7 +291,7 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 
 	char *valor_serial;
 	int pack_size, stat;
-
+	tPackHeader h_obt;
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = SET_GLOBAL};
 	pack_size = 0;
 	if ((valor_serial = serializeValorYVariable(head, valor, variable, &pack_size)) == NULL){
@@ -296,6 +303,13 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 	if ((stat = send(sock_kern, valor_serial, pack_size, 0)) == -1){
 		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
 		err_exec = FALLO_SEND;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
+	head.tipo_de_proceso = KER; head.tipo_de_mensaje = SET_GLOBAL;
+	if (validarRespuesta(sock_kern, head, &h_obt) != 0){
+		err_exec = h_obt.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
@@ -319,42 +333,54 @@ void irAlLabel (t_nombre_etiqueta etiqueta){
 }
 
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
-	printf("Se llama a la funcion %s\n", etiqueta);
+	printf("Llamar sin retorno a %s\n", etiqueta);
 
-	indiceStack *nuevoStack = crearStackVacio();
-	list_add(pcb->indiceDeStack, nuevoStack);
-	pcb->contextoActual++;
-
-	irAlLabel(etiqueta);
+	puts("Esta funcion no se usa en este TP. Retornamos FALLO_INSTR!");
+	err_exec = FALLO_INSTR;
+	sem_post(&sem_fallo_exec);
+	pthread_exit(&err_exec);
 }
 
 void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
-	printf("Se llama a la funcion %s y se guarda el retorno\n", etiqueta);
+	printf("Se llama la funcion %s y se retornara en %d\n", etiqueta, donde_retornar);
+
+	int pag, off, size;
+
 	indiceStack *nuevoStack = crearStackVacio();
+	obtenerUltimoEnContexto(pcb->indiceDeStack, &pag, &off, &size);
+
+	nuevoStack->retVar.pag    = pag;
+	nuevoStack->retVar.offset = off;
+	nuevoStack->retVar.size   = size;
+	nuevoStack->retPos = donde_retornar;
+
 	list_add(pcb->indiceDeStack, nuevoStack);
 	pcb->contextoActual++;
+
 	irAlLabel(etiqueta);
 }
 
-void retornar (t_valor_variable retorno){
+void retornar (t_valor_variable retorno){ // todo: revisar correctitud
 	int contextoActual= pcb->contextoActual;
 	indiceStack* stackActual = list_get(pcb->indiceDeStack,contextoActual);
-	int i;
-	for(i=0 ; list_size(stackActual->args) ; i++){
-		posicionMemoria* argumento = list_get(stackActual->args, i);
-		free(argumento); // se liberan los argumentos
+
+	// Liberamos los argumentos y variables del stack
+	while(list_size(stackActual->args)){
+		posicionMemoria* arg = list_remove(stackActual->args, 0);
+		freeAndNULL((void **) &arg); // se liberan los argumentos
+	}
+	while(list_size(stackActual->vars)){
+		posicionMemoria* var = list_remove(stackActual->vars, 0);
+		freeAndNULL((void **) &var); // se liberan las variables
 	}
 
-	for(i=0 ; list_size(stackActual->vars) ; i++){
-		posicionMemoria* var = list_get(stackActual->vars, i);
-		free(var); // se liberan las variables
-	}
-	posicionMemoria retVar = stackActual->retVar;
-	t_puntero direcVariable = (retVar.pag) + retVar.offset; // TODO: la pag habria que dividirla por el tam de la pagina (Propuesta: obtener frame_size en el handshake con Memoria, como hace el Kernel)
-	asignar(direcVariable,retorno);
+ 	t_puntero retPtr = stackActual->retVar.pag * pag_size + stackActual->retVar.offset;
+	asignar(retPtr, retorno);
 	pcb->pc = stackActual->retPos;
+
 	free(stackActual);
-	list_remove(pcb->indiceDeStack,pcb->contextoActual);
+	list_remove(pcb->indiceDeStack, pcb->contextoActual);
+
 	pcb->contextoActual--;
 }
 
@@ -363,12 +389,13 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 
 	t_valor_variable valor;
 	tPackValComp *val_var;
-	int pack_size, stat, var_len;
+	int pack_size, var_len;
 	char *var_serial, *var;
 	var = eliminarWhitespace(variable);
 	var_len = strlen(var) + 1;
-
+	tPackHeader h_obt;
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = GET_GLOBAL};
+
 	pack_size = 0;
 	if ((var_serial = serializeBytes(head, var, var_len, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
@@ -376,26 +403,12 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 		pthread_exit(&err_exec);
 	}
 
-	if ((stat = send(sock_kern, var_serial, pack_size, 0)) == -1){
-		perror("No se pudo enviar el paquete de Valor y Variable a Kernel. error");
-		err_exec = FALLO_SEND;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
-	printf("Se enviaron %d bytes a Kernel\n", stat);
+	enviar(var_serial, pack_size);
 	freeAndNULL((void **) &var_serial);
 
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
-		perror("Fallo recepcion de header. error");
-		err_exec = FALLO_RECV;
-		sem_post(&sem_fallo_exec);
-		pthread_exit(&err_exec);
-	}
-
-	if (head.tipo_de_proceso != KER || head.tipo_de_mensaje != GET_GLOBAL){
-		printf("Error de comunicacion. Se recibio Header con: proc %d, msj %d\n",
-				head.tipo_de_proceso, head.tipo_de_mensaje);
-		err_exec = CONEX_INVAL;
+	head.tipo_de_proceso = KER; head.tipo_de_mensaje = GET_GLOBAL;
+	if (validarRespuesta(sock_kern, head, &h_obt) != 0){
+		err_exec = h_obt.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
@@ -423,12 +436,13 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 
 //FUNCIONES ANSISOP QUE LE PIDE AL KERNEL
 void wait (t_nombre_semaforo identificador_semaforo){
-	printf("Se pide al kernel un wait para el semaforo %s\n", identificador_semaforo);
+	char * sem = eliminarWhitespace(identificador_semaforo);
+	printf("Se pide al Kernel un wait para el semaforo %s\n", sem);
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_WAIT};
+	tPackHeader head   = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_WAIT};
+	tPackHeader h_esp  = {.tipo_de_proceso = KER};
 	int pack_size = 0;
 
-	char * sem = eliminarWhitespace(identificador_semaforo);
 	int lenId = strlen(sem) + 1;
 	char *wait_serial;
 	if ((wait_serial = serializeBytes(head, sem, lenId, &pack_size)) == NULL){
@@ -438,14 +452,27 @@ void wait (t_nombre_semaforo identificador_semaforo){
 	}
 
 	enviar(wait_serial, pack_size);
+
+	h_esp.tipo_de_mensaje = S_WAIT;
+	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+		if (head.tipo_de_mensaje != PCB_BLOCK){ // fallo el syscall
+			err_exec = head.tipo_de_mensaje;
+			sem_post(&sem_fallo_exec);
+			pthread_exit(&err_exec);
+
+		} else // Kernel pide desalojar el PCB para bloquearlo
+			bloqueado = true;
+	}
+
 	free(wait_serial);
 	free(sem);
 }
 
-void signal (t_nombre_semaforo identificador_semaforo){
+void signal_so (t_nombre_semaforo identificador_semaforo){
 	printf("Se pide al kernel un signal para el semaforo %s\n", identificador_semaforo);
 
-	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
+	tPackHeader head  = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = S_SIGNAL};
 	int pack_size = 0;
 
 	char * sem = eliminarWhitespace(identificador_semaforo);
@@ -458,6 +485,13 @@ void signal (t_nombre_semaforo identificador_semaforo){
 	}
 
 	enviar(sig_serial, pack_size);
+
+	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+		err_exec = head.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
 	free(sig_serial);
 	free(sem);
 }
@@ -465,6 +499,8 @@ void signal (t_nombre_semaforo identificador_semaforo){
 void liberar (t_puntero puntero){
 	printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
 
+	tPackHeader head;
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = LIBERAR};
 
 	tPackVal *pval;
 	int pack_size = 0;
@@ -480,9 +516,16 @@ void liberar (t_puntero puntero){
 	}
 
 	enviar(free_serial, pack_size);
+
+	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+		err_exec = head.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
 }
 
-/*tPackFS * deserializeFileDescriptor(char * aux_serial){
+tPackFS * deserializeFileDescriptor(char * aux_serial){
 	tPackFS * aux = malloc(sizeof *aux);
 
 	int off = 0;
@@ -493,7 +536,7 @@ void liberar (t_puntero puntero){
 	off += sizeof(int);
 
 	return aux;
-}*/ //Lo pase a funcionesPaquetes pero lo dejo comentado si tengo que debuggearlo en algun futuro no muy lejano
+} //Lo pase a funcionesPaquetes pero lo dejo comentado si tengo que debuggearlo en algun futuro no muy lejano
 
 
 
@@ -507,7 +550,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	int stat;
 	tPackHeader head;
 
-	tPackFS * fileSystem;
+	tPackBytes * bytes;
 	tPackAbrir * abrir = malloc(sizeof *abrir);
 
 	abrir->longitudDireccion = strlen(dir) + 1;
@@ -524,28 +567,30 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
 	enviar(abrir_serial, pack_size);
 
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
+	if ((stat = recv(sock_kern, &head, HEAD_SIZE, MSG_WAITALL)) < 0){
 		perror("Fallo recv de puntero alojado de Kernel. error");
 		err_exec = FALLO_RECV;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
+	printf("El head recibido es de %d y tiene el mensaje %d \n", head.tipo_de_proceso, head.tipo_de_mensaje);
+
 
 	if ((buffer = recvGeneric(sock_kern)) == NULL){
 		err_exec = FALLO_RECV;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
-
 	}
-
-	if ((fileSystem = deserializeFileDescriptor(buffer)) == NULL){
-			err_exec = FALLO_DESERIALIZAC;
-			sem_post(&sem_fallo_exec);
-			pthread_exit(&err_exec);
-		}
-
-
-	return fileSystem->fd;
+	t_descriptor_archivo fd;
+	if ((bytes = deserializeBytes(buffer)) == NULL){
+				err_exec = FALLO_DESERIALIZAC;
+				sem_post(&sem_fallo_exec);
+				pthread_exit(&err_exec);
+			}else{
+				pcb->cantSyscalls ++;
+			}
+	fd = *((int *) bytes->bytes);
+	return fd;
 }
 
 void borrar (t_descriptor_archivo direccion){
@@ -562,6 +607,16 @@ void borrar (t_descriptor_archivo direccion){
 	}
 
 	enviar(borrar_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=ARCHIVO_BORRADO};
+	tPackHeader header;
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 void cerrar (t_descriptor_archivo descriptor_archivo){
@@ -578,6 +633,17 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 	}
 
 	enviar(cerrar_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=ARCHIVO_CERRADO};
+	tPackHeader header;
+
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
@@ -593,6 +659,17 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 	}
 
 	enviar(mov_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=CURSOR_MOVIDO};
+	tPackHeader header;
+
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
@@ -608,6 +685,17 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 	}
 
 	enviar(esc_serial, pack_size);
+
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ARCHIVO_ESCRITO};
+	tPackHeader header;
+
+	if(validarRespuesta(sock_kern,h_esp,&header)){
+		err_exec = header.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}else{
+		pcb->cantSyscalls ++;
+	}
 }
 
 
@@ -632,10 +720,9 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_val
 t_puntero reservar (t_valor_variable espacio){ // todo: ya casi esta
 	printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);
 
-	int stat;
 	char *ptr_serial;
 	tPackVal *val;
-	tPackHeader head;
+	tPackHeader head, h_esp;
 
 	val = malloc(sizeof *val);
 	val->head.tipo_de_proceso = CPU; val->head.tipo_de_mensaje = RESERVAR;
@@ -651,9 +738,10 @@ t_puntero reservar (t_valor_variable espacio){ // todo: ya casi esta
 	freeAndNULL((void **) &val);
 
 	enviar(reserva_serial, pack_size);
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) == -1){
-		perror("Fallo recv de puntero alojado de Kernel. error");
-		err_exec = FALLO_RECV;
+
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = RESERVAR;
+	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+		err_exec = head.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
@@ -662,7 +750,6 @@ t_puntero reservar (t_valor_variable espacio){ // todo: ya casi esta
 		err_exec = FALLO_RECV;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
-
 	}
 
 	if ((val = deserializeVal(ptr_serial)) == NULL){
@@ -683,22 +770,4 @@ void enviar(char *op_kern_serial, int pack_size){
 		pthread_exit(&err_exec);
 	}
 	printf("Se enviaron %d bytes a Kernel\n", stat);
-}
-
-char *eliminarWhitespace(char *string){
-
-	int var_len;
-	char *var = NULL;
-
-	var_len = strlen(string);
-	if (string_ends_with(string, "\n") || string_ends_with(string, "\t")){
-		var = malloc(var_len);
-		memcpy(var, string, var_len);
-		var[var_len - 1] = '\0';
-		return var;
-	}
-	var = malloc(var_len + 1);
-	memcpy(var, string, var_len + 1);
-	var[var_len] = '\0';
-	return var;
 }

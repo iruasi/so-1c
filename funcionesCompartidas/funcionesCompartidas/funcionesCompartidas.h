@@ -8,10 +8,23 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposPaquetes.h>
 
+#define CHAR_WHITESPACE(C) ((C == '\n' || C == '\t' || C == '\r')? true : false)
+
+/* retorna un string identico hasta el primer caracter whitespace que encuentre,
+ * de momento los caracteres de whitespace son los de CHAR_WHITESPACE
+ */
+char *eliminarWhitespace(char *string);
+
 /* Verifica que dos valores enteros sean equivalentes. Si lo son, retorna true.
  * Si no coinciden, emite el mensaje `errmsg' en stderr junto con los valores obtenidos, y retorna false.
  */
 bool assertEq(int expected, int actual, const char* errmsg);
+
+/* Recibe un header y verifica que es del proceso correcto,
+ * Y mas importantemente, verifica que reciba la respuesta requerida.
+ * Retora 0 si no falla. h_obt se puede usar como una variable de salida.
+ */
+int validarRespuesta(int sock, tPackHeader h_esp, tPackHeader *h_obt);
 
 /* Medida de seguridad. No solo hace free(pointer) sino que reasigna el pointer a NULL,
  * de esta manera, si se usare accidentalmente a futuro, es mas seguro que no toque nada critico
@@ -67,5 +80,10 @@ void clearAndClose(int *fd, fd_set *setFD);
  * El resto de las variables las inicializa con -1.
  */
 indiceStack *crearStackVacio(void);
+
+void liberarPCB(tPCB *pcb);
+void liberarStack(t_list *stack_ind);
+
+int sendall(int sock, char *buff, int *len);
 
 #endif /* FUNCIONESCOMPARTIDAS_H_ */

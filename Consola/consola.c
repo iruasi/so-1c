@@ -18,7 +18,7 @@
 #include "consolaConfigurators.h"
 #include "apiConsola.h"
 
-#define MAXMSJ 100
+#define MAXMSJ 200
 
 
 
@@ -112,10 +112,10 @@ int main(int argc, char* argv[]){
 		if(strncmp(opcion,"desconectar",11)==0){
 			log_trace(logTrace,"desconectar consola");
 			Desconectar_Consola(cons_data);
-			finalizar = 1;
+			//finalizar = 1;
 
 			close(sock_kern);
-			liberarConfiguracionConsola(cons_data);
+			//liberarConfiguracionConsola(cons_data);
 		}
 		if(strncmp(opcion,"limpiar",7)==0){
 			log_trace(logTrace,"limpiar pantalla");
@@ -123,10 +123,6 @@ int main(int argc, char* argv[]){
 		}
 
 	}
-
-
-
-
 
 
 	log_trace(logTrace,"cerrando comunicacion y limpiando proceso");

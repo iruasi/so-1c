@@ -3,10 +3,11 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <semaphore.h>
+#include <pthread.h>
 
 #include <parser/parser.h>
 #include <commons/collections/dictionary.h>
-
+#include <commons/log.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesPaquetes/funcionesPaquetes.h>
@@ -14,26 +15,29 @@
 
 #include "capaMemoria.h"
 #include "defsKernel.h"
+#include "auxiliaresKernel.h"
 
-extern int MAX_ALLOC_SIZE;
+t_dictionary *dict_heap; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
+pthread_mutex_t mux_dict_heap, mux_list_infoP;
+extern t_list *list_infoProc; // contiene t_infoProcess;
+sem_t sem_heapDict, sem_bytes, sem_end_exec;
 
-t_dictionary *heapDict; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
-sem_t sem_heapDict;
-sem_t sem_bytes;
-sem_t sem_end_exec;
-
-//extern int frames;
+int MAX_ALLOC_SIZE;
 extern int frame_size;
 extern int sock_mem;
+extern t_log * logger;
 
-void setupHeapStructs(void){
+void setupGlobales_capaMemoria(void){
 
 	MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
-	heapDict = dictionary_create();
+	dict_heap      = dictionary_create();
 
 	sem_init(&sem_heapDict, 0, 0);
-	sem_init(&sem_bytes, 0, 0);
+	sem_init(&sem_bytes,    0, 0);
 	sem_init(&sem_end_exec, 0, 0);
+
+	pthread_mutex_init(&mux_list_infoP, NULL);
+	pthread_mutex_init(&mux_dict_heap,  NULL);
 }
 
 bool esReservable(int size_req, tHeapMeta *hmd){
@@ -46,35 +50,32 @@ bool esReservable(int size_req, tHeapMeta *hmd){
 
 void crearNuevoHMD(tHeapMeta *dir_mem, int size){
 
-	dir_mem->size = size;
+	dir_mem->size = size - SIZEOF_HMD;
 	dir_mem->isFree = true;
 }
 
 /* retorna posicion relativa la pagina de heap, NO ES ABSOLUTA
  */
 t_puntero reservarBytes(char* heap_page, int sizeReserva){
-	printf("Se tratan de reservar %d bytes en pagina de Heap\n", sizeReserva);
+	log_trace(logger, "Se tratan de reservar %d bytes en pagina de Heap\n", sizeReserva);
 
-	int sizeLibre = MAX_ALLOC_SIZE;
-	int dist      = MAX_ALLOC_SIZE + SIZEOF_HMD;
+	int dist = MAX_ALLOC_SIZE + SIZEOF_HMD;
 	tHeapMeta *hmd, *hmd_next;
 
 	hmd = (tHeapMeta *) heap_page;
-	while(sizeLibre >= sizeReserva){
+	while(dist >= sizeReserva){
 
 		if (esReservable(sizeReserva, hmd)){
 
 			hmd->size = sizeReserva;
 			hmd->isFree = false;
 
-			sizeLibre -= sizeReserva;
 			hmd_next = nextBlock(hmd, &dist);
 
-			crearNuevoHMD(hmd_next, sizeLibre);
+			crearNuevoHMD(hmd_next, dist);
 			return ((char *) hmd - heap_page) + SIZEOF_HMD; // posicion relativa
 		}
 
-		sizeLibre -= hmd->size;
 		hmd = nextBlock(hmd, &dist);
 	}
 
@@ -107,22 +108,24 @@ t_puntero reservar(int pid, int size){
 }
 
 t_puntero intentarReservaUnica(int pid, int size){
+	char *heap, spid[MAXPID_DIG];
+	sprintf(spid, "%d", pid);
 
 	t_puntero  ptr;
 	int stat;
 	t_list    *heaps;
 	tHeapProc *hp;
-	char      *heap, spid[MAXPID_DIG];
 
 	if ((stat = crearNuevoHeap(pid)) != 0){
 		puts("No se pudo crear pagina de heap!");
 		return 0;
 	}
 
-	sprintf(spid, "%d", pid);
-	heaps    = dictionary_get(heapDict, spid);
-	hp = list_get(heaps, list_size(heaps)-1);
+	MUX_LOCK(&mux_dict_heap);
+	heaps = dictionary_get(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
 
+	hp = list_get(heaps, list_size(heaps)-1);
 	if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL)
 		return 0;
 
@@ -174,7 +177,10 @@ t_puntero reservarEnHeap(int pid, int size){
 	t_list *heaps_pid;
 	tHeapProc *hp;
 
-	heaps_pid = dictionary_get(heapDict, spid);
+	MUX_LOCK(&mux_dict_heap);
+	heaps_pid = dictionary_get(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
+
 	for (i = 0; i < list_size(heaps_pid); ++i){
 		hp = list_get(heaps_pid, i);
 
@@ -320,13 +326,13 @@ int crearNuevoHeap(int pid){
 
 	agregarHeapAPID(heap_pp->pid, heap_pp->pageCount);
 
-
 	free(heap_pp);
 	free(buffer);
 	return 0;
 }
 
 int liberar(int pid, t_puntero ptr){
+	printf("Se liberara el puntero %d para el PID %d\n", ptr, pid);
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 
@@ -361,7 +367,7 @@ int liberar(int pid, t_puntero ptr){
 bool paginaPerteneceAPID(char *spid, int pag, tHeapProc **hp){
 
 	int i;
-	t_list *heaps = dictionary_get(heapDict, spid);
+	t_list *heaps = dictionary_get(dict_heap, spid);
 
 	for (i = 0; i < list_size(heaps); ++i){
 		*hp = list_get(heaps, i);
@@ -375,7 +381,7 @@ bool punteroApuntaABloqueValido(char *heap, t_puntero ptr){
 
 	tHeapMeta *hmd;
 	// off apuntaria 5 bytes despues del comienzo del HMD, corregimos eso...
-	int off = ptr % frame_size - 5;
+	int off = ptr % frame_size - SIZEOF_HMD;
 
 	if (!punteroApuntaABloque(heap, ptr))
 		return false;
@@ -430,12 +436,11 @@ void consolidar(char *heap){
 
 		} else{ // son contiguos, cosolidamos y `limpiamos' hmd_n
 			printf("Encontro bloques consolidables size %d y %d, size final: %d\n",
-					hmd->size, hmd_n->size, hmd->size + hmd_n->size);
-			hmd->size += hmd_n->size;
+					hmd->size, hmd_n->size, hmd->size + hmd_n->size + SIZEOF_HMD);
+			hmd->size += hmd_n->size + SIZEOF_HMD;
 			hmd_n = nextFreeBlock(hmd_n, &dist_n);
 		}
 	}
-	hmd_n->size = 0; hmd_n->isFree = 0;
 }
 
 void agregarHeapAPID(int pid, int pag){
@@ -448,16 +453,38 @@ void agregarHeapAPID(int pid, int pag){
 
 	if (!tieneHeap(pid)){
 		t_list *heaps = list_create();
-		dictionary_put(heapDict, spid, heaps);
+		MUX_LOCK(&mux_dict_heap);
+		dictionary_put(dict_heap, spid, heaps);
+		MUX_UNLOCK(&mux_dict_heap);
 	}
 
-	t_list *heaps = dictionary_get(heapDict, spid);
+	t_list *heaps = dictionary_get(dict_heap, spid);
 	list_add(heaps, hp);
 }
 
-bool tieneHeap(int pid){
-
+void liberarHeapEnKernel(int pid){
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
-	return dictionary_has_key(heapDict, spid);
+	printf("Eliminamos los registros de Heap del PID %s\n", spid);
+
+	if (!tieneHeap(pid))
+		return;
+
+	MUX_LOCK(&mux_dict_heap);
+	t_list *heaps = dictionary_remove(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
+
+	while (list_size(heaps))
+		free(list_remove(heaps, 0));
+}
+
+bool tieneHeap(int pid){
+	char spid[MAXPID_DIG];
+	sprintf(spid, "%d", pid);
+
+	MUX_LOCK(&mux_dict_heap);
+	bool rta = dictionary_has_key(dict_heap, spid);
+	MUX_UNLOCK(&mux_dict_heap);
+
+	return rta;
 }

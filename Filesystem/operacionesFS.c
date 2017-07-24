@@ -182,7 +182,7 @@ int validarArchivo(char* path){
 
 void setupFuseOperations(void){
 	oper.getattr = getattr;
-	oper.readdir = readdir;
+//	oper.readdir = readdir;
 	oper.open = open2;
 	oper.read = read2;
 	oper.write = write2;

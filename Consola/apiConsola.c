@@ -49,29 +49,6 @@ void eliminarSemaforos(void){
 	//sem_destroy(&semLista);
 }
 
-void differenceBetweenTimePeriod(tHora start, tHora stop, tHora *diff)
-{
-	if(start.segundos > stop.segundos){
-		--start.minutos;
-		start.segundos += 60;
-	}
-
-	diff->segundos = stop.segundos - start.segundos;
-	if(start.minutos > stop.minutos){
-		--start.hora;
-		start.minutos += 60;
-	}
-
-	diff->minutos = stop.minutos - start.minutos;
-	diff->hora = stop.hora - start.hora;
-
-	diff->dia=stop.dia-start.dia;
-	diff->mes=stop.mes-start.mes;
-	diff->anio=stop.anio-start.anio;
-
-}
-
-
 
 int Iniciar_Programa(tAtributosProg *atributos){
 
@@ -117,7 +94,7 @@ int Finalizar_Programa(int pid){
 
 
 	//habria q  ver si importa que el kernel conteste o matarlo de una y fue..
-	accionesFinalizacion(pid);
+	//accionesFinalizacion(pid);
 
 //	if((stat = recv(sock_kern, &recv_head, sizeof recv_head, 0)) == -1){
 //		log_error(logger,"Fallo de recepcion respuesta Kernel");
@@ -157,17 +134,14 @@ void accionesFinalizacion(int pid ){
 			strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaInicio));
 			strftime (buffFin, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&aux->horaFin));
 
-			printf("\n\n\n FIN DE LA EJECUCION DEL PROCESO %d \n INFO DE EJECUCION: \n",pid);
+			printf("\n\n\n###FIN DE LA EJECUCION DEL PROCESO %d \n###INFO DE EJECUCION: \n",pid);
 
-			printf ("HORA DE INICIO: %s\n", buffInicio);
-			printf ("HORA DE FIN: %s\n", buffFin);
-			printf("SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
-			printf("Cantidad de impresiones por pantalla: XXXXXXX\n");
-
-
+			printf ("###HORA DE INICIO: %s\n", buffInicio);
+			printf ("###HORA DE FIN: %s\n", buffFin);
+			printf("###SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
+			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: XXXXXXX\n");
 
 			log_info(logger,"SEGUNDOS DE EJECUCION: %.f",diferencia);
-
 
 
 			//Lo sacamos de la lista de programas en ejecucion
@@ -182,6 +156,8 @@ void accionesFinalizacion(int pid ){
 
 			pthread_cancel(aux->hiloProg);
 
+
+
 			log_trace(logTrace,"hilo del programa %d finalizado",pid);
 		}
 	}
@@ -191,14 +167,17 @@ void Desconectar_Consola(tConsola *cons_data){
 	log_trace(logTrace,"eligio desconectar la consola");
 
 	int i;
-
+	pthread_mutex_lock(&mux_listaAtributos);pthread_mutex_lock(&mux_listaFinalizados);
 	for(i = 0; i < list_size(listaAtributos); i++){
+
 		tAtributosProg *aux = list_get(listaAtributos, i);
 		pthread_cancel(aux->hiloProg);
-
-		//pthread_kill(aux->hiloProg, SIGDISCONNECT);
+		list_add(listaAtributos,aux);
+		list_remove(listaAtributos,i);
 	}
-	log_trace(logTrace,"todos los hilos cancelados");
+	pthread_mutex_unlock(&mux_listaAtributos);pthread_mutex_unlock(&mux_listaFinalizados);
+
+	log_trace(logTrace,"todos los programas muertos");
 }
 
 
@@ -213,13 +192,11 @@ void *programa_handler(void *atributos){
 	char *buffer;
 	char buffInicio[100];
 	int pack_size;
-	int motivoFin=1;
+	int motivoFin;
 	int stat;
-	int fin = 0;
 
 
 	log_trace(logTrace,"conectando con kernel");
-
 
 	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
 	if (sock_kern < 0){
@@ -280,8 +257,6 @@ void *programa_handler(void *atributos){
 			}
 
 
-
-
 			//puts("Kernel manda algo a imprimir");
 			//recv..
 		}
@@ -308,14 +283,9 @@ void *programa_handler(void *atributos){
 			freeAndNULL((void **)&ppid);
 
 
-
-
-
-
-			log_info(logger,"PID: %d ",args->pidProg);
+			//log_info(logger,"PID: %d ",args->pidProg);
 
 			printf("Pid Recibido es: %d\n", args->pidProg);
-
 
 
 			pthread_mutex_lock(&mux_listaAtributos);
@@ -327,33 +297,19 @@ void *programa_handler(void *atributos){
 
 		if (head_tmp.tipo_de_mensaje == FIN_PROG){
 
-
-			log_trace(logTrace,"se finaliza el hilo");
-
-			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa de manera NORMAL",args->pidProg);
+			//log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa",args->pidProg);
 
 			printf("Kernel nos avisa que termino de ejecutar el programa %d\n", args->pidProg);
-			stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0);
-			motivoFin = head_tmp.tipo_de_mensaje;
-
-			printf("Exit code %d\n",motivoFin);
 
 			accionesFinalizacion(args->pidProg);
-			puts("aca");
+
 		}
 
-		if(head_tmp.tipo_de_mensaje == ABORTO_PROCESO){
-			log_trace(logTrace,"se finaliza el hilo");
-
-			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa de manera ANORMAL",args->pidProg);
-			stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0);
-			motivoFin = head_tmp.tipo_de_mensaje;
-
-			printf("Exit code %d\n",motivoFin);
-
+		if((int) head_tmp.tipo_de_mensaje == DESCONEXION_CPU){
+			printf("Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n",args->pidProg);
 			accionesFinalizacion(args->pidProg);
-			puts("aca");
 		}
+
 
 	}
 

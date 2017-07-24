@@ -6,6 +6,8 @@
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
 
+#include <commons/log.h>
+
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
 #include "apiMemoria.h"
@@ -16,7 +18,7 @@ float retardo_mem; // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;
 extern tCacheEntrada *CACHE_lines;
 extern int pid_free, free_page;
-
+extern t_log* logger;
 // OPERACIONES DE LA MEMORIA
 
 void retardo(int ms){
@@ -56,9 +58,8 @@ void size(int pid){
 		printf("Cantidad de frames ocupados:   %d\n", mem_ocup);
 		printf("Cantidad de frames libres:     %d\n", mem_free);
 
-	} else {
+	} else
 		printf("Tamanio total del proceso %d:  %d\n", pid, pageQuantity(pid));
-	}
 }
 
 
@@ -66,13 +67,15 @@ void size(int pid){
 
 // API DE LA MEMORIA
 
-int inicializarPrograma(int pid, int pageCount){
+int inicializarPrograma(int pid, int page_quant){
 	puts("Se inicializa un programa");
 
 	int reservadas;
 
-	if ((reservadas = reservarPaginas(pid, pageCount)) >= 0)
-		printf("Se reservaron bien las %d paginas solicitadas\n", pageCount);
+	if ((reservadas = reservarPaginas(pid, page_quant)) < 0){
+		return reservadas;
+	}
+	printf("Se reservaron bien las %d paginas solicitadas\n", page_quant);
 
 	return 0;
 }
@@ -98,7 +101,6 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 	char *buffer;
 	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
 		puts("No se pudieron leer los bytes de la pagina");
-		finalizarPrograma(pid);
 		return NULL;
 	}
 
@@ -123,14 +125,6 @@ int asignarPaginas(int pid, int page_count){
 	return new_page;
 }
 
-void finalizarPrograma(int pid){
-	printf("Se procede a finalizar el pid %d\n", pid);
-
-	limpiarDeCache(pid);
-	limpiarDeInvertidas(pid);
-}
-
-
 /* Llamado por Kernel, libera una pagina de HEAP.
  * Retorna MEM_EXCEPTION si no puede liberar la pagina porque no existe o
  * porque simplemente no puede hacerse
@@ -139,14 +133,24 @@ int liberarPagina(int pid, int page){
 	printf("Se libera la pagina %d del PID %d\n", page, pid);
 
 	int frame;
-	tEntradaInv entry = {.pid = pid, .pag = page};
+	tEntradaInv entry = {.pid = pid_free, .pag = free_page};
 
 	if ((frame = buscarEnMemoria(pid, page)) >= 0){
 		memcpy(MEM_FIS + frame * memoria->marco_size, &entry, sizeof entry);
 		return 0;
 	}
 
-	printf("No se encontro el frame para la pagna %d del pid %d. Fallo liberacion\n", page, pid);
-	return frame;
+	printf("No se encontro el frame para la pagina %d del pid %d. Fallo liberacion\n", page, pid);
+	return MEM_EXCEPTION;
+}
+
+
+void finalizarPrograma(int pid){
+	printf("Se procede a finalizar el pid %d\n", pid);
+
+	dump(pid);
+
+	limpiarDeCache(pid);
+	limpiarDeInvertidas(pid);
 }
 

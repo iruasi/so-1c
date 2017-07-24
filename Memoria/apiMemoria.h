@@ -18,8 +18,6 @@ void retardo(int ms);
 void flush(void);
 
 /* Dumpea lo que hay en MEM_FIS
- * despues tendria que ampliarse para dumpear el stack..
- * TODO: A futuro debe dumpear en disco y en pantalla -> CACHE, MEM_FIS, Tabla de Pags y Procesos Activos
  */
 void dump(int pid);
 

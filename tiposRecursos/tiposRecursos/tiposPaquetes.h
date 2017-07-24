@@ -28,6 +28,7 @@ typedef enum {
 	BYTES       = 24,
 	SET_GLOBAL  = 25,
 	GET_GLOBAL  = 26,
+	PCB_BLOCK   = 27,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -39,8 +40,8 @@ typedef enum {
 	ESCRIBIR    = 37,
 	LEER        = 38,
 	RESERVAR    = 39,
+	ENTREGO_FD  = 40, //KERNEL - CPU
 
-	ENTREGO_FD = 40, //KERNEL - CPU
 	// API Memoria & Mensaje que recibe/envia Memoria
 	ASIGN_PAG   = 50,
 	INI_PROG    = 51,
@@ -49,26 +50,30 @@ typedef enum {
 	ALMAC_BYTES = 54,
 	MEMINFO     = 55,
 	ASIGN_SUCCS = 56,
+	DUMP_DISK   = 57,
+	PID_LIST    = 58,
 
 	// Mensajes que recibe/envia Consola
 	PRINT       = 41,
 	NEWPROG     = 42,
 	PID         = 43,
 	KILL_PID    = 44,
-	KER_KILLED  = KILL_PID,
 
 	//Agrego mensaje para tratar planificador todo: pensar si algunos son en realidad errores
 	RECURSO_NO_DISPONIBLE = 60, //kernel - cpu y viceversa
-	FIN_PROCESO = 61,			//kernel - cpu y viceversa
-	ABORTO_PROCESO = 62,		//kernel - cpu y viceversa
-	//RR
-	FIN_QUAMTUM = 63,			//kernel - cpu y viceversa
+	FIN_PROCESO           = 61,	//kernel - cpu y viceversa
+	ABORTO_PROCESO        = 62, //kernel - cpu y viceversa
 
-	//CPU_MANEJADOR en kernel.c
+	VALIDAR_RESPUESTA = 80, //fs-kernel
+	CREAR_ARCHIVO     = 81,//fs-kernel
+	VALIDAR_ARCHIVO   = 82,
+	ARCHIVO_CERRADO   = 90, //fs-kernel-cpu
+	ARCHIVO_BORRADO   = 91,//fs-kernel-cpu
+	CURSOR_MOVIDO     = 92,//fs-kernel-cpu
+	ARCHIVO_ESCRITO   = 93,//fs-kernel-cpu
+	ARCHIVO_LEIDO     = 94,//fs-kernel-cpu
 
-	SYSCALL = 70, //cpu-kernel
-
-	FIN         = 11
+	FIN         = 71
 } tMensaje;
 
 typedef struct {
@@ -88,7 +93,7 @@ typedef struct {
 
 	tPackHeader head;
 	int val;
-} tPackPID, tHShakeProcAProc, tPackVal;
+} tPackPID, tHShakeProcAProc, tPackVal,tPackExitCode;
 
 typedef struct {
 	tPackHeader head;
@@ -124,9 +129,9 @@ typedef struct {
 typedef struct {
 
 	tPackHeader head;
-	int marcos;
-	int marco_size;
-} tHShakeMemAKer;
+	int val1;
+	int val2;
+} tHShake2ProcAProc;
 
 //t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio,
 

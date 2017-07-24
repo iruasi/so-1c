@@ -6,6 +6,8 @@
 #include <math.h>
 #include <unistd.h>
 
+#include <commons/log.h>
+
 #include "manejadoresMem.h"
 #include "manejadoresCache.h"
 #include "auxiliaresMemoria.h"
@@ -13,6 +15,7 @@
 #include "memoriaConfigurators.h"
 #include "apiMemoria.h"
 
+#include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 
@@ -25,12 +28,15 @@ extern char *MEM_FIS;       // MEMORIA FISICA
 extern char *CACHE;         // memoria CACHE
 extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
-
+extern t_log*logger;
+extern int sock_kernel;
+t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
 
 void liberarEstructurasMemoria(void){
+	puts("Se procede a liberar todas las estructuras de Memoria.");
 
 	liberarConfiguracionMemoria();
 	freeAndNULL((void **) &MEM_FIS);
@@ -58,6 +64,7 @@ int setupMemoria(void){
 	if ((stat = setupCache()) != 0)
 		return MEM_EXCEPTION;
 
+	proc_lims = list_create();
 	return 0;
 }
 
@@ -149,7 +156,7 @@ int frameHash(int pid, int page){
 	return frame_apr;
 }
 
-void dumpMemStructs(void){ // todo: revisar
+void dumpMemStructs(void){
 
 	int i;
 	tEntradaInv *entry = (tEntradaInv*) MEM_FIS;
@@ -159,17 +166,16 @@ void dumpMemStructs(void){ // todo: revisar
 	for (i = 0; i < memoria->marcos; ++i)
 		printf("%d \t\t %d \t\t %d\n", i, (entry +i)->pid, (entry +i)->pag);
 	puts("Fin dump Tabla de Paginas Invertida");
-
-	puts("Comienzo dump Listado Procesos Activos");
-	// todo: dumpear listado de procesos activos... No se ni lo que es un proc activo
-	puts("Fin dump Listado Procesos Activos");
-
 }
 
 void dumpMemContent(int pid){
 
-	if (pid == -4){
-		puts("Se muestra info de todos los procesos de Memoria: (no implementado aun)");
+	if (pid < 0){
+		int i, len, *pids;
+		pids = obtenerPIDsKernel(&len);
+
+		for (i = 0; i < len; ++i)
+			dumpMemContent(pids[i]);
 		return;
 	}
 
@@ -177,9 +183,69 @@ void dumpMemContent(int pid){
 	char *cont;
 	int page_count = pageQuantity(pid);
 
-	printf("PID \t\t PAGINA \t\t CONTENIDO\n");
 	for (pag = 0; pag < page_count; ++pag){
 		cont = getMemContent(pid, pag);
-		printf("%d \t\t %d \t\t %s\n", pid, pag, cont);
+		printf("PID \t PAGINA\n%d \t %d \t\n", pid, pag);
+		puts("CONTENIDO");
+		DumpHex(cont, memoria->marco_size);
+		puts("");
+	}
+}
+
+int *obtenerPIDsKernel(int *len){ // todo: debuggear
+
+	char *buffer;
+	tPackBytes *pb;
+	int *pids;
+
+	tPackHeader head  = {.tipo_de_proceso = MEM, .tipo_de_mensaje = PID_LIST};
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = PID_LIST};
+	informarResultado(sock_kernel, head);
+
+	if (validarRespuesta(sock_kernel, head, &h_esp) != 0)
+		return NULL;
+
+	if ((buffer = recvGeneric(sock_kernel)) == NULL)
+		return NULL;
+
+	if ((pb = deserializeBytes(buffer)) == NULL)
+		return NULL;
+
+	*len = pb->bytelen;
+	pids = malloc(*len);
+	memcpy(pids, pb->bytes, *len);
+
+	free(buffer);
+	free(pb);
+	return pids;
+}
+
+void DumpHex(const void* data, size_t size){
+
+	char ascii[17];
+	size_t i, j;
+	ascii[16] = '\0';
+	for (i = 0; i < size; ++i) {
+		printf("%02X ", ((unsigned char*)data)[i]);
+		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
+			ascii[i % 16] = ((unsigned char*)data)[i];
+		} else {
+			ascii[i % 16] = '.';
+		}
+		if ((i+1) % 8 == 0 || i+1 == size) {
+			printf(" ");
+			if ((i+1) % 16 == 0) {
+				printf("| %s \n", ascii);
+			} else if (i+1 == size) {
+				ascii[(i+1) % 16] = '\0';
+				if ((i+1) % 16 <= 8) {
+					printf(" ");
+				}
+				for (j = (i+1) % 16; j < 16; ++j) {
+					printf(" ");
+				}
+				printf("| %s \n", ascii);
+			}
+		}
 	}
 }
