@@ -39,7 +39,7 @@ int grado_mult;
 extern tKernel *kernel;
 
 sem_t eventoPlani;
-pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU;
+pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU,mux_gradoMultiprog;;
 extern pthread_mutex_t mux_gl_Programas;
 
 void pausarPlanif(void){
@@ -56,9 +56,9 @@ void setupGlobales_planificador(void){
 }
 
 void setupPlanificador(void){
-
+	MUX_LOCK(&mux_gradoMultiprog);
 	grado_mult = kernel->grado_multiprog;
-
+	MUX_UNLOCK(&mux_gradoMultiprog);
 	New   = queue_create();
 	Ready = queue_create();
 	Exit  = queue_create();
@@ -128,14 +128,14 @@ void planificar(void){
 		case (FIFO):
 			printf("Estoy en fifo\n");
 
-			MUX_LOCK(&mux_new); MUX_LOCK(&mux_exec);
+			MUX_LOCK(&mux_new); MUX_LOCK(&mux_exec);MUX_LOCK(&mux_gradoMultiprog);
 			if(!queue_is_empty(New)){ // todo: list_size(Exec) + list_size(Ready) < grado_mult?
 				if(list_size(Exec) < grado_mult && obtenerCPUociosa() != -1){
 					pcbAux = (tPCB*) queue_pop(New);
 					encolarDeNewEnReady(pcbAux);
 				}
 			}
-			MUX_UNLOCK(&mux_new); MUX_UNLOCK(&mux_exec);
+			MUX_UNLOCK(&mux_new); MUX_UNLOCK(&mux_exec);MUX_UNLOCK(&mux_gradoMultiprog);
 
 			MUX_LOCK(&mux_ready); MUX_LOCK(&mux_exec); MUX_LOCK(&mux_listaDeCPU);
 			if(!queue_is_empty(Ready) && (pos = obtenerCPUociosa()) != -1){

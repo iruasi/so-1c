@@ -6,6 +6,7 @@
 
 #include <tiposRecursos/misc/pcb.h>
 
+#include "defsKernel.h"
 #include "auxiliaresKernel.h"
 
 

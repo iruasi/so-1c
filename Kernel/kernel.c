@@ -38,6 +38,9 @@ tKernel *kernel;
 
 t_log * logger;
 
+bool planificacionBloqueada;
+
+extern pthread_mutex_t mux_planificacionBloqueada;
 
 int interconectarProcesos(ker_socks *ks, const char* path);
 void inotifyer(char *path);
@@ -137,7 +140,7 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	FD_SET(sock_fs,          &ks->master);
 	FD_SET(ks->sock_lis_cpu, &ks->master);
 	FD_SET(ks->sock_lis_con, &ks->master);
-	FD_SET(ks->sock_watch,   &ks->master);
+	//FD_SET(ks->sock_watch,   &ks->master);
 	return 0;
 }
 
@@ -152,6 +155,10 @@ int main(int argc, char* argv[]){
 //		perror("No se pudo inicializar semaforo. error");
 //		return FALLO_GRAL;
 //	}
+
+	pthread_mutex_lock(&mux_planificacionBloqueada);
+	planificacionBloqueada = false;
+	pthread_mutex_unlock(&mux_planificacionBloqueada);
 
 	pthread_attr_t attr_ondemand;
 	pthread_attr_init(&attr_ondemand);

@@ -43,6 +43,7 @@ tKernel *getConfigKernel(char* ruta){
 	strcpy(kernel->puerto_memoria, config_get_string_value(kernelConfig, "PUERTO_MEMORIA"));
 	strcpy(kernel->puerto_fs,      config_get_string_value(kernelConfig, "PUERTO_FS"));
 
+
 	kernel->grado_multiprog = config_get_int_value(kernelConfig, "GRADO_MULTIPROG");
 	kernel->quantum         = config_get_int_value(kernelConfig, "QUANTUM");
 	kernel->quantum_sleep   = config_get_int_value(kernelConfig, "QUANTUM_SLEEP");

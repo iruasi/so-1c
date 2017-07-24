@@ -8,20 +8,26 @@
 
 #include <tiposRecursos/tiposErrores.h>
 
+#include "defsKernel.h"
 #include "auxiliaresKernel.h"
 #include "planificador.h"
 #include "consolaKernel.h"
-#include "defsKernel.h"
+
 
 
 extern t_queue *New, *Ready, *Exit;
 extern t_list *Exec, *Block;
 extern int grado_mult;
 
-extern pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaFinalizados;
+extern pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaFinalizados,mux_gradoMultiprog;
 
 extern t_dictionary *tablaGlobal;
 extern t_list *tablaProcesos, *list_infoProc, *finalizadosPorConsolas;
+
+extern bool planificacionBloqueada;
+
+extern pthread_mutex_t mux_planificacionBloqueada;
+
 
 
 void consolaKernel(void){
@@ -37,84 +43,130 @@ void consolaKernel(void){
 	char *opcion = malloc(MAXOPCION);
 	int finalizar = 0;
 	while(finalizar !=1){
-			printf("Seleccione opcion: \n");
-			//sem_wait(&haySTDIN);
-			fgets(opcion,MAXOPCION,stdin);
-			opcion[strlen(opcion) - 1] = '\0';
-			if (strncmp(opcion,"procesos",8)==0){
-				puts("Opcion procesos");
-				char *cola = opcion+9;
-				mostrarColaDe(cola);
+		printf("Seleccione opcion: \n");
+		//sem_wait(&haySTDIN);
+		fgets(opcion,MAXOPCION,stdin);
+		opcion[strlen(opcion) - 1] = '\0';
+		if (strncmp(opcion,"procesos",8)==0){
+			puts("Opcion procesos");
+			char *cola = opcion+9;
+			mostrarColaDe(cola);
+			break;
 
-			}
+		}
+		if (strncmp(opcion,"stop",4)==0){
+			puts("Opcion stop");
+			stopKernel();
+			break;
+		}
+		if (strncmp(opcion,"tabla",5)==0){
+			puts("Opcion tabla");
+			mostrarTablaGlobal();
+			break;
+		}
+		if (strncmp(opcion,"nuevoGrado",10)==0){
+			puts("Opcion nuevoGrado");
+			char *grado = opcion+11;
+			int nuevoGrado = atoi(grado);
+			cambiarGradoMultiprogramacion(nuevoGrado);
+			break;
+		}
+		if(!planificacionBloqueada){
 			if (strncmp(opcion,"info",4)==0){
 				puts("Opcion info");
 				char *pidInfo=opcion+5;
 				int pidElegido = atoi(pidInfo);
 				mostrarInfoDe(pidElegido);
+				break;
 
-			}
-			if (strncmp(opcion,"tabla",5)==0){
-				puts("Opcion tabla");
-				mostrarTablaGlobal();
-			}
-			if (strncmp(opcion,"nuevoGrado",10)==0){
-				puts("Opcion nuevoGrado");
-				char *grado = opcion+11;
-				int nuevoGrado = atoi(grado);
-				cambiarGradoMultiprogramacion(nuevoGrado);
 			}
 			if (strncmp(opcion,"finalizar",9)==0){
 				puts("Opcion finalizar");
 				char *pidAFinalizar = opcion+9;
 				int pidFin = atoi(pidAFinalizar);
 				finalizarProceso(pidFin);
-
+				break;
 			}
-			if (strncmp(opcion,"stop",4)==0){
-				puts("Opcion stop");
-				stopKernel();
-			}
+		}else{
+			puts("No se puede acceder a este comando con la planificacion bloqueada :)");
 		}
+	}
 }
 //TODO: Hay q sincronizar las colas?? Solo las estoy mirando, no tendria pq poner un semaforo, no?
 void mostrarColaDe(char* cola){
-	if (strncmp(cola,"todos",5)==0){
-		puts("Mostrar estado de todas las colas:");
-		pthread_mutex_lock(&mux_new); pthread_mutex_lock(&mux_ready); pthread_mutex_lock(&mux_exec);
-		pthread_mutex_lock(&mux_block); pthread_mutex_lock(&mux_exit);
-		mostrarColaNew();
-		mostrarColaReady();
-		mostrarColaExec();
-		mostrarColaExit();
-		mostrarColaBlock();
-		pthread_mutex_unlock(&mux_new); pthread_mutex_unlock(&mux_ready); pthread_mutex_unlock(&mux_exec);
-		pthread_mutex_unlock(&mux_block); pthread_mutex_unlock(&mux_exit);
-	}
-	if (strncmp(cola,"new",3)==0){
-		puts("Mostrar estado de cola NEW");
-		pthread_mutex_lock(&mux_new);
-		mostrarColaNew(); pthread_mutex_unlock(&mux_new);
-	}
-	if (strncmp(cola,"ready",5)==0){
-		puts("Mostrar estado de cola REDADY");
-		pthread_mutex_lock(&mux_ready);
-		mostrarColaReady(); pthread_mutex_unlock(&mux_ready);
-	}
-	if (strncmp(cola,"exec",4)==0){
-		puts("Mostrar estado de cola EXEC");
-		pthread_mutex_lock(&mux_exec);
-		mostrarColaExec(); pthread_mutex_unlock(&mux_exec);
-	}
-	if (strncmp(cola,"exit",4)==0){
-		puts("Mostrar estado de cola EXIT");
-		pthread_mutex_lock(&mux_exit);
-		mostrarColaExit(); pthread_mutex_unlock(&mux_exit);
-	}
-	if (strncmp(cola,"block",5)==0){
-		puts("Mostrar estado de cola BLOCK");
-		pthread_mutex_lock(&mux_block);
-		mostrarColaBlock(); pthread_mutex_unlock(&mux_block);
+
+	if(!planificacionBloqueada){
+		puts("Muestro estado de las colas con la planificacion no bloqueada");
+
+		if (strncmp(cola,"todos",5)==0){
+			puts("Mostrar estado de todas las colas:");
+			pthread_mutex_lock(&mux_new); pthread_mutex_lock(&mux_ready); pthread_mutex_lock(&mux_exec);
+			pthread_mutex_lock(&mux_block); pthread_mutex_lock(&mux_exit);
+			mostrarColaNew();
+			mostrarColaReady();
+			mostrarColaExec();
+			mostrarColaExit();
+			mostrarColaBlock();
+			pthread_mutex_unlock(&mux_new); pthread_mutex_unlock(&mux_ready); pthread_mutex_unlock(&mux_exec);
+			pthread_mutex_unlock(&mux_block); pthread_mutex_unlock(&mux_exit);
+		}
+		if (strncmp(cola,"new",3)==0){
+			puts("Mostrar estado de cola NEW");
+			pthread_mutex_lock(&mux_new);
+			mostrarColaNew(); pthread_mutex_unlock(&mux_new);
+		}
+		if (strncmp(cola,"ready",5)==0){
+			puts("Mostrar estado de cola REDADY");
+			pthread_mutex_lock(&mux_ready);
+			mostrarColaReady(); pthread_mutex_unlock(&mux_ready);
+		}
+		if (strncmp(cola,"exec",4)==0){
+			puts("Mostrar estado de cola EXEC");
+			pthread_mutex_lock(&mux_exec);
+			mostrarColaExec(); pthread_mutex_unlock(&mux_exec);
+		}
+		if (strncmp(cola,"exit",4)==0){
+			puts("Mostrar estado de cola EXIT");
+			pthread_mutex_lock(&mux_exit);
+			mostrarColaExit(); pthread_mutex_unlock(&mux_exit);
+		}
+		if (strncmp(cola,"block",5)==0){
+			puts("Mostrar estado de cola BLOCK");
+			pthread_mutex_lock(&mux_block);
+			mostrarColaBlock(); pthread_mutex_unlock(&mux_block);
+		}
+	}else{
+		puts("Muestro estado de las colas con planificacion bloqueada");
+		if (strncmp(cola,"todos",5)==0){
+					puts("Mostrar estado de todas las colas:");
+					mostrarColaNew();
+					mostrarColaReady();
+					mostrarColaExec();
+					mostrarColaExit();
+					mostrarColaBlock();
+
+				}
+				if (strncmp(cola,"new",3)==0){
+					puts("Mostrar estado de cola NEW");
+					mostrarColaNew();
+				}
+				if (strncmp(cola,"ready",5)==0){
+					puts("Mostrar estado de cola REDADY");
+					mostrarColaReady();
+				}
+				if (strncmp(cola,"exec",4)==0){
+					puts("Mostrar estado de cola EXEC");
+					mostrarColaExec();
+				}
+				if (strncmp(cola,"exit",4)==0){
+					puts("Mostrar estado de cola EXIT");
+					mostrarColaExit();
+				}
+				if (strncmp(cola,"block",5)==0){
+					puts("Mostrar estado de cola BLOCK");
+					mostrarColaBlock();
+				}
+
 	}
 }
 
@@ -337,7 +389,9 @@ void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
 void cambiarGradoMultiprogramacion(int nuevoGrado){
 	printf("vamos a cambiar el grado a %d\n",nuevoGrado);
 	//todo: semaforo
+	MUX_LOCK(&mux_gradoMultiprog);
 	grado_mult=nuevoGrado;
+	MUX_UNLOCK(&mux_gradoMultiprog);
 }
 
 void finalizarProceso(int pidAFinalizar){
@@ -371,9 +425,21 @@ void mostrarTablaGlobal(){
 }
 
 void stopKernel(){
-	puts("Stop kernel");
-}
+	pthread_mutex_lock(&mux_planificacionBloqueada);
+	if(!planificacionBloqueada){
+		puts("#####DETENEMOS LA PLANIFICACION#####");
+		planificacionBloqueada=true;
+		//LOCK_PLANIF;
+		MUX_LOCK(&mux_new);MUX_LOCK(&mux_ready);MUX_LOCK(&mux_exec);MUX_LOCK(&mux_block);MUX_LOCK(&mux_exit);
+	}else{
+		puts("#####REANUDAMOS LA PLANIFICACION#####");
+		planificacionBloqueada=false;
+		//UNLOCK_PLANIF;
+		MUX_UNLOCK(&mux_new);MUX_UNLOCK(&mux_ready);MUX_UNLOCK(&mux_exec);MUX_UNLOCK(&mux_block);MUX_UNLOCK(&mux_exit);
 
+	}
+	pthread_mutex_unlock(&mux_planificacionBloqueada);
+}
 
 int getQueuePositionByPid(int pid, t_queue *queue){
 

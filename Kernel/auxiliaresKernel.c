@@ -27,7 +27,7 @@
 #include <tiposRecursos/misc/pcb.h>
 
 extern sem_t sem_heapDict, sem_bytes, sem_end_exec; // semaforos para IPC con capaMemoria
-pthread_mutex_t mux_list_infoP, mux_gl_Programas, mux_listaDeCPU, mux_listaFinalizados;
+pthread_mutex_t mux_list_infoP, mux_gl_Programas, mux_listaDeCPU, mux_listaFinalizados,mux_planificacionBloqueada,mux_gradoMultiprog;
 extern pthread_mutex_t mux_exec, mux_ready;
 
 //extern sem_t haySTDIN;
@@ -73,6 +73,8 @@ void setupGlobales_auxiliares(void){
 	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
 	pthread_mutex_init(&mux_archivosAbiertos, NULL);
 	pthread_mutex_init(&mux_list_infoP,       NULL);
+	pthread_mutex_init(&mux_planificacionBloqueada,       NULL);
+
 
 }
 
