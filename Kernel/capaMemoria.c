@@ -18,9 +18,8 @@
 #include "auxiliaresKernel.h"
 
 t_dictionary *dict_heap; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
-pthread_mutex_t mux_dict_heap;
+pthread_mutex_t mux_dict_heap, mux_list_infoP;
 extern t_list *list_infoProc; // contiene t_infoProcess;
-extern pthread_mutex_t mux_list_infoP;
 sem_t sem_heapDict, sem_bytes, sem_end_exec;
 
 int MAX_ALLOC_SIZE;
@@ -31,13 +30,14 @@ extern t_log * logger;
 void setupGlobales_capaMemoria(void){
 
 	MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
-	dict_heap = dictionary_create();
+	dict_heap      = dictionary_create();
 
 	sem_init(&sem_heapDict, 0, 0);
 	sem_init(&sem_bytes,    0, 0);
 	sem_init(&sem_end_exec, 0, 0);
 
-	pthread_mutex_init(&mux_dict_heap, NULL);
+	pthread_mutex_init(&mux_list_infoP, NULL);
+	pthread_mutex_init(&mux_dict_heap,  NULL);
 }
 
 bool esReservable(int size_req, tHeapMeta *hmd){

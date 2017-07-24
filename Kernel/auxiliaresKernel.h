@@ -6,58 +6,13 @@
 #include <commons/collections/queue.h>
 
 #include "capaMemoria.h"
-
-typedef struct{
-	int fd_cpu,pid;
-}t_cpu;
-
-typedef struct{
-	int fd_con,pid;
-}t_consola;
-
-typedef struct {
-	t_cpu     cpu;
-	t_consola *con;
-	tMensaje msj;
-} t_RelCC; // Relacion Consola <---> CPU
-
-typedef struct {
-	t_RelCC *prog;
-	tPackSrcCode *src;
-} t_RelPF; // Relacion Programa <---> Codigo Fuente
-
-typedef struct {
-	int pid,ecode;
-}t_finConsola;
+#include "defsKernel.h"
 
 typedef struct {
 	int pid,
 		cant_syscalls;
 	infoHeap *ih;
 } t_infoProcess;
-
-typedef struct{
-	t_direccion_archivo direccion;
-	int cantidadOpen;
-	t_descriptor_archivo fd;
-}tDatosTablaGlobal;
-
-typedef struct{
-	t_banderas flag;
-	t_descriptor_archivo fd;
-	t_valor_variable posicionCursor;
-}tProcesoArchivo;
-
-typedef struct{
-	int pid;
-	t_list * archivosPorProceso; //Esta lista va a contener tProcesoArchivo
-}t_procesoXarchivo;
-
-
-
-void cpu_manejador(void *cpuInfo);
-void mem_manejador(void *m_sock);
-void cons_manejador(void *conInfo);
 
 int *formarPtrPIDs(int *len);
 

@@ -4,7 +4,6 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <errno.h>
-#include <math.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <sys/types.h>
@@ -28,7 +27,7 @@
 #include "auxiliaresKernel.h"
 #include "planificador.h"
 #include "consolaKernel.h"
-//#include "manejadores.h"
+#include "manejadores.h"
 
 int frames, frame_size; // para guardar datos a recibir de Memoria
 int sock_mem, sock_fs, fdInotify;

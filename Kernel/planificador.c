@@ -26,8 +26,7 @@
 
 extern int sock_mem;
 extern int frame_size;
-extern t_list *gl_Programas;
-t_list *listaDeCpu;
+extern t_list *gl_Programas, *listaDeCpu;
 
 t_queue *New, *Exit, *Ready;
 t_list	*cpu_exec, *Exec, *Block;
@@ -66,7 +65,6 @@ void setupPlanificador(void){
 	Exec  = list_create();
 	Block = list_create();
 
-	listaDeCpu = list_create();
 	cpu_exec   = list_create();
 	listaProgramas = list_create();
 
@@ -99,7 +97,7 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
 	printf("Se agrego sock_cpu #%d a lista \n",cpu->cpu.fd_cpu);
 
-	free(pcb_serial);
+	//free(pcb_serial);
 }
 
 void asociarProgramaACPU(t_RelCC *cpu){
