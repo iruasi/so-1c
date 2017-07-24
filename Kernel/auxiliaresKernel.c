@@ -154,6 +154,8 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 void setupMutexes(){
 	pthread_mutex_init(&mux_listaDeCPU,    NULL);
 	pthread_mutex_init(&mux_gl_Programas,  NULL);
+	pthread_mutex_init(&mux_tablaPorProceso, NULL);
+	pthread_mutex_init(&mux_archivosAbiertos, NULL);
 }
 
 void setupVariablesGlobales(void){
@@ -182,6 +184,7 @@ tPCB *crearPCBInicial(void){
 	pcb->contextoActual     = 0;
 	pcb->exitCode           = 0;
 	pcb->rafagasEjecutadas  = 0;
+	pcb->cantSyscalls 		= 0;
 
 	return pcb;
 }
@@ -1204,9 +1207,40 @@ void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
 	cantRafagas =  pcb->rafagasEjecutadas;
 	printf("####PROCESO %d####\nCantidad de rafagas ejecutadas: %d\n",pcb->id,cantRafagas);
 }
-void mostrarTablaDeArchivosDe(tPCB *pcb){
+void armarStringPermisos(char* permisos, int creacion, int lectura,
+		int escritura) {
 
-	printf("####PROCESO %d####\nTabla de archivos abiertos del proceso: x!!!!!!x\n",pcb->id);
+	if (creacion) {
+		string_append(&permisos, "c");
+	}
+	if (lectura) {
+		string_append(&permisos, "r");
+	}
+	if (escritura) {
+		string_append(&permisos, "w");
+	}
+}
+void mostrarTablaDeArchivosDe(tPCB *pcb){
+	char pid[MAXPID_DIG];
+	sprintf(pid,"%d",pcb->id);
+	bool encontrarPid(t_procesoXarchivo * proceso){
+			return proceso->pid == pid;
+		}
+	t_procesoXarchivo * pa = list_find(tablaProcesos,encontrarPid);
+	tProcesoArchivo * _unArchivo;
+	if(list_is_empty(pa->archivosPorProceso)){
+		printf("La tabla de procesos del proceso %d se encuentra vacía",pcb->id);
+		return;
+	}
+	char * permisos = string_new();
+	armarStringPermisos(permisos,_unArchivo->flag.creacion,_unArchivo->flag.escritura,_unArchivo->flag.lectura);
+	int i;
+	for(i = 0; i < list_size(pa->archivosPorProceso); i++){
+		_unArchivo = (tProcesoArchivo *) list_get(pa->archivosPorProceso,i);
+		printf("####PROCESO %d####\nTabla de archivos abiertos del proceso\n",pcb->id);
+		printf("Permisos: %s --fdGlobalAsociado: %d -- cursor: %d",permisos,_unArchivo->fd,_unArchivo->posicionCursor);
+
+	}
 }
 void mostrarCantHeapUtilizadasDe(tPCB *pcb){
 
@@ -1227,7 +1261,9 @@ void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
 	sprintf(spid, "%d", pcb->id);
 	infoProcess *ip = dictionary_get(proc_info, spid);
 
-	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
+	//printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
+	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, pcb->cantSyscalls);
+
 }
 
 void cambiarGradoMultiprogramacion(int nuevoGrado){
@@ -1250,6 +1286,21 @@ void finalizarProceso(int pidAFinalizar){
 
 void mostrarTablaGlobal(){
 	puts("Mostrar tabla global");
+	if(dictionary_is_empty(tablaGlobal)){
+		printf("La tabla global de archivos se encuentra vacía\n");
+		return;
+	}
+	tDatosTablaGlobal * datosGlobal;
+	int i ;
+	char * contAux[MAXPID_DIG];
+	for(i = 0 ; i < dictionary_size(tablaGlobal);i++){
+		sprintf(contAux,"%d",i);
+		datosGlobal = (tDatosTablaGlobal *) dictionary_get(tablaGlobal,contAux);
+		printf("Los datos de la tabla global son: \n");
+		printf("FD: %d --- Direccion: %s --- Cantidad de veces abierta: %d\n",datosGlobal->fd,datosGlobal->direccion,datosGlobal->cantidadOpen);
+	}
+
+
 }
 void stopKernel(){
 	puts("Stop kernel");

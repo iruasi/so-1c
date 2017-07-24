@@ -38,7 +38,8 @@ typedef struct {
 			 estado_proc, // refleja en que cola de Planificador esta el PCB
 			 contextoActual, // para pasaje de una funcion a otra
 			 exitCode,
-			 rafagasEjecutadas;
+			 rafagasEjecutadas,
+			 cantSyscalls;
 	t_intructions* indiceDeCodigo; //El t_instructions es del parser ansisop
 	t_list* indiceDeStack;
 	char* indiceDeEtiquetas;
