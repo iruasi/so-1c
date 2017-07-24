@@ -6,11 +6,16 @@
 #include "capaMemoria.h"
 #include "auxiliaresKernel.h"
 #include "funcionesSyscalls.h"
+#include "planificador.h"
+#include "manejadores.h"
 
 void setupVariablesPorSubsistema(void){
 
+	setupGlobales_manejadores();
 	setupGlobales_capaMemoria();
 	setupGlobales_auxiliares();
 	setupGlobales_syscalls();
- // todo: si
+	setupGlobales_planificador();
+ // todo: verificar que esten todos los mutexes y demas cosas inicilizados..
+	// creo que ya estan todos
 }
