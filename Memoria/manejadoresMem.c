@@ -28,7 +28,7 @@ extern char *MEM_FIS;       // MEMORIA FISICA
 extern char *CACHE;         // memoria CACHE
 extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
-extern t_log*logger;
+extern t_log * logTrace;
 extern int sock_kernel;
 t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 
@@ -36,8 +36,8 @@ t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 
 
 void liberarEstructurasMemoria(void){
-	puts("Se procede a liberar todas las estructuras de Memoria.");
-
+	//puts("Se procede a liberar todas las estructuras de Memoria.");
+	log_trace(logTrace,"se procede a liberar todas las estructuras de memoria");
 	liberarConfiguracionMemoria();
 	freeAndNULL((void **) &MEM_FIS);
 	freeAndNULL((void **) &CACHE);
@@ -47,7 +47,7 @@ void liberarEstructurasMemoria(void){
 
 int setupMemoria(void){
 	int stat;
-
+	log_trace(logTrace,"setup memoria");
 	retardo(memoria->retardo_memoria);
 
 	pid_free  = -2;
@@ -55,6 +55,7 @@ int setupMemoria(void){
 	free_page = -1;
 
 	if ((MEM_FIS = malloc(memoria->marcos * memoria->marco_size)) == NULL){
+		log_error(logTrace,"no se pudo crear el espacio de memoria");
 		puts("No se pudo crear el espacio de Memoria");
 		return MEM_EXCEPTION;
 	}
@@ -69,7 +70,7 @@ int setupMemoria(void){
 }
 
 void populateInvertidas(void){
-
+	log_trace(logTrace,"funcion populate invertidas");
 	int i, off, fr;
 
 	tEntradaInv entry_inv  = {.pid = pid_inv,  .pag = free_page};
@@ -93,17 +94,19 @@ void populateInvertidas(void){
 }
 
 char *leerBytes(int pid, int page, int offset, int size){
-
+	log_trace(logTrace,"funcion leerbytes");
 	char *cont = NULL;
 
 	char *buffer;
 	if ((buffer = malloc(size + 1)) == NULL){
+		log_error(logTrace,"no se pudo crear espacio de memoria para un buffer");
 		puts("No se pudo crear espacio de memoria para un buffer");
 		return NULL;
 	}
 
 	if ((cont = getCacheContent(pid, page)) == NULL){
 		if ((cont = getMemContent(pid, page)) == NULL){
+			log_error(logTrace,"no se pudo obtener el frame");
 			puts("No pudo obtener el frame");
 			return NULL;
 		}
@@ -116,9 +119,10 @@ char *leerBytes(int pid, int page, int offset, int size){
 }
 
 char *getMemContent(int pid, int page){
-
+	log_trace(logTrace,"funcion get mem content");
 	int frame;
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
+		log_error(logTrace,"fallo buscar en memoria el pid %d y pag %d",pid,page);
 		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
 		return NULL;
 	}
@@ -128,7 +132,7 @@ char *getMemContent(int pid, int page){
 
 int buscarEnMemoria(int pid, int page){
 	sleep(retardo_mem);
-
+	log_trace(logTrace,"funcion buscar en memoria");
 	tEntradaInv *entry;
 	int cic, off, fr; // frame y offset para recorrer la tabla de invertidas
 	int frame_ap = frameHash(pid, page); // aproximacion de frame buscado
@@ -147,6 +151,7 @@ int buscarEnMemoria(int pid, int page){
 }
 
 int frameHash(int pid, int page){
+	log_trace(logTrace,"funcion frame hash");
 	char str1[20];
 	char str2[20];
 	sprintf(str1, "%d", pid);
@@ -157,7 +162,7 @@ int frameHash(int pid, int page){
 }
 
 void dumpMemStructs(void){
-
+	log_trace(logTrace,"funcion dump mem structs");
 	int i;
 	tEntradaInv *entry = (tEntradaInv*) MEM_FIS;
 
@@ -169,7 +174,7 @@ void dumpMemStructs(void){
 }
 
 void dumpMemContent(int pid){
-
+	log_trace(logTrace,"funcion dump mem content");
 	if (pid < 0){
 		int i, len, *pids;
 		pids = obtenerPIDsKernel(&len);
@@ -193,7 +198,7 @@ void dumpMemContent(int pid){
 }
 
 int *obtenerPIDsKernel(int *len){ // todo: debuggear
-
+	log_trace(logTrace,"funcion obtener pids kernel");
 	char *buffer;
 	tPackBytes *pb;
 	int *pids;
@@ -221,7 +226,7 @@ int *obtenerPIDsKernel(int *len){ // todo: debuggear
 }
 
 void DumpHex(const void* data, size_t size){
-
+	log_trace(logTrace,"funcion dump hex");
 	char ascii[17];
 	size_t i, j;
 	ascii[16] = '\0';

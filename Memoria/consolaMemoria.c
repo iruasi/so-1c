@@ -15,7 +15,7 @@
 void accionarMenu(void);
 int obtenerOpcionDump(void);
 void mostrarMenu(void);
-extern t_log*logger;
+extern t_log*logTrace;
 // CONSOLA DE LA MEMORIA
 
 void *consolaUsuario(void){
@@ -29,7 +29,7 @@ void *consolaUsuario(void){
 //       es decir, por ahora el scanf toma el '\n' de lo que se ingrese,
 //       y eso es problematico...
 void accionarMenu(void){
-
+	log_trace(logTrace,"accionar menu");
 	int lag, pid;
 	char ch[3] = "u\n\0";
 
@@ -48,27 +48,28 @@ void accionarMenu(void){
 				printf("%d no es una latencia valida.\n", lag);
 				break;
 			}
-
+			log_trace(logTrace,"opcion retardo");
 			retardo(lag);
 			continue;
 			puts("fe");
 		}
 
 		else if (STR_EQ(ch, "d\n\0")){
-
+			log_trace(logTrace,"opcion dump");
 			dump(obtenerOpcionDump());
 			break;
 		}
 
 		else if (STR_EQ(ch, "f\n\0")){
 			puts("Se limpia la CACHE...");
+			log_trace(logTrace,"opcion flush");
 			flush();
 			puts("CACHE limpiada!");
 			break;
 		}
 
 		else if (STR_EQ(ch, "s\n\0")){
-
+			log_trace(logTrace,"opciom tamanio");
 			scanf("Ingrese el PID del cual quiere conocer su tamanio (negativo para Memoria).\n > %d", &pid);
 			size(pid);
 			break;
