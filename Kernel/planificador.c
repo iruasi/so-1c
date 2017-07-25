@@ -73,7 +73,7 @@ void setupPlanificador(void){
 }
 
 void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
-<<<<<<< HEAD
+
 	log_trace(logTrace,"Mandar pcb a cpu");
 	//sem_wait(&codigoEnviado);
 

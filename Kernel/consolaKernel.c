@@ -55,9 +55,6 @@ void consolaKernel(void){
 		printf("Seleccione opcion: \n");
 		fgets(opcion, MAXOPCION, stdin);
 		opcion[strlen(opcion) - 1] = '\0';
-		if (strncmp(opcion,"procesos",8)==0){
-			//puts("Opcion procesos");
-			log_trace(logTrace,"opcion elegida:procesos");
 
 		if (strncmp(opcion, "\0", 1) == 0){
 			showOpciones();
@@ -66,38 +63,40 @@ void consolaKernel(void){
 
 		if (strncmp(opcion, "procesos", 8) == 0){
 			puts("Opcion procesos");
+			log_trace(logTrace,"opcion procesos seleccionada");
 			char *cola = opcion+9;
 			mostrarColaDe(cola);
 			continue;
 
 		}
-		if (strncmp(opcion,"stop",4)==0){
-			//puts("Opcion stop");
-			log_trace(logTrace,"opcion elegida:stop");
 		if (strncmp(opcion, "stop", 4) == 0){
 			puts("Opcion stop");
+			log_trace(logTrace,"opcion stop seleccionada");
+
 			stopKernel();
 			continue;
 		}
 		if (strncmp(opcion,"tabla",5)==0){
-			//puts("Opcion tabla");
-			log_trace(logTrace,"opcion elegida:mostrar tabla");
+			puts("Opcion tabla");
+			log_trace(logTrace,"opcion tabla seleccionada");
+
 			mostrarTablaGlobal();
 			continue;
 		}
 		if (strncmp(opcion,"nuevoGrado",10)==0){
-			//puts("Opcion nuevoGrado");
-			log_trace(logTrace,"opcion elegida:nuevoGrado");
+			puts("Opcion nuevoGrado");
+			log_trace(logTrace,"opcion nuevo grado seleccionada");
+
 			char *grado = opcion+11;
 			int nuevoGrado = atoi(grado);
 			cambiarGradoMultiprogramacion(nuevoGrado);
 			continue;
 		}
 		if(!planificacionBloqueada){
-			log_trace(logTrace,"la planificacion esta desbloqueada");
 			if (strncmp(opcion,"info",4)==0){
-				//puts("Opcion info");
-				log_trace(logTrace,"opcion info");
+				puts("Opcion info");
+				log_trace(logTrace,"opcion info seleccionada");
+
 				char *pidInfo=opcion+5;
 				int pidElegido = atoi(pidInfo);
 				mostrarInfoDe(pidElegido);
@@ -105,99 +104,75 @@ void consolaKernel(void){
 
 			}
 			if (strncmp(opcion,"finalizar",9)==0){
-				//puts("Opcion finalizar");
-				log_trace(logTrace,"opcion finalizar");
+				puts("Opcion finalizar");
+				log_trace(logTrace,"opcion finalizar seleccionada");
+
 				char *pidAFinalizar = opcion+9;
 				int pidFin = atoi(pidAFinalizar);
 				finalizarProceso(pidFin);
 				continue;
 			}
 		}else{
-			log_trace(logTrace,"ninguna opcion ingresada es valida");
-			puts("No se puede acceder a este comando con la planificacion bloqueada :) o es un comando desconocido");
+			puts("No se puede acceder a este comando con la planificacion bloqueada :)");
 		}
 	}
 }
 //TODO: Hay q sincronizar las colas?? Solo las estoy mirando, no tendria pq poner un semaforo, no?
-void mostrarColaDe(char* cola){
+		void mostrarColaDe(char* cola){
 
-	if(!planificacionBloqueada){
-		//puts("Muestro estado de las colas con la planificacion no bloqueada");
-		log_trace(logTrace,"muestro la(s) cola(s) con planif no bloqueada");
-		if (strncmp(cola,"todos",5)==0){
-			//puts("Mostrar estado de todas las colas:");
-			log_trace(logTrace,"de todas las colas");
-			pthread_mutex_lock(&mux_new); pthread_mutex_lock(&mux_ready); pthread_mutex_lock(&mux_exec);
-			pthread_mutex_lock(&mux_block); pthread_mutex_lock(&mux_exit);
-			puts("Mostrar estado de todas las colas:");
-			LOCK_PLANIF;
-			mostrarColaNew();
-			mostrarColaReady();
-			mostrarColaExec();
-			mostrarColaExit();
-			mostrarColaBlock();
-			UNLOCK_PLANIF;
-		}
-		if (strncmp(cola,"new",3)==0){
-			log_trace(logTrace,"solo cola new");
-			//puts("Mostrar estado de cola NEW");
-			pthread_mutex_lock(&mux_new);
-			mostrarColaNew(); pthread_mutex_unlock(&mux_new);
-		}
-		if (strncmp(cola,"ready",5)==0){
-			log_trace(logTrace,"solo cola ready");
-			//puts("Mostrar estado de cola REDADY");
-			pthread_mutex_lock(&mux_ready);
-			mostrarColaReady(); pthread_mutex_unlock(&mux_ready);
-		}
-		if (strncmp(cola,"exec",4)==0){
-			//puts("Mostrar estado de cola EXEC");
-			log_trace(logTrace,"solo cola exec");
-			pthread_mutex_lock(&mux_exec);
-			mostrarColaExec(); pthread_mutex_unlock(&mux_exec);
-		}
-		if (strncmp(cola,"exit",4)==0){
-			//puts("Mostrar estado de cola EXIT");
-			log_trace(logTrace,"solo cola exit");
-			pthread_mutex_lock(&mux_exit);
-			mostrarColaExit(); pthread_mutex_unlock(&mux_exit);
-		}
-		if (strncmp(cola,"block",5)==0){
-			//puts("Mostrar estado de cola BLOCK");
-			log_trace(logTrace,"solo cola block");
-			pthread_mutex_lock(&mux_block);
-			mostrarColaBlock(); pthread_mutex_unlock(&mux_block);
+			if(!planificacionBloqueada){
+				puts("Muestro estado de las colas con la planificacion no bloqueada");
+				log_trace(logTrace,"mostrar la(s) cola(s) con la planificaicon no bloqueada");
 
-			puts("Mostrar estado de cola NEW");
-			MUX_LOCK(&mux_new);
-			mostrarColaNew(); MUX_UNLOCK(&mux_new);
-		}
-		if (strncmp(cola,"ready",5)==0){
-			puts("Mostrar estado de cola REDADY");
-			MUX_LOCK(&mux_ready);
-			mostrarColaReady(); MUX_UNLOCK(&mux_ready);
-		}
-		if (strncmp(cola,"exec",4)==0){
-			puts("Mostrar estado de cola EXEC");
-			MUX_LOCK(&mux_exec);
-			mostrarColaExec(); MUX_UNLOCK(&mux_exec);
-		}
-		if (strncmp(cola,"exit",4)==0){
-			puts("Mostrar estado de cola EXIT");
-			MUX_LOCK(&mux_exit);
-			mostrarColaExit(); MUX_UNLOCK(&mux_exit);
-		}
-		if (strncmp(cola,"block",5)==0){
-			puts("Mostrar estado de cola BLOCK");
-			MUX_LOCK(&mux_block);
-			mostrarColaBlock(); MUX_UNLOCK(&mux_block);
-		}
-	}else{
-		//puts("Muestro estado de las colas con planificacion bloqueada");
-		log_trace(logTrace,"muestro el estado de la(s) cola(s) con planificacion BLOQUEADA");
-		if (strncmp(cola,"todos",5)==0){
-			log_trace(logTrace,"todas las colas");
-			//puts("Mostrar estado de todas las colas:");
+				if (strncmp(cola,"todos",5)==0){
+					puts("Mostrar estado de todas las colas:");
+					log_trace(logTrace,"mostrar todas las colas");
+
+					LOCK_PLANIF;
+					mostrarColaNew();
+					mostrarColaReady();
+					mostrarColaExec();
+					mostrarColaExit();
+					mostrarColaBlock();
+					UNLOCK_PLANIF;
+				}
+				if (strncmp(cola,"new",3)==0){
+					log_trace(logTrace,"mostrar cola new");
+
+					puts("Mostrar estado de cola NEW");
+					MUX_LOCK(&mux_new);
+					mostrarColaNew(); MUX_UNLOCK(&mux_new);
+				}
+				if (strncmp(cola,"ready",5)==0){
+					log_trace(logTrace,"mostrar cola ready");
+					puts("Mostrar estado de cola REDADY");
+					MUX_LOCK(&mux_ready);
+					mostrarColaReady(); MUX_UNLOCK(&mux_ready);
+				}
+				if (strncmp(cola,"exec",4)==0){
+					log_trace(logTrace,"mostrar cola exec");
+					puts("Mostrar estado de cola EXEC");
+					MUX_LOCK(&mux_exec);
+					mostrarColaExec(); MUX_UNLOCK(&mux_exec);
+				}
+				if (strncmp(cola,"exit",4)==0){
+					log_trace(logTrace,"mostrar cola exit");
+					puts("Mostrar estado de cola EXIT");
+					MUX_LOCK(&mux_exit);
+					mostrarColaExit(); MUX_UNLOCK(&mux_exit);
+				}
+				if (strncmp(cola,"block",5)==0){
+					log_trace(logTrace,"mostrar cola block");
+					puts("Mostrar estado de cola BLOCK");
+					MUX_LOCK(&mux_block);
+					mostrarColaBlock(); MUX_UNLOCK(&mux_block);
+				}
+			}else{
+				puts("Muestro estado de las colas con planificacion bloqueada");
+				log_trace(logTrace,"mostrar la(s) cola(s) con la planificacion bloqueada");
+				if (strncmp(cola,"todos",5)==0){
+					puts("Mostrar estado de todas las colas:");
+					log_trace(logTrace,"mostrar todas las colas");
 					mostrarColaNew();
 					mostrarColaReady();
 					mostrarColaExec();
@@ -206,33 +181,34 @@ void mostrarColaDe(char* cola){
 
 				}
 				if (strncmp(cola,"new",3)==0){
-					log_trace(logTrace,"solo cola new");
-					//puts("Mostrar estado de cola NEW");
+					log_trace(logTrace,"mostrar cola new");
+					puts("Mostrar estado de cola NEW");
 					mostrarColaNew();
 				}
 				if (strncmp(cola,"ready",5)==0){
-					//puts("Mostrar estado de cola REDADY");
-					log_trace(logTrace,"solo cola ready");
+					log_trace(logTrace,"mostrar cola ready");
+					puts("Mostrar estado de cola REDADY");
 					mostrarColaReady();
 				}
 				if (strncmp(cola,"exec",4)==0){
-					//puts("Mostrar estado de cola EXEC");
-					log_trace(logTrace,"solo cola exec");
+					log_trace(logTrace,"mostrar cola exec");
+					puts("Mostrar estado de cola EXEC");
 					mostrarColaExec();
 				}
 				if (strncmp(cola,"exit",4)==0){
-					//puts("Mostrar estado de cola EXIT");
-					log_trace(logTrace,"solo cola exit");
+					log_trace(logTrace,"exit");
+					puts("Mostrar estado de cola EXIT");
 					mostrarColaExit();
 				}
 				if (strncmp(cola,"block",5)==0){
-					//puts("Mostrar estado de cola BLOCK");
-					log_trace(logTrace,"solo cola block");
+					log_trace(logTrace,"mostrar cola block");
+					puts("Mostrar estado de cola BLOCK");
 					mostrarColaBlock();
 				}
 
-	}
-}
+			}
+		}
+
 
 void mostrarColaNew(){
 	log_trace(logTrace,"inicio mostrar cola new ");
@@ -323,96 +299,84 @@ void mostrarColaBlock(){
 void mostrarInfoDe(int pidElegido){
 	log_trace(logTrace,"inicio mostrar info de %d ",pidElegido);
 	int p;
-	printf("############PROCESO %d############\n",pidElegido);
+		printf("############PROCESO %d############\n",pidElegido);
 
-	tPCB * pcbAuxiliar;
+		tPCB * pcbAuxiliar;
 
-	mostrarCantHeapUtilizadasDe(pidElegido);
-	mostrarCantSyscallsUtilizadasDe(pidElegido);
-	return;
+		/*mostrarCantHeapUtilizadasDe(pidElegido);
+		mostrarCantSyscallsUtilizadasDe(pidElegido);
+		return;*/
 
-	MUX_LOCK(&mux_new);
-	if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
-		pcbAuxiliar = queue_get(New,p);
-		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-		mostrarTablaDeArchivosDe(pcbAuxiliar);
-		mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		pthread_mutex_unlock(&mux_new);
-		log_trace(logTrace,"fin mostrar info de %d",pidElegido);
-		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		MUX_UNLOCK(&mux_new);
-		return;
-	}MUX_UNLOCK(&mux_new);
+		MUX_LOCK(&mux_new);
+		if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
+			pcbAuxiliar = queue_get(New,p);
+			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+			mostrarTablaDeArchivosDe(pcbAuxiliar);
+			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+			MUX_UNLOCK(&mux_new);
+			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
 
-	MUX_LOCK(&mux_ready);
-	if ((p = getQueuePositionByPid(pidElegido, Ready)) != -1){
-		pcbAuxiliar = queue_get(Ready,p);
-		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-		mostrarTablaDeArchivosDe(pcbAuxiliar);
-		mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		pthread_mutex_unlock(&mux_ready);
-		log_trace(logTrace,"fin mostrar info de %d",pidElegido);
-		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		MUX_UNLOCK(&mux_ready);
-		return;
-	}MUX_UNLOCK(&mux_ready);
+			return;
+		}MUX_UNLOCK(&mux_new);
 
-	MUX_LOCK(&mux_exec);
-	if ((p = getPCBPositionByPid(pidElegido, Exec)) != -1){
-		pcbAuxiliar = list_get(Exec,p);
-		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-		mostrarTablaDeArchivosDe(pcbAuxiliar);
-		mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		pthread_mutex_unlock(&mux_exec);
-		log_trace(logTrace,"fin mostrar info de %d",pidElegido);
-		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+		MUX_LOCK(&mux_ready);
+		if ((p = getQueuePositionByPid(pidElegido, Ready)) != -1){
+			pcbAuxiliar = queue_get(Ready,p);
+			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+			mostrarTablaDeArchivosDe(pcbAuxiliar);
+			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+			MUX_UNLOCK(&mux_ready);
+			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
+
+			return;
+		}MUX_UNLOCK(&mux_ready);
+
+		MUX_LOCK(&mux_exec);
+		if ((p = getPCBPositionByPid(pidElegido, Exec)) != -1){
+			pcbAuxiliar = list_get(Exec,p);
+			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+			mostrarTablaDeArchivosDe(pcbAuxiliar);
+			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+			MUX_UNLOCK(&mux_exec);
+			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
+
+			return;
+		}
 		MUX_UNLOCK(&mux_exec);
 
-		return;
-	}
-	MUX_UNLOCK(&mux_exec);
+		MUX_LOCK(&mux_block);
+		if ((p = getPCBPositionByPid(pidElegido, Block)) != -1){
+			pcbAuxiliar = list_get(Block,p);
+			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+			mostrarTablaDeArchivosDe(pcbAuxiliar);
+			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+			MUX_UNLOCK(&mux_block);
+			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
 
-	MUX_LOCK(&mux_block);
-	if ((p = getPCBPositionByPid(pidElegido, Block)) != -1){
-		pcbAuxiliar = list_get(Block,p);
-		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-		mostrarTablaDeArchivosDe(pcbAuxiliar);
-		mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		pthread_mutex_unlock(&mux_block);
-		log_trace(logTrace,"fin mostrar info de %d",pidElegido);
-		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		MUX_UNLOCK(&mux_block);
-		return;
-	}MUX_UNLOCK(&mux_block);
+			return;
+		}MUX_UNLOCK(&mux_block);
 
-	MUX_LOCK(&mux_exit);
-	if ((p = getQueuePositionByPid(pidElegido, Exit)) != -1){
-		pcbAuxiliar = queue_get(Exit,p);
-		mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-		mostrarTablaDeArchivosDe(pcbAuxiliar);
-		mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		pthread_mutex_unlock(&mux_exit);
-		log_trace(logTrace,"fin mostrar info de %d",pidElegido);
-		return;
-	}pthread_mutex_unlock(&mux_exit);
-	log_trace(logTrace,"fin mostrar info de %d (no existe ese pid)",pidElegido);
-		//mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-		//mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-		MUX_UNLOCK(&mux_exit);
-		return;
-	}MUX_UNLOCK(&mux_exit);
+		MUX_LOCK(&mux_exit);
+		if ((p = getQueuePositionByPid(pidElegido, Exit)) != -1){
+			pcbAuxiliar = queue_get(Exit,p);
+			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
+			mostrarTablaDeArchivosDe(pcbAuxiliar);
+			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
+			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
+			MUX_UNLOCK(&mux_exit);
+			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
 
-	puts("no existe ese PID");
-	return;
+			return;
+		}MUX_UNLOCK(&mux_exit);
+
+		puts("no existe ese PID");
+		log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
+
+		return;
 }
 
 void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
@@ -467,17 +431,9 @@ void mostrarTablaDeArchivosDe(tPCB *pcb){
 
 void mostrarCantHeapUtilizadasDe(int pid){
 
-	//TODO: ROMPE ACA!
 	log_trace(logTrace,"inicio mostrar cant heap utilizadas");
-	t_infoProcess *ip = list_get(list_infoProc, getInfoProcPosByPID(list_infoProc, pcb->id));
 
-	printf("####PROCESO %d####\nCantidad de paginas de heap utilizadas: \t %d \n", pcb->id, ip->ih->cant_heaps);
-	printf("####PROCESO %d####\nCantidad de allocaciones realizadas: \t %d \n",    pcb->id, ip->ih->cant_alloc);
-	printf("####PROCESO %d####\nCantidad de bytes allocados: \t\t %d \n",          pcb->id, ip->ih->bytes_allocd);
-	printf("####PROCESO %d####\nCantidad de liberaciones realizadas: \t %d \n",    pcb->id, ip->ih->cant_frees);
-	printf("####PROCESO %d####\nCantidad de bytes liberados: \t\t %d \n",          pcb->id, ip->ih->bytes_freed);
 
-	log_trace(logTrace,"fin mostrar cant heap utilizadas");
 	int pos;
 
 	MUX_LOCK(&mux_infoProc);
@@ -493,6 +449,9 @@ void mostrarCantHeapUtilizadasDe(int pid){
 	printf("####PROCESO %d####\nCantidad de bytes allocados: \t\t %d \n",          pid, ip->ih->bytes_allocd);
 	printf("####PROCESO %d####\nCantidad de liberaciones realizadas: \t %d \n",    pid, ip->ih->cant_frees);
 	printf("####PROCESO %d####\nCantidad de bytes liberados: \t\t %d \n",          pid, ip->ih->bytes_freed);
+
+	log_trace(logTrace,"fin mostrar cant heap utilizadas");
+
 }
 
 int getInfoProcPosByPID(t_list *infoProc, int pid){
@@ -512,13 +471,11 @@ int getInfoProcPosByPID(t_list *infoProc, int pid){
 	return -1;
 }
 
-void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
-	//todo:Rompe aca
-	log_trace(logTrace,"inicio mostrar cant syscal utilizadas");
-	t_infoProcess *ip = list_get(list_infoProc, getInfoProcPosByPID(list_infoProc, pcb->id));
-	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
-	log_trace(logTrace,"fin mostrar cant syscall utilizadas");
+
+
 void mostrarCantSyscallsUtilizadasDe(int pid){
+	log_trace(logTrace,"inicio mostrar cant syscal utilizadas");
+
 	int pos;
 
 	MUX_LOCK(&mux_infoProc);
@@ -530,6 +487,7 @@ void mostrarCantSyscallsUtilizadasDe(int pid){
 	MUX_UNLOCK(&mux_infoProc);
 
 	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n", pid, ip->cant_syscalls);
+	log_trace(logTrace,"fin mostrar cant syscall utilizadas");
 }
 
 void cambiarGradoMultiprogramacion(int nuevoGrado){
