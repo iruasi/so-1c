@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/mman.h>
+#include <pthread.h>
 
 #include <commons/config.h>
 #include <commons/string.h>
@@ -43,6 +44,9 @@ static struct fuse_opt fuse_options[] = {
 		FUSE_OPT_END,
 };
 
+int *ker_manejador(void);
+int recibirConexionKernel(void);
+
 int sock_kern;
 extern char *rutaBitMap;
 extern tMetadata* meta;
@@ -50,14 +54,13 @@ tFileSystem* fileSystem;
 
 int main(int argc, char* argv[]){
 
-
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
 
-	tPackHeader *head_tmp = malloc(sizeof *head_tmp);
-	int stat, fuseret;
+	int stat, fuseret, *retval;
+	pthread_t kern_th;
 
 	fileSystem = getConfigFS(argv[1]);
 	mostrarConfiguracion(fileSystem);
@@ -91,38 +94,103 @@ int main(int argc, char* argv[]){
 	printf("Ruta donde se crea la carpeta: %s\n", argumentos[1]);
 	meta = getInfoMetadata();
 
-	int sock_lis_kern;
-	if ((sock_lis_kern = makeListenSock(fileSystem->puerto_entrada)) < 0){
-		printf("No se pudo crear socket listen en puerto: %s", fileSystem->puerto_entrada);
+	if ((stat = recibirConexionKernel()) < 0){
+		puts("No se pudo conectar con Kernel!");
+		//todo: limpiarFilesystem();
 	}
 
-	if((stat = listen(sock_lis_kern, BACKLOG)) == -1){
-		perror("Fallo de listen sobre socket Kernel. error");
-		return FALLO_GRAL;
-	}
+	pthread_create(&kern_th, NULL, (void *) ker_manejador, &retval);
 
-	if((sock_kern = makeCommSock(sock_lis_kern)) < 0){
-		puts("No se pudo acceptar conexion entrante del Kernel");
-		return FALLO_GRAL;
-	}
+	pthread_join(kern_th, NULL);
 
-	puts("Esperando handshake de Kernel...");
-	while ((stat = recv(sock_kern, head_tmp, sizeof *head_tmp, 0)) > 0){
-
-		printf("Se recibieron %d bytes\n", stat);
-		printf("Emisor: %d\nTipo de mensaje: %d", head_tmp->tipo_de_mensaje, head_tmp->tipo_de_mensaje);
-	}
-
-	if (stat == -1){
-		perror("Error en la realizacion de handshake con Kernel. error");
-		return FALLO_RECV;
-	}
-
-
-	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);
 	liberarConfiguracionFileSystem(fileSystem);
 //	return EXIT_SUCCESS;
 	return fuseret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
 }
 
+
+int *ker_manejador(void){
+
+	int stat;
+	int *retval = malloc(sizeof(int));
+	tPackHeader head;
+
+	do {
+	switch(head.tipo_de_mensaje){
+
+	case VALIDAR_ARCHIVO:
+		puts("Se pide validacion de archivo");
+		puts("Fin case VALIDAR_ARCHIVO");
+		break;
+
+	case CREAR_ARCHIVO:
+		puts("Se pide crear un archivo");
+		puts("Fin case CREAR_ARCHIVO");
+		break;
+
+	case ARCHIVO_BORRADO:// todo: interprete bien lo de borrado? o es el mensaje de respuesta? Esta definido BORRAR, en \todo caso..
+		puts("Se peticiona el borrado de un archivo");
+		puts("Fin case ARCHIVO_BORRADO");
+		break;
+
+	case ARCHIVO_LEIDO:
+		puts("Se peticiona la lectura de un archivo");
+		puts("Fin case ARCHIVO_LEIDO");
+		break;
+
+	case ARCHIVO_ESCRITO:
+		puts("Se peticiona la escritura de un archivo");
+		puts("Fin case ARCHIVO_ESCRITO");
+		break;
+
+	default:
+		puts("Se recibio un mensaje no manejado!");
+		printf("Proc %d, Mensaje %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+		break;
+
+	}} while((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) > 0);
+
+	if (stat == -1){
+		perror("Fallo recepcion de Kernel. error");
+		*retval = FALLO_RECV;
+		return retval;
+	}
+
+	puts("Kernel cerro la conexion");
+	*retval = 0;
+	return retval;
+}
+
+int recibirConexionKernel(void){
+
+	int sock_lis_kern;
+	tPackHeader head, h_esp;
+	if ((sock_lis_kern = makeListenSock(fileSystem->puerto_entrada)) < 0){
+		printf("No se pudo crear socket listen en puerto: %s", fileSystem->puerto_entrada);
+		return FALLO_GRAL;
+	}
+
+	if(listen(sock_lis_kern, BACKLOG) == -1){
+		perror("Fallo de listen sobre socket Kernel. error");
+		return FALLO_GRAL;
+	}
+
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = HSHAKE;
+	while (1){
+		if((sock_kern = makeCommSock(sock_lis_kern)) < 0){
+			puts("No se pudo acceptar conexion entrante del Kernel");
+			return FALLO_GRAL;
+		}
+
+		if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+			printf("Rechazo proc %d mensaje %d\n", h_esp.tipo_de_proceso, h_esp.tipo_de_mensaje);
+			close(sock_kern);
+			continue;
+		}
+		printf("Se establecio conexion con Kernel. Socket %d\n", sock_kern);
+		break;
+	}
+
+	return 0;
+}
