@@ -15,29 +15,30 @@
 
 extern tKernel *kernel;
 extern t_valor_variable *shared_vals;
-extern t_log *logger;
+extern t_log *logTrace;
 
 t_dictionary *dict_sems_queue; // queue de PIDs que esperan signal de algun SEM
 pthread_mutex_t mux_sems_queue;
 
 void setupGlobales_syscalls(void){
+	log_trace(logTrace,"setup globales syscalls");
 	dict_sems_queue = dictionary_create();
 	pthread_mutex_init(&mux_sems_queue, NULL);
 }
 
 int getSemPosByID(const char *sem){
-
+	log_trace(logTrace,"get sem pos by id");
 	int i;
 	for (i = 0; i < kernel->sem_quant; ++i)
 		if (strcmp(kernel->sem_ids[i], sem) == 0)
 			return i;
 
-	log_error(logger, "No se encontro el semaforo %s en la config del Kernel\n", sem);
+	log_error(logTrace, "No se encontro el semaforo %s en la config del Kernel\n", sem);
 	return -1;
 }
 
 int waitSyscall(const char *sem, int pid){
-
+	log_trace(logTrace,"wait syscall");
 	int p;
 	if ((p = getSemPosByID(sem)) == -1)
 		return VAR_NOT_FOUND;
@@ -53,7 +54,7 @@ int waitSyscall(const char *sem, int pid){
 }
 
 int signalSyscall(const char *sem){
-
+	log_trace(logTrace,"signal syscall");
 	int p, *pid;
 	if ((p = getSemPosByID(sem)) == -1)
 		return VAR_NOT_FOUND;
@@ -71,7 +72,7 @@ int signalSyscall(const char *sem){
 }
 
 int setGlobalSyscall(tPackValComp *val_comp){
-
+	log_trace(logTrace,"set global syscall");
 	int i;
 	int nlen = strlen(val_comp->nom) + 2; // espacio para el ! y el '\0'
 	char *aux = NULL;
@@ -90,6 +91,7 @@ int setGlobalSyscall(tPackValComp *val_comp){
 
 t_valor_variable getGlobalSyscall(t_nombre_variable *var, bool* found){
 
+	log_trace(logTrace,"get global syscall");
 	int i;
 	int nlen = strlen(var) + 2; // espacio para el ! y el '\0'
 	char *aux = NULL;
@@ -104,12 +106,13 @@ t_valor_variable getGlobalSyscall(t_nombre_variable *var, bool* found){
 	}
 	free(aux);
 	*found = false;
-	printf("No se encontro la global %s en la config del Kernel\n", var);
+	//printf("No se encontro la global %s en la config del Kernel\n", var);
+	log_error(logTrace,"no se encontro la global %s en la config del kernel",var);
 	return GLOBAL_NOT_FOUND;
 }
 
 void enqueuePIDtoSem(char *sem, int pid){
-
+	log_trace(logTrace,"enqueue pid to sem");
 	t_queue *pids_blk;
 	int *pid_b = malloc(sizeof(int));
 	*pid_b = pid; // creamos una copia del PID
@@ -130,16 +133,19 @@ void enqueuePIDtoSem(char *sem, int pid){
 
 int *unqueuePIDfromSem(char *sem){
 
+	log_trace(logTrace,"unqueue pid from sem");
 	MUX_LOCK(&mux_sems_queue);
 	if (!dictionary_has_key(dict_sems_queue, sem)){
-		printf("El semaforo %s no tiene registrado ningun PID\n", sem);
+		log_trace(logTrace,"el semaforo no tiene registrado ningun pid");
+		//printf("El semaforo %s no tiene registrado ningun PID\n", sem);
 		MUX_UNLOCK(&mux_sems_queue);
 		return NULL;
 	}
 
 	t_queue *pids_blk = dictionary_get(dict_sems_queue, sem);
 	if (queue_is_empty(pids_blk)){
-		printf("No hay PIDs esperando a %s\n", sem);
+		log_trace(logTrace,"no hay pids esperando al sem");
+		//printf("No hay PIDs esperando a %s\n", sem);
 		MUX_UNLOCK(&mux_sems_queue);
 		return NULL;
 	}

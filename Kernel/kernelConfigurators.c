@@ -9,6 +9,7 @@
 #include <parser/parser.h>
 #include <commons/config.h>
 #include <commons/string.h>
+#include <commons/log.h>
 
 #define MAX_IP_LEN 16   // aaa.bbb.ccc.ddd -> son 15 caracteres, 16 contando un '\0'
 #define MAX_PORT_LEN 6  // 65535 -> 5 digitos, 6 contando un '\0'
@@ -16,7 +17,7 @@
 #define MAXALGO 4 		// cantidad maxima de carecteres para kernel->algoritmo (RR o FIFO)
 
 t_valor_variable *shared_vals; // valores de las variables Globales
-
+extern t_log * logTrace;
 void inicializarIntSems(tKernel *ker);
 
 tKernel *getConfigKernel(char* ruta){
@@ -112,4 +113,5 @@ void liberarConfiguracionKernel(tKernel *kernel){
 	free(kernel->puerto_prog);
 	free(kernel->puerto_fs);
 	free(kernel);
+	log_trace(logTrace,"liberar config kernel");
 }

@@ -36,7 +36,7 @@ tKernel *kernel;
 
 //sem_t haySTDIN;
 
-t_log * logger;
+t_log * logTrace;
 
 int interconectarProcesos(ker_socks *ks, const char* path);
 void inotifyer(char *path);
@@ -52,7 +52,7 @@ void crearLogger() {
 
    char *logKernelFileName = strdup("KERNEL_LOG.log");
 
-   logger = log_create(pathLogger, logKernelFileName, false, LOG_LEVEL_INFO);
+  //logger = log_create(pathLogger, logKernelFileName, false, LOG_LEVEL_INFO);
 
    free(logKernelFileName);
    logKernelFileName = NULL;
@@ -65,41 +65,50 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	// Se trata de conectar con Memoria
 	if ((sock_mem = establecerConexion(kernel->ip_memoria, kernel->puerto_memoria)) < 0){
 		fprintf(stderr, "No se pudo conectar con la Memoria! sock_mem: %d\n", sock_mem);
+		log_error(logTrace,"no se pudo conectar con la memoria");
 		return FALLO_CONEXION;
 	}
 
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Memoria
 	if ((stat = handshakeCon(sock_mem, kernel->tipo_de_proceso)) < 0){
 		fprintf(stderr, "No se pudo hacer hadshake con Memoria\n");
+		log_error(logTrace,"no se pudo hacer handshake con la memoria");
 		return FALLO_GRAL;
 	}
-	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
+	//printf("Se enviaron: %d bytes a MEMORIA\n", stat);
+	log_trace(logTrace,"se enviaron %d bytes a memoria",stat);
 
 	tPackHeader h_esp = {.tipo_de_proceso = MEM, .tipo_de_mensaje = MEMINFO};
 	if((stat = recibirInfo2ProcAProc(sock_mem, h_esp, &frames, &frame_size)) == -1){
+		log_error(logTrace,"no se recibio correctamente info de memoria");
 		puts("No se recibio correctamente informacion de Memoria!");
 		return FALLO_GRAL;
 	}
 	printf("Se trabaja una Memoria con %d frames de size %d\n", frames, frame_size);
+	log_trace(logTrace,"cant frames: %d",frames);
+	log_trace(logTrace,"size frames: %d",frame_size);
 	MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
 
 	// Se trata de conectar con Filesystem
 	if ((sock_fs = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
 		fprintf(stderr, "No se pudo conectar con el Filesystem! sock_fs: %d\n", sock_fs);
+		log_error(logTrace,"no se pudo conectar c el fs");
 		return FALLO_CONEXION;
 	}
 
 	// No permitimos continuar la ejecucion hasta lograr un handshake con Filesystem
 	if ((stat = handshakeCon(sock_fs, kernel->tipo_de_proceso)) < 0){
 		fprintf(stderr, "No se pudo hacer hadshake con Filesystem\n");
+		log_error(logTrace,"no se pudo ahcer hs con el fs");
 		return FALLO_GRAL;
 	}
-	printf("Se enviaron: %d bytes a FILESYSTEM\n", stat);
-
+	//printf("Se enviaron: %d bytes a FILESYSTEM\n", stat);
+	log_trace(logTrace,"se enviaron %d bytes a FS",stat);
 	ks->fd_max = MAX(sock_fs, ks->fd_max);
 
 	// Creamos sockets para hacer listen() de CPUs
 	if ((ks->sock_lis_cpu = makeListenSock(kernel->puerto_cpu)) < 0){
+		log_error(logTrace,"no se pudo crear socket para escuchar sock_lis_cpu");
 		fprintf(stderr, "No se pudo crear socket para escuchar! sock_lis_cpu: %d\n", ks->sock_lis_cpu);
 		return FALLO_CONEXION;
 	}
@@ -108,6 +117,7 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 
 	// Creamos sockets para hacer listen() de Consolas
 	if ((ks->sock_lis_con = makeListenSock(kernel->puerto_prog)) < 0){
+		log_error(logTrace,"no se pudo crear socket para escuchar sock_lis_con");
 		fprintf(stderr, "No se pudo crear socket para escuchar! sock_lis_con: %d\n", ks->sock_lis_con);
 		return FALLO_CONEXION;
 	}
@@ -115,17 +125,20 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	ks->fd_max = MAX(ks->sock_lis_con, ks->fd_max);
 
 	while ((stat = listen(ks->sock_lis_cpu, BACKLOG)) == -1){
+		log_error(logTrace,"fallo listen a socket cpus");
 		perror("Fallo listen a socket CPUs. error");
 		puts("Reintentamos...\n");
 	}
 
 	while ((stat = listen(ks->sock_lis_con, BACKLOG)) == -1){
-		perror("Fallo listen a socket CPUs. error");
+		log_error(logTrace,"fallo listen a scoket cons");
+		perror("Fallo listen a socket Cons. error");
 		puts("Reintentamos...\n");
 	}
 
 	// Al inicializar inotify este nos devuelve un descriptor de archivo
 	if ((ks->sock_inotify = inotify_init()) == -1){
+		log_error(logTrace,"inotify_init error");
 		perror("inotify_init. error");
 		puts("Se trabaja sin actualizacion de configuracion Kernel");
 	}
@@ -137,16 +150,23 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 	FD_SET(sock_fs,          &ks->master);
 	FD_SET(ks->sock_lis_cpu, &ks->master);
 	FD_SET(ks->sock_lis_con, &ks->master);
-	//FD_SET(ks->sock_watch,   &ks->master);
+	//FD_SET(ks->sock_watch,   &ks->master); //todo
 	return 0;
 }
 
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
+		log_error(logTrace,"errpr en la cant de parametros");
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
+
+	logTrace = log_create("/home/utnso/logKERNELTrace.txt","KERNEL",0,LOG_LEVEL_TRACE);
+
+	log_trace(logTrace,"Inicia nueva ejecucion de KERNEL");
+
+
 
 //	if (sem_init(&haySTDIN, 0, 0) == -1){
 //		perror("No se pudo inicializar semaforo. error");
@@ -178,21 +198,25 @@ int main(int argc, char* argv[]){
 	setupVariablesPorSubsistema();
 
 	if (interconectarProcesos(ks, argv[1]) != 0){
+		log_error(logTrace,"Fallo en la conexion c el resto de los procesos");
 		puts("Fallo en la conexion con el resto de los procesos");
 		return ABORTO_KERNEL;
 	}
 
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
+		log_error(logTrace,"no se pudo crearhilo");
 		perror("no pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
 
 	if( pthread_create(&consolaKernel_thread, NULL, (void*) consolaKernel, NULL) < 0){
+		log_error(logTrace,"no se pudo crear hilo");
 		perror("no pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
 
 	if( pthread_create(&mem_thread, NULL, (void*) mem_manejador, (void*) &sock_mem) < 0){
+		log_error(logTrace,"no se pudo crear hilo");
 		perror("no pudo crear hilo. error");
 		return FALLO_GRAL;
 	}
@@ -204,6 +228,7 @@ int main(int argc, char* argv[]){
 
 		ready_fds = select(ks->fd_max + 1, &read_fd, NULL, NULL, NULL);
 		if(ready_fds == -1){
+			log_error(logTrace,"fallo el select");
 			perror("Fallo el select(). error");
 			return FALLO_SELECT;
 		}
@@ -211,11 +236,12 @@ int main(int argc, char* argv[]){
 		for (fd = 0; fd <= ks->fd_max; ++fd){
 			if (FD_ISSET(fd, &read_fd)){
 
-				printf("Hay un socket listo! El fd es: %d\n", fd);
-
+				//printf("Hay un socket listo! El fd es: %d\n", fd);
+				log_trace(logTrace,"hay un socket listo, fd %d",fd);
 
 				if(fd == ks->sock_watch){
-					puts("El socket es de inotify");
+					//puts("El socket es de inotify");
+					log_trace(logTrace,"el socket es de inotify");
 					inotifyer(argv[1]);
 				}
 
@@ -231,6 +257,7 @@ int main(int argc, char* argv[]){
 
 					pthread_t cpu_thread;
 					if( pthread_create(&cpu_thread, &attr_ondemand, (void*) cpu_manejador, (void*) cpu_i) < 0){
+						log_error(logTrace,"no pudo crear hilo");
 						perror("no pudo crear hilo. error");
 						return FALLO_GRAL;
 					}
@@ -248,6 +275,7 @@ int main(int argc, char* argv[]){
 
 					pthread_t con_thread;
 					if( pthread_create(&con_thread, &attr_ondemand, (void*) cons_manejador, (void*) con_i) < 0){
+						log_error(logTrace,"no pudo creasr hilo");
 						perror("no pudo crear hilo. error");
 						return FALLO_GRAL;
 					}
@@ -257,19 +285,22 @@ int main(int argc, char* argv[]){
 
 				// Como no es un listen, recibimos el header de lo que llego
 				if ((stat = recv(fd, &header_tmp, HEAD_SIZE, 0)) == -1){
+					log_error(logTrace,"error en rv de algun socket. el socket asociado %d",fd);
 					perror("Error en recv() de algun socket. error");
 					fprintf(stderr, "El socket asociado al fallo es: %d\n", fd);
 					break;
 
 				} else if (stat == 0){
-					printf("Se desconecto el socket %d\nLo sacamos del set listen...\n", fd);
+					//printf("Se desconecto el socket %d\nLo sacamos del set listen...\n", fd);
+					log_trace(logTrace,"se dsconecto %d",fd);
 					clearAndClose(&fd, &ks->master);
 					break;
 
 				} else if (fd == sock_fs){
 
 
-					printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
+					//printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
+					log_trace(logTrace,"llego algo de fs . tipo de msj %d",header_tmp.tipo_de_mensaje);
 					break;
 
 				} else if (fd == 0) //socket del stdin
@@ -326,15 +357,17 @@ void inotifyer(char *path){
 			// sea un archivo o un directorio
 			if ((event->mask & IN_MODIFY) && !(event->mask & IN_ISDIR)){
 				printf("The file %s was modified.\n", event->name);
-
+				log_trace(logTrace,"el archivo %s fue modificado",event->name);
 				if (strncmp(event->name, "config_kernel", 13) == 0){
 					puts("Actualizamos los valores de la config de kernel");
+					log_trace(logTrace,"se actualizan los valores de la config de kernel");
 					liberarConfiguracionKernel(kernel);
 					kernel = getConfigKernel(path);
 					break;
 				}
 
 			} else {
+				log_trace(logTrace,"hubo una accion sobre un archivo q no manejamos");
 				printf("Hubo una accion sobre %s que no manejamos...\n", event->name);
 				break;
 			}

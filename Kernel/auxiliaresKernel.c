@@ -33,7 +33,7 @@ extern t_list *gl_Programas, *list_infoProc; // va a almacenar relaciones entre 
 extern pthread_mutex_t mux_exec, mux_ready, mux_gl_Programas, mux_infoProc;
 extern t_queue *Ready, *Exit;
 extern t_list *Exec;
-extern t_log *logger;
+extern t_log * logTrace;
 
 int globalPID;
 int globalFD;
@@ -48,29 +48,35 @@ void setupGlobales_auxiliares(void){ // todo: por ahi esto entero se puede deleg
 	tablaProcesos = list_create();
 
 	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
-	pthread_mutex_init(&mux_archivosAbiertos, NULL); // todo: utilizo este suponiendo que es para tablaGlobal
+	pthread_mutex_init(&mux_archivosAbiertos, NULL);
+
+	log_trace(logTrace,"fin setup variables globales");
 }
 
 
 void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir){
 	char fd_str[MAXPID_DIG];
-
+	log_trace(logTrace,"inicio agregar archivo a tabla global");
 	memcpy(datos->direccion, abrir->direccion, abrir->longitudDireccion);
 	datos->cantidadOpen = 0;
 	datos->fd = globalFD; globalFD++;
 	sprintf(fd_str, "%d", datos->fd);
 
 	if(!dictionary_has_key(tablaGlobal, fd_str)){
-		printf("La tabla no contiene el archivo, la agregamos\n");
+		//printf("La tabla no contiene el archivo, la agregamos\n");
+		log_trace(logTrace,"la tabla no contiene el archivo, la agregamos");
 		dictionary_put(tablaGlobal, fd_str, datos);
-		printf("Los datos del fd # %s fueron agregados a la tabla global \n",fd_str);
+		//printf("Los datos del fd # %s fueron agregados a la tabla global \n",fd_str);
+		log_trace(logTrace,"los datos fueron agregados a la tabla global");
 	}else{
-		printf("El archivo ya se encuentra en la tabla global\n");
+		//printf("El archivo ya se encuentra en la tabla global\n");
+		log_trace(logTrace,"el archivo ya se encuentra en la tabla global");
 	}
+	log_trace(logTrace,"fin agregar archivo a tabla global");
 }
 void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid){
 	tProcesoArchivo * pa = malloc(sizeof *pa);
-
+	log_trace(logTrace,"inicio agregar archivo a tabla procesos");
 	t_procesoXarchivo * pxa = malloc(sizeof(*pxa));
 
 	pa->fd = datos->fd;
@@ -81,10 +87,12 @@ void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int
 	pxa->archivosPorProceso = list_create();
 	list_add(pxa->archivosPorProceso,pa);//El index es 3 + el pid, porque 0,1 y 2 están reservados
 	list_add(tablaProcesos,pxa);
+	log_trace(logTrace,"fin agregar archivo a tabla procesos");
 }
 
 
 tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
+	log_trace(logTrace,"inicio obtener proceso segun fd");
 	bool encontrarFD(tProcesoArchivo * archivo){
 		return archivo->fd == fd;
 	}
@@ -96,11 +104,13 @@ tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
 
 	if(_unArchivo == NULL){
 		perror("No hay archivo");
+		log_error(logTrace,"no hay archivo en obtener proceso segun FD");
 	}
-
+	log_trace(logTrace,"fin obtener proceso segun fd");
 	return _unArchivo;
 }
 tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
+	log_trace(logTrace,"inicio encontrar tbla por fd");
 	tDatosTablaGlobal * unaTabla;
 	bool encontrarFD(tProcesoArchivo *archivo){
 		return archivo->fd == fd;
@@ -115,15 +125,16 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 	char fd_s[MAXPID_DIG];
 	sprintf(fd_s,"%d",fd);
 	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal, fd_s);
-
+	log_trace(logTrace,"fin encontrar tabla por fd");
 	return unaTabla;
 }
 
 tPCB *crearPCBInicial(void){
-
+	log_trace(logTrace,"inicio crear pcb inicial");
 	tPCB *pcb;
 	if ((pcb = malloc(sizeof *pcb)) == NULL){
 		printf("Fallo mallocar %d bytes para pcbInicial\n", sizeof *pcb);
+		log_error(logTrace,"fallo mallocar bytes para pcb inicial");
 		return NULL;
 	}
 	pcb->indiceDeCodigo    = NULL;
@@ -138,39 +149,45 @@ tPCB *crearPCBInicial(void){
 	pcb->exitCode           = 0;
 	pcb->rafagasEjecutadas  = 0;
 	pcb->cantSyscalls 		= 0;
-
+	log_trace(logTrace,"fin crear pcb inicial");
 	return pcb;
 }
 
 void liberarCC(t_RelCC *cc){
+	log_trace(logTrace,"inicio liberar cc");
 	free(cc->con);
 	free(cc);
+	log_trace(logTrace,"fin liberar cc");
 }
 
 int getConPosByFD(int fd, t_list *list){
-
+	log_trace(logTrace,"inicio getconposbyfd");
 	int i;
 	t_RelPF *pf;
 	for (i = 0; i < list_size(list); ++i){
 		pf = list_get(list, i);
-		if (pf->prog->con->fd_con == fd)
+		if (pf->prog->con->fd_con == fd){
+			log_trace(logTrace,"fin exitoso con pos by fd");
 			return i;
+		}
 	}
-
+	log_trace(logTrace,"fin conposbyfd no se encontro el programa en gl_programas");
 	printf("No se encontro el programa de socket %d en la gl_Programas\n", fd);
 	return -1;
 }
 
 int getCPUPosByFD(int fd, t_list *list){
-
+	log_trace(logTrace,"inicio get cpu pos by fd");
 	int i;
 	t_RelCC *cc;
 	for (i = 0; i < list_size(list); ++i){
 		cc = list_get(list, i);
-		if (cc->cpu.fd_cpu == fd)
+		if (cc->cpu.fd_cpu == fd){
+			log_trace(logTrace,"fin exitoso get cpu pos by fd");
 			return i;
+		}
 	}
-
+	log_trace(logTrace,"fin get cpu pos by fd no se encontro el socket en la lista de cpu");
 	printf("No se encontro el CPU de socket %d en la listaDeCpu\n", fd);
 	return -1;
 }
@@ -179,7 +196,7 @@ int getCPUPosByFD(int fd, t_list *list){
  * `len' es una variable de salida para indicar la cantidad de pids que hay.
  */
 int *formarPtrPIDs(int *len){
-
+	log_trace(logTrace,"inicio formar ptr pids");
 	int i,r,q, *pids;
 	tPCB *pcb;
 
@@ -200,15 +217,17 @@ int *formarPtrPIDs(int *len){
 	MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec);
 
 	*len = r + q;
+	log_trace(logTrace,"fin formar ptr pids");
 	return pids;
 }
 
 void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
-	puts("Asociar Programa y Codigo Fuente");
-
+	//puts("Asociar Programa y Codigo Fuente");
+	log_trace(logTrace,"inicio asosciar src a prog");
 	t_RelPF *pf;
 	if ((pf = malloc(sizeof *pf)) == NULL){
 		printf("No se pudieron mallocar %d bytes para RelPF\n", sizeof *pf);
+		log_error(logTrace,"no se pudieron mallocar bytes para relpf");
 		return;
 	}
 
@@ -217,6 +236,7 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src){
 	MUX_LOCK(&mux_gl_Programas);
 	list_add(gl_Programas, pf);
 	MUX_UNLOCK(&mux_gl_Programas);
+	log_trace(logTrace,"fin asociar src a prog");
 }
 
 void *queue_get(t_queue *self, int posicion){
@@ -225,10 +245,10 @@ void *queue_get(t_queue *self, int posicion){
 
 
 void desconexionCpu(t_RelCC *cpu_i){
-
+	log_trace(logTrace,"inicio desocnexion cpu");
 	tPCB *pcbAuxiliar;
 	int p;
-
+	log_trace(logTrace,"la cpu que se desconecto estaba ejecutando el proceso %d",cpu_i->con->pid);
 	printf("La cpu que se desconecto, estaba ejecutando el proceso %d\n",cpu_i->con->pid);
 
 	pthread_mutex_lock(&mux_exec);
@@ -242,7 +262,7 @@ void desconexionCpu(t_RelCC *cpu_i){
 
 		encolarEnExit(pcbAuxiliar,cpu_i);
 	}
-
+	log_trace(logTrace,"fin desconexion cpu");
 	pthread_mutex_unlock(&mux_exec);
 }
 

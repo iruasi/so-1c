@@ -35,7 +35,7 @@ void sigusr1Handler(void);
 void sigintHandler(void);
 
 int conectarConServidores(tCPU *cpu_data);
-t_log * logger;
+t_log * logTrace;
 int pag_size, stack_size;
 int q_sleep;
 float q_sleep_segs;
@@ -62,7 +62,7 @@ void crearLogger() {
 
    char *logCPUFileName = strdup("CPU_LOG.log");
 
-   logger = log_create(pathLogger, logCPUFileName, false, LOG_LEVEL_INFO);
+ //  logger = log_create(pathLogger, logCPUFileName, false, LOG_LEVEL_INFO);
 
    free(logCPUFileName);
    logCPUFileName = NULL;
@@ -77,24 +77,28 @@ void err_handler(void){
 	sem_wait(&sem_fallo_exec); // este semaforo se va a sem_post'ear por quien detecte algun error
 	pthread_mutex_lock(&mux_pcb);
 	pcb->exitCode = err_exec;
-	printf("Fallo ejecucion del PID %d con el error numero %d\n", pcb->id, pcb->exitCode);
-
+	printf("Fallo ejecucion del PID %d con el error numero %d\n, enviamos el pcb abortado a kernel.", pcb->id, pcb->exitCode);
+	log_error(logTrace,"Fallo de ejecucion del PID %d",pcb->id);
+	log_error(logTrace,"Error nro: %d",pcb->exitCode);
 	if ((pcb_serial = serializePCB(pcb, head, &pack_size)) == NULL){
 		pthread_mutex_unlock(&mux_pcb); break;
 	}
 
-	printf("Tenemos que mandar %d bytes de PCB a Kernel\n", pack_size);
+	//printf("Tenemos que mandar %d bytes de PCB a Kernel\n", pack_size);
+	log_trace(logTrace,"mandamos %d bytes de pcba  kernel",pack_size);
 	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de PCB a Kernel. error");
+		log_error(logTrace,"fallo envio de pcb a kernel");
 		pthread_mutex_unlock(&mux_pcb); break;
 	}
-	printf("Se enviaron %d bytes a Kernel\n", stat);
-	puts("Se envio el PCB abortado a Kernel");
 
+	//printf("Se enviaron %d bytes a Kernel\n", stat);
+	//puts("Se envio el PCB abortado a Kernel");
+	log_trace(logTrace,"se enviardon %d bytes a kernel del pcb abortado",stat);
 	freeAndNULL((void **) &pcb_serial);
 	liberarPCB(pcb);
 	pthread_mutex_unlock(&mux_pcb);
-
+	log_trace(logTrace,"el cpu vuelve a un estado constistente y lsito para recibir un pcb nuevo");
 	puts(" *** El CPU vuelve a un estado consistente y listo para recibir un pcb nuevo ***\n");
 }} // el While va a permanecer por tanto tiempo como exista el hilo main()...
 
@@ -137,12 +141,17 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
+	logTrace = log_create("/home/utnso/logCPUTrace.txt","CPU",0,LOG_LEVEL_TRACE);
+
+	log_trace(logTrace,"Inicia nueva ejecucion de CPU");
+
+
 	int stat;
 	int *retval;
 	ejecutando = false;
 	tCPU *cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
-	crearLogger();
+	//crearLogger();
 	setupCPUFunciones();
 	setupCPUFuncionesKernel();
 
@@ -158,6 +167,7 @@ int main(int argc, char* argv[]){
 
 	if ((stat = conectarConServidores(cpu_data)) != 0){
 		puts("No se pudo conectar con ambos servidores");
+		log_error(logTrace,"No se pudo conectar con ambos servidores");
 		return FALLO_GRAL;
 	}
 
@@ -165,12 +175,13 @@ int main(int argc, char* argv[]){
 	char *pcb_serial;
 
 	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
-		puts("Se recibio un paquete de Kernel");
 
-		printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
-
+		//puts("Se recibio un paquete de Kernel");
+		//printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
+		log_trace(logTrace,"Se recibio un paquete de kernel");
 		if (head->tipo_de_mensaje == FIN){
 			puts("Kernel se va!");
+			log_trace(logTrace,"kernel se va");
 			liberarConfiguracionCPU(cpu_data);
 
 		} else if (head->tipo_de_mensaje == PCB_EXEC){
@@ -185,10 +196,12 @@ int main(int argc, char* argv[]){
 			pthread_mutex_unlock(&mux_pcb);
 
 			puts("Recibimos un PCB para ejecutar...");
+			log_trace(logTrace,"recibimos un pcb para ejecutar");
 			pthread_create(&pcb_th, NULL, (void *) ejecutarPrograma, NULL);
 
 			pthread_join(pcb_th, (void **) &retval);
 			printf("Termino la ejecucion del PCB con valor retorno = %d\n", *retval);
+			log_trace(logTrace,"termino la ejecucion del PCB con valor retorno");
 
 		} else {
 			puts("Me re fui");
@@ -198,14 +211,15 @@ int main(int argc, char* argv[]){
 
 	if (stat == -1){
 		perror("Error en la recepcion con Kernel. error");
-		puts("Se limpia el proceso y se cierra..");
+		log_trace(logTrace,"se limpia el proceso y se cierra..");
+		//puts("Se limpia el proceso y se cierra..");
 		close(sock_kern);
 		close(sock_mem);
 		free(head);
 		liberarConfiguracionCPU(cpu_data);
 		return FALLO_GRAL;
 	}
-
+	log_trace(logTrace,"kernel termino la conexion, limpiando proceso..");
 	printf("Kernel termino la conexion\nLimpiando proceso...\n");
 	close(sock_kern);
 	close(sock_mem);
@@ -228,16 +242,20 @@ int *ejecutarPrograma(void){sleep(1);
 
 
 	puts("Empieza a ejecutar...");
+	log_trace(logTrace,"empieza a ejecutar");
 	ejecutando=true;
 	do{
 		instr_size = (pcb->indiceDeCodigo + pcb->pc)->offset;
 
 		//LEE LA PROXIMA LINEA DEL PROGRAMA
+		log_trace(logTrace,"pide instruccion");
 		pedirInstruccion(instr_size, &solics);
-
+		log_trace(logTrace,"recibe instruccion");
 		recibirInstruccion(&linea, instr_size, solics);
 
 		printf("La linea %d es: %s\n", (pcb->pc+1), linea);
+
+		log_trace(logTrace,"ejecuta la instruccion");
 		//ANALIZA LA LINEA LEIDA Y EJECUTA LA FUNCION ANSISOP CORRESPONDIENTE
 		analizadorLinea(linea, &functions, &kernel_functions);
 
@@ -255,16 +273,19 @@ int *ejecutarPrograma(void){sleep(1);
 	} while(!termino && !bloqueado);
 
 	if (pcb->pc == pcb->cantidad_instrucciones){
+		log_trace(logTrace,"Termino de ejecutar, exit_success");
 		puts("Termino de ejecutar...");
 		header.tipo_de_mensaje = FIN_PROCESO;
 		*retval = pcb->exitCode = 0; // exit_success
 
 	} else if (bloqueado){
 		puts("El PCB se bloquea...");
+		log_trace(logTrace,"El pcb se bloquea PCB_BLOCK");
 		*retval = header.tipo_de_mensaje = PCB_BLOCK;
 
 	} else if (fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
 		puts("Fin de quantum...");
+		log_trace(logTrace,"Desaloja por fin de quantum PCB_PREEMPT");
 		*retval = header.tipo_de_mensaje = PCB_PREEMPT;
 	}
 
@@ -276,11 +297,15 @@ int *ejecutarPrograma(void){sleep(1);
 
 	int pack_size = 0;
 	char *pcb_serial = serializePCB(pcb, header, &pack_size);
-	printf("Se serializo bien el pcb con tamanio: %d\n", pack_size);
-	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1)
+	//printf("Se serializo bien el pcb con tamanio: %d\n", pack_size);
+	log_trace(logTrace,"Se serializo bien el pcb con tamanio %d",pack_size);
+	if ((stat = send(sock_kern, pcb_serial, pack_size, 0)) == -1){
+		log_error(logTrace,"fallo envio de pcb a kernel");
 		perror("Fallo envio de PCB a Kernel. error");
+	}
+	puts("se envio el pcb a kernel");
+	log_trace(logTrace,"Se enviaron %d bytes a kernel \n", stat);
 
-	printf("Se enviaron %d bytes a kernel \n", stat);
 	pthread_mutex_lock(&mux_ejecutando);
 	ejecutando = false;
 	pthread_mutex_unlock(&mux_ejecutando);
@@ -292,7 +317,8 @@ int *ejecutarPrograma(void){sleep(1);
 }
 
 void pedirInstruccion(int instr_size, int *solics){
-	puts("Pide instruccion");
+
+	//puts("Pide instruccion");
 
 	tPackHeader head;
 	tPackByteReq *pbrq;
@@ -332,6 +358,7 @@ void pedirInstruccion(int instr_size, int *solics){
 
 		if((stat = send(sock_mem, bytereq_serial, pack_size, 0)) == -1){
 			perror("Fallo envio de paquete de pedido de bytes. error");
+			log_error(logTrace,"fallo envio de paquete de pedido de bytes");
 			err_exec = FALLO_SEND;
 			sem_post(&sem_fallo_exec);
 			pthread_exit(&err_exec);
@@ -343,7 +370,7 @@ void pedirInstruccion(int instr_size, int *solics){
 }
 
 void recibirInstruccion(char **linea, int instr_size, int solics){
-	puts("vamos a recibir instruccion");
+	//puts("vamos a recibir instruccion");
 
 	int stat, i, offset;
 	char *byte_serial;
@@ -351,9 +378,9 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 	tPackBytes *instr;
 
 
-	//rompe el RR aca
 
 	if ((*linea = realloc(*linea, instr_size + 1)) == NULL){
+		log_error(logTrace,"no se pudieron reallocar %d bytes memoria para la sig linea de instruccino",instr_size);
 		printf("No se pudo reallocar %d bytes memoria para la siguiente linea de instruccion\n", instr_size);
 		err_exec = FALLO_GRAL;
 		sem_post(&sem_fallo_exec);
@@ -363,6 +390,7 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 	for (offset = i = 0; i < solics; ++i){
 
 		if ((stat = recv(sock_mem, &head, HEAD_SIZE, 0)) == -1){
+			log_error(logTrace,"Fallo recepcion de header");
 			perror("Fallo recepcion de header. error");
 			err_exec = FALLO_RECV;
 			sem_post(&sem_fallo_exec);
@@ -372,6 +400,7 @@ void recibirInstruccion(char **linea, int instr_size, int solics){
 		if (head.tipo_de_proceso != MEM || head.tipo_de_mensaje != BYTES){
 			printf("Se esperaban bytes de Memoria, pero se recibio de %d el mensaje %d\n",
 					head.tipo_de_proceso, head.tipo_de_mensaje);
+			log_error(logTrace,"se esperaban bytes de memoria pero se recibio otro tipo de msj");
 			err_exec = CONEX_INVAL;
 			sem_post(&sem_fallo_exec);
 			pthread_exit(&err_exec);
@@ -402,48 +431,63 @@ int conectarConServidores(tCPU *cpu_data){
 	int stat;
 	tPackHeader h_esp;
 
-	printf("Conectando con memoria...\n");
+	//printf("Conectando con memoria...\n");
+	log_trace(logTrace,"conectando con memoria");
 	sock_mem = establecerConexion(cpu_data->ip_memoria, cpu_data->puerto_memoria);
 	if (sock_mem < 0){
-		puts("Fallo conexion a Memoria");
+		//puts("Fallo conexion a Memoria");
+		log_error(logTrace,"fallo conexion a memoria");
 		return FALLO_CONEXION;
 	}
 
 	if ((stat = handshakeCon(sock_mem, cpu_data->tipo_de_proceso)) < 0){
+		log_error(logTrace,"no se pudo hacer handshake con memoria");
 		fprintf(stderr, "No se pudo hacer hadshake con Memoria\n");
 		return FALLO_GRAL;
 	}
-	printf("Se enviaron: %d bytes a MEMORIA\n", stat);
-	puts("Me conecte a memoria!");
+
+	//printf("Se enviaron: %d bytes a MEMORIA\n", stat);
+	log_trace(logTrace,"se enviaron %d bytes a MEMORIA",stat);
+	//puts("Me conecte a memoria!");
 
 	h_esp.tipo_de_proceso = MEM; h_esp.tipo_de_mensaje = MEMINFO;
 	if ((stat = recibirInfoProcSimple(sock_mem, h_esp, &pag_size)) != 0){
+		log_error(logTrace,"no se pudo recibir size de frame de memoria");
 		puts("No se pudo recibir size de frame de Memoria!");
 		return ABORTO_CPU;
 	}
+
 	printf("Se trabaja con un tamanio de pagina de %d bytes!\n", pag_size);
 	printf("Me conecte a MEMORIA en socket #%d\n",sock_mem);
-
-	printf("Conectando con kernel...\n");
+	log_info(logTrace,"se trabaja con un tamanio de pagina de %d bytes",pag_size);
+	//printf("Conectando con kernel...\n");
+	log_trace(logTrace,"conectando con kernel");
 	sock_kern = establecerConexion(cpu_data->ip_kernel, cpu_data->puerto_kernel);
 	if (sock_kern < 0){
+		log_error(logTrace,"fallo conexion a kernel");
 		puts("Fallo conexion a Kernel");
 		return FALLO_CONEXION;
 	}
 
 	if ((stat = handshakeCon(sock_kern, cpu_data->tipo_de_proceso)) < 0){
+		log_error(logTrace,"no se pudo hacer handshake con kernel");
 		fprintf(stderr, "No se pudo hacer hadshake con Kernel\n");
 		return FALLO_GRAL;
 	}
-	printf("Se enviaron: %d bytes a KERNEL\n", stat);
+	log_trace(logTrace,"se enviaron %d bytes a kernel",stat);
+	//printf("Se enviaron: %d bytes a KERNEL\n", stat);
 
 	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = KERINFO;
 	if ((stat = recibirInfo2ProcAProc(sock_kern, h_esp, &q_sleep, &stack_size)) != 0){
+		log_error(logTrace,"no se pudo recibir el qsleep y stack size de kernel");
 		puts("No se pudo recibir el quantum sleep y stack size de Kernel!");
 		return ABORTO_CPU;
 	}
+	log_info(logTrace,"Quantum sleep: %d",q_sleep);
+	log_info(logTrace,"Stack size: %d",stack_size);
 	printf("Se trabaja con quant_sleep %d y stack_size %d\n", q_sleep, stack_size);
 	set_quantum_sleep();
+	log_trace(logTrace," me conecte con kernel");
 	printf("Me conecte a kernel (socket %d)\n", sock_kern);
 
 	return 0;
