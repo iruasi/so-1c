@@ -689,7 +689,7 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 }
 
 void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
-	printf("Se pide al kernel escribir el archivo %d con la informacion %s, cantidad de bytes: %d\n", descriptor_archivo, (char*)informacion, tamanio);
+	printf("Se pide escribir el archivo %d con la info %s, bytes: %d\n", descriptor_archivo, (char*) informacion, tamanio);
 	log_trace(logTrace,"inicio escribir");
 	int pack_size = 0;
 

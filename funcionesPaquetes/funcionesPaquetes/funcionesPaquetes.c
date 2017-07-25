@@ -819,6 +819,28 @@ tPackRW *deserializeEscribir(char *escr_serial){
 }
 
 
+char *serializeRW(tPackHeader head, tPackRW *read_write, int *pack_size){
+
+	char *rw_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof *read_write);
+
+	*pack_size = 0;
+	memcpy(rw_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(rw_serial + *pack_size, &read_write->fd, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(rw_serial + *pack_size, &read_write->tamanio, sizeof(read_write->tamanio));
+	*pack_size += sizeof(read_write->tamanio);
+	memcpy(rw_serial + *pack_size, read_write->info, read_write->tamanio),
+	*pack_size += read_write->tamanio;
+
+	memcpy(rw_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return rw_serial;
+}
+
 //char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size){
 
 char * serializeLeer(tPackRW * read_write, int *pack_size){
@@ -846,23 +868,20 @@ char * serializeLeer(tPackRW * read_write, int *pack_size){
 	return rw_serial;
 }
 
-tPackRW * deserializeLeer(char * rw_serial){
-	tPackRW * read_write = malloc(sizeof (*read_write));
+tPackRW * deserializeRW(char * rw_serial){
+	tPackRW * read_write = malloc(sizeof *read_write);
 
 	int off = 0;
 
-	memcpy(&read_write->fd,off + rw_serial,sizeof(int));
+	memcpy(&read_write->fd, off + rw_serial, sizeof(int));
 	off += sizeof(int);
-	memcpy(&read_write->tamanio,off + rw_serial,sizeof(read_write->tamanio));
+	memcpy(&read_write->tamanio, off + rw_serial, sizeof(read_write->tamanio));
 	off += sizeof(read_write->tamanio);
 	read_write->info = malloc(read_write->tamanio);
-	memcpy(read_write->info,off + rw_serial,read_write->tamanio);
+	memcpy(read_write->info, off + rw_serial, read_write->tamanio);
 	off += read_write->tamanio;
 
-
 	return read_write;
-
-
 }
 
 char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size){

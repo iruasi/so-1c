@@ -19,6 +19,11 @@
 #define HEAD_SIZE 8
 #endif
 
+#ifndef FD_CONSOLA
+#define FD_CONSOLA 1
+#endif
+
+
 #ifndef BACKLOG
 #define BACKLOG 20
 #endif
