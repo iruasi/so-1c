@@ -63,6 +63,8 @@ void desconexionCpu(t_RelCC *cpu_i);
 
 bool estaEnExit(int pid);
 
+int escribirAConsola(int sock_con, tPackRW *escr);
+
 // todo: podria poner esto en otro lado? o aca estara bien...
 
 void crearInfoProcess(int pid);

@@ -48,7 +48,7 @@ void setupGlobales_auxiliares(void){ // todo: por ahi esto entero se puede deleg
 	tablaProcesos = list_create();
 
 	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
-	pthread_mutex_init(&mux_archivosAbiertos, NULL);
+	pthread_mutex_init(&mux_archivosAbiertos, NULL); // todo: utilizo este suponiendo que es para tablaGlobal
 }
 
 
@@ -256,6 +256,27 @@ bool estaEnExit(int pid){
 	}
 	return false;
 }
+
+int escribirAConsola(int sock_con, tPackRW *escr){
+
+	char *buff;
+	int pack_size, stat;
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = IMPRIMIR};
+
+	if ((buff = serializeRW(head, escr, &pack_size)) == NULL)
+		return FALLO_SERIALIZAC;
+
+	memcpy(buff, &head, HEAD_SIZE);
+
+	if ((stat = send(sock_con, buff, pack_size, 0)) == -1){
+		perror("Fallo envio escritura a Consola. error");
+		return FALLO_SEND;
+	}
+	printf("Se enviaron %d bytes a Consola\n", stat);
+
+	return 0;
+}
+
 
 void crearInfoProcess(int pid){
 

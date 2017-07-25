@@ -109,8 +109,10 @@ char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informaci
 
 tPackRW *deserializeEscribir(char *escr_serial);
 
+char *serializeRW(tPackHeader head, tPackRW *read_write, int *pack_size);
+
 char *serializeLeer(tPackRW *abrir, int *pack_size);
-tPackRW * deserializeLeer(char * rw_serial);
+tPackRW * deserializeRW(char * rw_serial);
 char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size);
 
 tPackValComp *deserializeValorYVariable(char *valor_serial);
