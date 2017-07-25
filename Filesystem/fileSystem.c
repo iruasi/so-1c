@@ -43,8 +43,13 @@ static struct fuse_opt fuse_options[] = {
 		FUSE_OPT_END,
 };
 
+int sock_kern;
+extern char *rutaBitMap;
+extern tMetadata* meta;
 tFileSystem* fileSystem;
+
 int main(int argc, char* argv[]){
+
 
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
@@ -52,14 +57,14 @@ int main(int argc, char* argv[]){
 	}
 
 	tPackHeader *head_tmp = malloc(sizeof *head_tmp);
-	int stat;
+	int stat, fuseret;
 
 	fileSystem = getConfigFS(argv[1]);
 	mostrarConfiguracion(fileSystem);
 
 	setupFuseOperations();
 
-	char* argumentos[] = {"", fileSystem->punto_montaje, "f"}; // todo: el primer arg esta hardcodeado, a revisar
+	char* argumentos[] = {"", fileSystem->punto_montaje, ""};
 	struct fuse_args args = FUSE_ARGS_INIT(3, argumentos);
 
 	// Limpio la estructura que va a contener los parametros
@@ -67,23 +72,24 @@ int main(int argc, char* argv[]){
 
 	// Esta funcion de FUSE lee los parametros recibidos y los intepreta
 	if (fuse_opt_parse(&args, &runtime_options, fuse_options, NULL) == -1){
-		/** error parsing options */
 		perror("Invalid arguments!");
 		return EXIT_FAILURE;
 	}
 
 	//bitmap
-	crearDirMetadata(); // las hice separadas porque si la hacia en una se creaba mal la ruta
-	crearDirArchivos();
-	crearDirBloques();
-	crearBitMap();
-	meta = getInfoMetadata(rutaBitMap);
+	crearDirMontaje();
+	if ((fuseret = fuse_main(args.argc, args.argv, &oper, NULL)) == -1){
+		perror("Error al operar fuse_main. error");
+		return FALLO_GRAL;
+	}
+
+	crearDirectoriosBase();
 
 	//metadata
 	puts("Creando metadata...");
 	crearMetadata();
 	printf("Ruta donde se crea la carpeta: %s\n", argumentos[1]);
-	int ret= fuse_main(args.argc, args.argv, &oper, NULL);
+	meta = getInfoMetadata();
 
 	int sock_lis_kern;
 	if ((sock_lis_kern = makeListenSock(fileSystem->puerto_entrada)) < 0){
@@ -117,6 +123,6 @@ int main(int argc, char* argv[]){
 	close(sock_kern);
 	liberarConfiguracionFileSystem(fileSystem);
 //	return EXIT_SUCCESS;
-	return ret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
+	return fuseret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
 }
 

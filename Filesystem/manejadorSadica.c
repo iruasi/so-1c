@@ -3,6 +3,7 @@
 
 #include <commons/config.h>
 #include <commons/bitarray.h>
+#include <commons/string.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
@@ -10,6 +11,16 @@
 #include "manejadorSadica.h"
 #include "operacionesFS.h"
 
+//todo: estos conviene dejarlos como global o en la struct tfilesystem?
+tMetadata* meta;
+t_bitarray* bitArray;
+
+char* mapeado;
+char* rutaBitMap, *binBitmap_path;
+char* rutaMetadata, *binMetadata_path;
+FILE *metadataArch;
+
+int sock_kern;
 extern tFileSystem *fileSystem;
 
 void crearArchivo(char* ruta){
@@ -46,55 +57,71 @@ void crearBloques(){
 	}
 }
 
-void crearBitMap(){
+void crearBitMap(void){
 	puts("Creando bitmap...");
-	rutaBitMap = malloc(sizeof(fileSystem->punto_montaje) + sizeof(carpetaBitMap));
-	memcpy(rutaBitMap, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	memcpy(rutaBitMap+sizeof(fileSystem->punto_montaje), carpetaBitMap, sizeof(carpetaBitMap));
-	FILE* bitmap = fopen(rutaBitMap, "wb");
-	printf("Ruta del bitmap: %s\n", rutaBitMap);
-	free(rutaBitMap);
+	return;
+//	int len_mntpnt = strlen(fileSystem->punto_montaje);
+//	int len_dirbmp = strlen(carpetaBitMap);
+//	rutaBitMap = malloc(len_mntpnt + len_dirbmp);
+//	memcpy(rutaBitMap, fileSystem->punto_montaje, len_mntpnt);
+//	memcpy(rutaBitMap + len_mntpnt - 1, carpetaBitMap, len_dirbmp);
+//	FILE* bitmap = fopen(rutaBitMap, "wb");
+//	printf("Ruta del bitmap: %s\n", rutaBitMap);
 }
 
-void crearMetadata(){
-	rutaMetadata = malloc(sizeof(fileSystem->punto_montaje) + sizeof(carpetaMetadata));
-	memcpy(rutaMetadata, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	memcpy(rutaMetadata+sizeof(fileSystem->punto_montaje), carpetaMetadata, sizeof(carpetaMetadata));
-	printf("Ruta de la metadata: %s\n"
-			"", rutaMetadata);
-	FILE* metadataArch = fopen(rutaMetadata, "wb");
+void crearMetadata(void){
+
+	rutaMetadata = string_duplicate(fileSystem->punto_montaje);
+	string_append(&rutaMetadata, DIR_METADATA);
+	binMetadata_path = string_duplicate(rutaMetadata);
+	string_append(&binMetadata_path, BIN_METADATA);
+
+	if ((metadataArch = fopen(binMetadata_path, "awb")) == NULL){
+		perror("No se pudo crear el archivo. error");
+		return;
+	}
+
+	t_config *meta_bin = config_create(binMetadata_path);
+
+	char value[MAXMSJ];
+	sprintf(value, "%d", fileSystem->blk_size);
+	config_set_value(meta_bin, "TAMANIO_BLOQUES",  value);
+	sprintf(value, "%d", fileSystem->blk_quant);
+	config_set_value(meta_bin, "CANTIDAD_BLOQUES", value);
+	config_set_value(meta_bin, "MAGIC_NUMBER",     fileSystem->magic_num);
+	config_save(meta_bin);
+
+	printf("Se pudo crear satisfactoriamente el archivo %s\n", rutaMetadata);
+	config_destroy(meta_bin);
 }
 
-void crearDirMetadata(){
-	char* rutaDirMetadata = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Metadata"));
-	int off=0;
-	memcpy(rutaDirMetadata, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaDirMetadata+off, "/Metadata", sizeof("/Metadata"));
-	mkdir(rutaDirMetadata, S_IWUSR); //para que el usuario pueda escribir
-	printf("Directorio %s creado!\n", rutaDirMetadata);
-	free(rutaDirMetadata);
+void crearDirMontaje(void){
+
+	if (mkdir(fileSystem->punto_montaje, 0766) == -1){
+		perror("No se pudo crear el directorio. error");
+		printf("Path intentado: %s\n", fileSystem->punto_montaje);
+	}
 }
 
-void crearDirArchivos(){
-	char* rutaArchivos = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Archivos"));
-	int off=0;
-	memcpy(rutaArchivos, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaArchivos+off, "/Archivos", sizeof("/Archivos"));
-	mkdir(rutaArchivos, S_IWUSR); //para que el usuario pueda escribir
-	printf("Directorio %s creado!\n", rutaArchivos);
-	free(rutaArchivos);
+void crearDirectoriosBase(void){
+	crearDir(DIR_METADATA);
+	crearDir(DIR_BITMAP);
+	crearDir(DIR_ARCHIVOS);
+	crearDir(DIR_BLOQUES);
 }
-void crearDirBloques(){
-	char* rutaBloques = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Bloques"));
-	int off=0;
-	memcpy(rutaBloques, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaBloques+off, "/Bloques", sizeof("/Bloques"));
-	mkdir(rutaBloques, S_IWUSR); //para que el usuario pueda escribir
-	printf("Directorio %s creado!\n", rutaBloques);
-	free(rutaBloques);
+
+void crearDir(char *dir){
+
+	char* rutaDir = string_duplicate(fileSystem->punto_montaje);
+	string_append(&rutaDir, dir);
+
+	if (mkdir(rutaDir, 0766) != 0){ //para que el usuario pueda escribir
+		perror("No se pudo crear directorio. error:");
+		printf("Directorio que se trato de crear: %s\n", rutaDir);
+		return;
+	}
+	printf("Directorio %s creado!\n", rutaDir);
+	free(rutaDir);
 }
 
 void escribirInfoEnArchivo(char* path, tArchivos* info){
@@ -113,12 +140,15 @@ tArchivos* getInfoDeArchivo(char* path){
 	return ret;
 }
 
-tMetadata* getInfoMetadata(char* path){
-	t_config* conf = config_create(path);
+tMetadata* getInfoMetadata(void){
+
+	t_config* conf = config_create(binMetadata_path);
 	tMetadata* ret = malloc(sizeof(tMetadata));
 	ret->cantidad_bloques = config_get_int_value(conf, "CANTIDAD_BLOQUES");
-	ret->tamanio_bloques= config_get_int_value(conf, "TAMANIO_BLOQUES");
-	ret->magic_number = config_get_string_value(conf, "MAGIC_NUMBER");
+	ret->tamanio_bloques  = config_get_int_value(conf, "TAMANIO_BLOQUES");
+	ret->magic_number     = string_new();
+	string_append(&ret->magic_number, config_get_string_value(conf, "MAGIC_NUMBER"));
+
 	config_destroy(conf);
 	return ret;
 }

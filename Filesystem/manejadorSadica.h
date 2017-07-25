@@ -5,9 +5,12 @@
 
 #include <tiposRecursos/tiposPaquetes.h>
 
-#define carpetaBitMap "/Metadata/Bitmap.bin"
-#define carpetaMetadata "/Metadata/Metadata.bin"
-
+#define DIR_METADATA "Metadata/"
+#define BIN_METADATA "Metadata.bin"
+#define DIR_BITMAP   "Metadata/Bitmap"
+#define BIN_BITMAP   "Bitmap.bin"
+#define DIR_ARCHIVOS "Archivos/"
+#define DIR_BLOQUES  "Bloques/"
 
 typedef struct{
 	int size;
@@ -29,25 +32,18 @@ typedef struct{
 	int rta; //devuelve el int correspondiente, en de falla devuelve el error
 }tPackFSKer;
 
+tMetadata* getInfoMetadata(void);
+tArchivos* getInfoDeArchivo(char* path);
+void escribirInfoEnArchivo(char* path, tArchivos* info);
 
-
-//todo: estos conviene dejarlos como global o en la struct tfilesystem?
-tMetadata* meta;
-t_bitarray* bitArray;
-
-char* mapeado;
-char* rutaBitMap;
-char* rutaMetadata;
-
-int sock_kern;
+void crearDirMontaje(void);
 
 void crearArchivo(char* ruta);
 void crearBloques(void);
+void crearBitMap(void);
 void crearMetadata(void);
-void crearDirMetadata(void);
-void crearDirArchivos(void);
-void crearDirBloques(void);
-
+void crearDirectoriosBase(void);
+void crearDir(char *dir);
 char* getPathFromFD(int fd);
 
 

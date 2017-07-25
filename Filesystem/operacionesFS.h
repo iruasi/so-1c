@@ -121,6 +121,6 @@ int unlink2 (const char *path);
 
 int validarArchivo(char* path);
 
-void setupFuseOperation(void);
+void setupFuseOperations(void);
 
 #endif /* OPERACIONESFS_H_ */
