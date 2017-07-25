@@ -28,8 +28,8 @@
 int siguientePID(void){return 1;}
 int tamanioPrograma;
 int sock_kern;
-extern t_list *listaAtributos,*listaFinalizados;
-extern t_log *logger,*logTrace;
+extern t_list *listaAtributos;
+extern t_log *logTrace;
 extern tConsola *cons_data;
 
 pthread_mutex_t mux_listaAtributos,mux_listaFinalizados;
@@ -58,17 +58,16 @@ int Iniciar_Programa(tAtributosProg *atributos){
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
 	if(pthread_create(&hilo_prog, &attr, (void *) programa_handler, (void*) atributos) < 0){
-		log_error(logger,"No pudo crear hilo.");
+		log_error(logTrace,"No pudo crear hilo.");
 		return FALLO_GRAL;
 	}
-	log_trace(logTrace,"hilo creado");
+	log_trace(logTrace,"hilo de programa creado");
 
 	return 0;
 }
 
 int Finalizar_Programa(int pid){
 
-	tPackHeader recv_head;
 	int stat;
 	int pack_size;
 	char *pid_serial;
@@ -80,7 +79,7 @@ int Finalizar_Programa(int pid){
 	pack_size = 0;
 
 	if ((pid_serial = serializeVal(&pack_pid, &pack_size)) == NULL){
-		puts("No se serializo bien");
+		log_error(logTrace,"fallo en la serializacion");
 		return FALLO_SERIALIZAC;
 	}
 
@@ -88,7 +87,9 @@ int Finalizar_Programa(int pid){
 		perror("Fallo envio de PID a Consola. error");
 		return FALLO_SEND;
 	}
-	printf("Se enviaron %d bytes al kernel\n", stat);
+	log_trace(logTrace,"se enviaron %d bytes al kernel",stat);
+
+	//printf("Se enviaron %d bytes al kernel\n", stat);
 
 	free(pid_serial);
 
@@ -124,7 +125,8 @@ void accionesFinalizacion(int pid ){
 	int i;
 	char buffInicio[100];
     char buffFin[100];
-	for(i = 0; i < list_size(listaAtributos); i++){
+    pthread_mutex_lock(&mux_listaAtributos);
+    for(i = 0; i < list_size(listaAtributos); i++){
 		tAtributosProg *aux = list_get(listaAtributos, i);
 		if(aux->pidProg==pid){
 
@@ -139,28 +141,25 @@ void accionesFinalizacion(int pid ){
 			printf ("###HORA DE INICIO: %s\n", buffInicio);
 			printf ("###HORA DE FIN: %s\n", buffFin);
 			printf("###SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
-			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: XXXXXXX\n");
+			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: XXXXXXX\n");//todo:imporesiones x pantala
 
-			log_info(logger,"SEGUNDOS DE EJECUCION: %.f",diferencia);
 
+			log_info(logTrace,"HORA DE INICIO: %s",buffInicio);
+			log_info(logTrace,"HORA DE FIN: %s",buffFin);
+			log_info(logTrace,"SEGUNDOS DE EJECUCION: %.f",diferencia);
+			log_info(logTrace,"CANTIDAD DE IMPRESIONES X PANTALLA: XX");
 
 			//Lo sacamos de la lista de programas en ejecucion
-			pthread_mutex_lock(&mux_listaAtributos);
-			list_remove(listaAtributos,i);
-			pthread_mutex_unlock(&mux_listaAtributos);
 
-			//Lo agregamos a la lista de programas finalizados.
-			pthread_mutex_lock(&mux_listaFinalizados);
-			list_add(listaFinalizados,aux);
-			pthread_mutex_unlock(&mux_listaFinalizados);
+			//list_remove(listaAtributos,i);
 
-			pthread_cancel(aux->hiloProg);
+			//close(sock_kern); //todo:revisar esto
 
-
-
-			log_trace(logTrace,"hilo del programa %d finalizado",pid);
+			//pthread_cancel(aux->hiloProg);
 		}
 	}
+	pthread_mutex_unlock(&mux_listaAtributos);
+
 }
 
 void Desconectar_Consola(tConsola *cons_data){
@@ -195,20 +194,9 @@ void *programa_handler(void *atributos){
 	int motivoFin;
 	int stat;
 
-
-	log_trace(logTrace,"conectando con kernel");
-
-	sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
-	if (sock_kern < 0){
-		errno = FALLO_CONEXION;
-		log_error(logger,"no se pudo estalecer conexion con kernel.");
-		return NULL;
-	}
-
-
 	tAtributosProg *args = (tAtributosProg *) atributos;
 	time(&args->horaInicio);
-	log_info(logger,"<-- hora inicio");
+	log_trace(logTrace,"momento de inicio");
 	strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&args->horaInicio));
 	printf ("Hora de inicio: %s\n", buffInicio);
 
@@ -226,13 +214,24 @@ void *programa_handler(void *atributos){
 	buffer = serializeBytes(head_tmp, src_code->bytes, src_code->bytelen, &pack_size);
 
 	log_trace(logTrace,"codigo fuente serializado");
-	log_trace(logTrace,"enviando codigo fuente");
+
+
+	log_trace(logTrace,"conectando con kernel");
+
+		sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
+		if (sock_kern < 0){
+			errno = FALLO_CONEXION;
+			log_error(logTrace,"no se pudo estalecer conexion con kernel.");
+			return NULL;
+		}
+
+		log_trace(logTrace,"enviando codigo fuente");
 
 	if ((stat = send(sock_kern, buffer, pack_size, 0)) == -1){
-		log_error(logger,"no se pudo enviar codigo fuente a kernel. ");
+		log_error(logTrace,"no se pudo enviar codigo fuente a kernel. ");
 		return (void *) FALLO_SEND;
 	}
-	log_info(logger,"se enviaron %d bytes",stat);
+	log_trace(logTrace,"se enviaron %d bytes",stat);
 
 
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
@@ -241,9 +240,8 @@ void *programa_handler(void *atributos){
 	freeAndNULL((void **) &buffer);
 
 	tPackPID *ppid;
-
+	int finalizar = 0;
 	log_trace(logTrace,"esperando a recibir el PID");
-
 	while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == IMPRIMIR){
@@ -252,7 +250,7 @@ void *programa_handler(void *atributos){
 			log_trace(logTrace, "recibimos info para imprimir");
 
 			if ((buffer = recvGeneric(sock_kern)) == NULL){
-				log_error(logger,"error al recibir la info a imprimir");
+				log_error(logTrace,"error al recibir la info a imprimir");
 				return (void *) FALLO_RECV;
 			}
 
@@ -262,17 +260,16 @@ void *programa_handler(void *atributos){
 		}
 
 
-
 		if (head_tmp.tipo_de_mensaje == PID){
 			log_trace(logTrace,"recibimos PID");
 
 			if ((buffer = recvGeneric(sock_kern)) == NULL){
-				log_error(logger,"error al recibir el pid");
+				log_error(logTrace,"error al recibir el pid");
 				return (void *) FALLO_RECV;
 			}
 
 			if ((ppid = deserializeVal(buffer)) == NULL){
-				log_error(logger,"error al deserializar el packPID");
+				log_error(logTrace,"error al deserializar el packPID");
 				return (void *) FALLO_DESERIALIZAC;
 			}
 
@@ -283,7 +280,7 @@ void *programa_handler(void *atributos){
 			freeAndNULL((void **)&ppid);
 
 
-			//log_info(logger,"PID: %d ",args->pidProg);
+			log_trace(logTrace,"PID: %d ",args->pidProg);
 
 			printf("Pid Recibido es: %d\n", args->pidProg);
 
@@ -297,17 +294,24 @@ void *programa_handler(void *atributos){
 
 		if (head_tmp.tipo_de_mensaje == FIN_PROG){
 
-			//log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa",args->pidProg);
+			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa",args->pidProg);
 
 			printf("Kernel nos avisa que termino de ejecutar el programa %d\n", args->pidProg);
 
 			accionesFinalizacion(args->pidProg);
 
+			close(sock_kern); //todo:revisar esto
+
+
+			//pthread_cancel(aux->hiloProg);
+
 		}
 
 		if((int) head_tmp.tipo_de_mensaje == DESCONEXION_CPU){
 			printf("Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n",args->pidProg);
+			log_trace(logTrace,"Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)",args->pidProg);
 			accionesFinalizacion(args->pidProg);
+			close(sock_kern);
 		}
 
 
@@ -315,10 +319,12 @@ void *programa_handler(void *atributos){
 
 
 	if (stat == -1){
-		log_error(logger,"fallo recepcion header en thread de programa");
+		log_error(logTrace,"fallo recepcion header en thread de programa");
 		return (void *) FALLO_RECV;
 	}
 	log_trace(logTrace,"kernel cerro conexion con thread de programa");
+	log_trace(logTrace,"hilo del programa %d finalizado",args->pidProg);
+
 	return NULL;
 }
 

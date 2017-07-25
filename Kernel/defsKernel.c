@@ -11,7 +11,6 @@
 #include "consolaKernel.h"
 
 void setupVariablesPorSubsistema(void){
-
 	setupGlobales_consolaKernel();
 	setupGlobales_manejadores();
 	setupGlobales_capaMemoria();

@@ -37,21 +37,21 @@ t_list *listaAtributos,*listaFinalizados;
 
 tConsola *cons_data;
 
-t_log *logger,*logTrace;
+t_log *logTrace;
 int sock_kern;
 
 int main(int argc, char* argv[]){
 
 
 
-	logger = log_create("/home/utnso/logConsolaInfo.txt","CONSOLA",1,LOG_LEVEL_INFO);
-	logTrace = log_create("/home/utnso/logConsolaTrace.txt","CONSOLA",1,LOG_LEVEL_TRACE);
+	//logger = log_create("/home/utnso/logConsolaInfo.txt","CONSOLA",1,LOG_LEVEL_INFO);
+	logTrace = log_create("/home/utnso/logConsolaTrace.txt","CONSOLA",0,LOG_LEVEL_TRACE);
 
-	log_info(logger,"Inicia nueva ejecucion de CONSOLA");
+	log_trace(logTrace,"Inicia nueva ejecucion de CONSOLA");
 
 	inicializarSemaforos();
 	if(argc!=2){
-		log_error(logger,"Error en la cantidad de parametros");
+		log_error(logTrace,"Error en la cantidad de parametros");
 		return EXIT_FAILURE;
 	}
 
@@ -63,21 +63,22 @@ int main(int argc, char* argv[]){
 
 
 
-	printf("\n \n \n Ingrese accion a realizar:\n");
-	printf ("Para iniciar un programa: 'nuevo programa <ruta>'\n");
-	printf ("Para finlizar un programa: 'finalizar <PID>'\n");
-	printf ("Para desconectar consola: 'desconectar'\n");
-	printf ("Para limpiar mensajes: 'limpiar'\n");
+	printf("\n\n\n###Ingrese accion a realizar:\n");
+	printf ("###Para iniciar un programa: 'nuevo programa <ruta>'\n");
+	printf ("###Para finlizar un programa: 'finalizar <PID>'\n");
+	printf ("###Para desconectar consola: 'desconectar'\n");
+	printf ("###Para limpiar mensajes: 'limpiar'\n");
 	int finalizar = 0;
 
 	while(finalizar !=1){
-		printf("Seleccione opcion: \n");
+		printf("###SELECCIONE OPCION###: \n");
 		char *opcion=malloc(MAXMSJ);
 		fgets(opcion,MAXMSJ,stdin);
+		int status;
 		opcion[strlen(opcion) - 1] = '\0';
 		if (strncmp(opcion,"nuevo programa",14)==0)
 		{
-			log_trace(logTrace,"nuevo programa");
+			log_trace(logTrace,"eligio opcion nuevo programa");
 			char *ruta = opcion+15;
 
 			//TODO:Chequear error de ruta..
@@ -86,39 +87,35 @@ int main(int argc, char* argv[]){
 			atributos->path = ruta;
 
 			//printf("Ruta del programa: %s\n",atributos->path);
-			log_info(logger,"ruta del programa: %s",ruta);
+			log_trace(logTrace,"ruta del programa: %s",ruta);
 
-			int status = Iniciar_Programa(atributos);
+			printf("Ruta del programa a iniciar: %s\n",ruta);
+
+			status = Iniciar_Programa(atributos);
 			if(status<0){
-				log_error(logger,"error al iniciar programa");
-
-				//TODO: Crear FALLO_INICIARPROGRAMA
-				return -1000;
+				log_error(logTrace,"error al iniciar programa");
+				return FALLO_GRAL;
 			}
 
 		}
 		if(strncmp(opcion,"finalizar",9)==0)
 		{
 			log_trace(logTrace,"finalizar programa");
-			char* pidString=malloc(MAXMSJ);
-			int longitudPid = strlen(opcion) - 10;
-			strncopylast(opcion,pidString,longitudPid);
+			char *pidString = opcion+10;
 			int pidElegido = atoi(pidString);
-
-			log_info(logger,"finalizar el pid: %d",pidElegido);
-
-			int status = Finalizar_Programa(pidElegido);
+			log_trace(logTrace,"eligio opcion finalizar el pid: %d",pidElegido);
+			status = Finalizar_Programa(pidElegido);
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
-			log_trace(logTrace,"desconectar consola");
+			log_trace(logTrace,"eligio opcion desconectar consola");
 			Desconectar_Consola(cons_data);
-			//finalizar = 1;
 
-			close(sock_kern);
+			//finalizar = 1;
+			//close(sock_kern);//todo: revisar esto
 			//liberarConfiguracionConsola(cons_data);
 		}
 		if(strncmp(opcion,"limpiar",7)==0){
-			log_trace(logTrace,"limpiar pantalla");
+			log_trace(logTrace,"eligio opcion limpiar pantalla");
 			Limpiar_Mensajes();
 		}
 
@@ -128,7 +125,7 @@ int main(int argc, char* argv[]){
 	log_trace(logTrace,"cerrando comunicacion y limpiando proceso");
 
 
-	log_destroy(logger);
+	log_destroy(logTrace);
 
 	return 0;
 }
@@ -162,7 +159,7 @@ int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
 	if (!status) return 0;
 
 	log_trace(logTrace,"mensaje deserializacdo y recibido");
-	log_info(logger,package->message);
+	log_trace(logTrace,package->message);
 	//printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
 
 	free(buffer);
@@ -180,7 +177,7 @@ void strncopylast(char *str1,char *str2,int n)
     int l=strlen(str1);
     if(n>l)
     {
-       log_error(logger,"Can't extract more characters from a smaller string.");
+       log_error(logTrace,"Can't extract more characters from a smaller string.");
     	//printf("\nCan't extract more characters from a smaller string.\n");
         exit(1);
     }
