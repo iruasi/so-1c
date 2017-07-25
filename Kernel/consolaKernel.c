@@ -19,7 +19,7 @@ extern t_queue *New, *Ready, *Exit;
 extern t_list *Exec, *Block;
 extern int grado_mult;
 
-extern pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaFinalizados,mux_gradoMultiprog;
+extern pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_infoProc, mux_listaFinalizados, mux_gradoMultiprog;
 
 extern t_dictionary *tablaGlobal;
 extern t_list *tablaProcesos, *list_infoProc, *finalizadosPorConsolas;
@@ -32,8 +32,7 @@ void setupGlobales_consolaKernel(void){
 	pthread_mutex_init(&mux_planificacionBloqueada, NULL);
 }
 
-
-void consolaKernel(void){
+void showOpciones(void){
 
 	printf("\n \n \nIngrese accion a realizar:\n");
 	printf ("1-Para obtener los procesos en todas las colas o 1 especifica: 'procesos <cola>/<todos>'\n");
@@ -43,12 +42,23 @@ void consolaKernel(void){
 	printf ("5-Para finalizar un proceso: 'finalizar <PID>'\n");
 	printf ("6-Para detener la planificacion: 'stop'\n");
 
+}
+
+void consolaKernel(void){
+
 	char *opcion = malloc(MAXOPCION);
 	int finalizar = 0;
+	showOpciones();
 	while(finalizar != 1){
 		printf("Seleccione opcion: \n");
 		fgets(opcion, MAXOPCION, stdin);
 		opcion[strlen(opcion) - 1] = '\0';
+
+		if (strncmp(opcion, "\0", 1) == 0){
+			showOpciones();
+			continue;
+		}
+
 		if (strncmp(opcion, "procesos", 8) == 0){
 			puts("Opcion procesos");
 			char *cola = opcion+9;
@@ -247,6 +257,10 @@ void mostrarInfoDe(int pidElegido){
 
 	tPCB * pcbAuxiliar;
 
+	mostrarCantHeapUtilizadasDe(pidElegido);
+	mostrarCantSyscallsUtilizadasDe(pidElegido);
+	return;
+
 	MUX_LOCK(&mux_new);
 	if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
 		pcbAuxiliar = queue_get(New,p);
@@ -351,17 +365,23 @@ void mostrarTablaDeArchivosDe(tPCB *pcb){
 	}
 }
 
-void mostrarCantHeapUtilizadasDe(tPCB *pcb){
+void mostrarCantHeapUtilizadasDe(int pid){
 
-	//TODO: ROMPE ACA!
+	int pos;
 
-	t_infoProcess *ip = list_get(list_infoProc, getInfoProcPosByPID(list_infoProc, pcb->id));
+	MUX_LOCK(&mux_infoProc);
+	if ((pos = getInfoProcPosByPID(list_infoProc, pid)) == -1){
+		MUX_UNLOCK(&mux_infoProc);
+		return;
+	}
+	t_infoProcess *ip = list_get(list_infoProc, pos);
+	MUX_UNLOCK(&mux_infoProc);
 
-	printf("####PROCESO %d####\nCantidad de paginas de heap utilizadas: \t %d \n", pcb->id, ip->ih->cant_heaps);
-	printf("####PROCESO %d####\nCantidad de allocaciones realizadas: \t %d \n",    pcb->id, ip->ih->cant_alloc);
-	printf("####PROCESO %d####\nCantidad de bytes allocados: \t\t %d \n",          pcb->id, ip->ih->bytes_allocd);
-	printf("####PROCESO %d####\nCantidad de liberaciones realizadas: \t %d \n",    pcb->id, ip->ih->cant_frees);
-	printf("####PROCESO %d####\nCantidad de bytes liberados: \t\t %d \n",          pcb->id, ip->ih->bytes_freed);
+	printf("####PROCESO %d####\nCantidad de paginas de heap utilizadas: \t %d \n", pid, ip->ih->cant_heaps);
+	printf("####PROCESO %d####\nCantidad de allocaciones realizadas: \t %d \n",    pid, ip->ih->cant_alloc);
+	printf("####PROCESO %d####\nCantidad de bytes allocados: \t\t %d \n",          pid, ip->ih->bytes_allocd);
+	printf("####PROCESO %d####\nCantidad de liberaciones realizadas: \t %d \n",    pid, ip->ih->cant_frees);
+	printf("####PROCESO %d####\nCantidad de bytes liberados: \t\t %d \n",          pid, ip->ih->bytes_freed);
 }
 
 int getInfoProcPosByPID(t_list *infoProc, int pid){
@@ -379,11 +399,18 @@ int getInfoProcPosByPID(t_list *infoProc, int pid){
 	return -1;
 }
 
-void mostrarCantSyscallsUtilizadasDe(tPCB *pcb){
-	//todo:Rompe aca
+void mostrarCantSyscallsUtilizadasDe(int pid){
+	int pos;
 
-	t_infoProcess *ip = list_get(list_infoProc, getInfoProcPosByPID(list_infoProc, pcb->id));
-	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n",pcb->id, ip->cant_syscalls);
+	MUX_LOCK(&mux_infoProc);
+	if ((pos = getInfoProcPosByPID(list_infoProc, pid)) == -1){
+		MUX_UNLOCK(&mux_infoProc);
+		return;
+	}
+	t_infoProcess *ip = list_get(list_infoProc, pos);
+	MUX_UNLOCK(&mux_infoProc);
+
+	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n", pid, ip->cant_syscalls);
 }
 
 void cambiarGradoMultiprogramacion(int nuevoGrado){

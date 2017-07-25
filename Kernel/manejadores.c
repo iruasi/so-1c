@@ -471,7 +471,7 @@ void cpu_manejador(void *infoCPU){
 			tDatosTablaGlobal * path = (tDatosTablaGlobal *) dictionary_get(tablaGlobal, sfd);
 			tProcesoArchivo * banderas = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
 
-			printf("El path del direcctorio elegido es: %s\n", (char *) path->direccion);
+			printf("El path del direcctorio elegido es: %s\n", path->direccion);
 
 			file_serial = serializeLeerFS(path->direccion, escr->info, escr->tamanio, banderas->flag, &pack_size);
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){

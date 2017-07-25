@@ -32,16 +32,20 @@ typedef struct{
 	int rta; //devuelve el int correspondiente, en de falla devuelve el error
 }tPackFSKer;
 
-tMetadata* getInfoMetadata(void);
 tArchivos* getInfoDeArchivo(char* path);
 void escribirInfoEnArchivo(char* path, tArchivos* info);
+
+
 
 void crearDirMontaje(void);
 
 void crearArchivo(char* ruta);
 void crearBloques(void);
-void crearBitMap(void);
-void crearMetadata(void);
+
+int inicializarMetadata(void);
+int inicializarBitmap(void);
+t_bitarray* mapearBitArray(int fd);
+
 void crearDirectoriosBase(void);
 void crearDir(char *dir);
 char* getPathFromFD(int fd);

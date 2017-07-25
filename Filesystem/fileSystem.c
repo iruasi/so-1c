@@ -87,25 +87,26 @@ int main(int argc, char* argv[]){
 	}
 
 	crearDirectoriosBase();
-
-	//metadata
-	puts("Creando metadata...");
-	crearMetadata();
-	printf("Ruta donde se crea la carpeta: %s\n", argumentos[1]);
-	meta = getInfoMetadata();
+	if (inicializarMetadata() != 0){
+		puts("No se pudo levantar el Metadata del Filesystem!");
+		return ABORTO_FILESYSTEM;
+	}
+	if (inicializarBitmap() != 0){
+		puts("No se pudo levantar el Bitmap del Filesystem!");
+		return ABORTO_FILESYSTEM;
+	}
 
 	if ((stat = recibirConexionKernel()) < 0){
 		puts("No se pudo conectar con Kernel!");
 		//todo: limpiarFilesystem();
 	}
 
+	// todo: en vez del ker, habria que combinarlo con el manejador del manejadorSadica.c
 	pthread_create(&kern_th, NULL, (void *) ker_manejador, &retval);
-
-	pthread_join(kern_th, NULL);
+	pthread_join(kern_th, (void **) &retval);
 
 	close(sock_kern);
 	liberarConfiguracionFileSystem(fileSystem);
-//	return EXIT_SUCCESS;
 	return fuseret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
 }
 
@@ -158,7 +159,7 @@ int *ker_manejador(void){
 	}
 
 	puts("Kernel cerro la conexion");
-	*retval = 0;
+	*retval = FIN;
 	return retval;
 }
 
@@ -167,7 +168,7 @@ int recibirConexionKernel(void){
 	int sock_lis_kern;
 	tPackHeader head, h_esp;
 	if ((sock_lis_kern = makeListenSock(fileSystem->puerto_entrada)) < 0){
-		printf("No se pudo crear socket listen en puerto: %s", fileSystem->puerto_entrada);
+		printf("No se pudo crear socket listen en puerto: %s\n", fileSystem->puerto_entrada);
 		return FALLO_GRAL;
 	}
 

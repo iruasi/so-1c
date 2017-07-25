@@ -18,9 +18,6 @@ typedef struct{
 	char* puerto_entrada;
 	char* punto_montaje;
 	char* ip_kernel;
-	int   blk_size,
-		  blk_quant;
-	char* magic_num;
 	uint32_t tipo_de_proceso;
 }tFileSystem;
 
