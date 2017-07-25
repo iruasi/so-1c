@@ -1,8 +1,10 @@
 #include <fuse.h>
 #include <sys/mman.h>
+#include <errno.h>
 
 #include <commons/config.h>
 #include <commons/bitarray.h>
+#include <commons/string.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
@@ -10,6 +12,15 @@
 #include "manejadorSadica.h"
 #include "operacionesFS.h"
 
+//todo: estos conviene dejarlos como global o en la struct tfilesystem?
+tMetadata* meta;
+t_bitarray* bitArray;
+
+char *mapeado;
+char *rutaMetadata, *binMetadata_path, *binBitmap_path;
+FILE *metadataArch, *bitmapArch;
+
+int sock_kern;
 extern tFileSystem *fileSystem;
 
 void crearArchivo(char* ruta){
@@ -46,55 +57,106 @@ void crearBloques(){
 	}
 }
 
-void crearBitMap(){
+void crearBitMap(void){
 	puts("Creando bitmap...");
-	rutaBitMap = malloc(sizeof(fileSystem->punto_montaje) + sizeof(carpetaBitMap));
-	memcpy(rutaBitMap, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	memcpy(rutaBitMap+sizeof(fileSystem->punto_montaje), carpetaBitMap, sizeof(carpetaBitMap));
-	FILE* bitmap = fopen(rutaBitMap, "wb");
-	printf("Ruta del bitmap: %s\n", rutaBitMap);
-	free(rutaBitMap);
+	return;
+//	int len_mntpnt = strlen(fileSystem->punto_montaje);
+//	int len_dirbmp = strlen(carpetaBitMap);
+//	rutaBitMap = malloc(len_mntpnt + len_dirbmp);
+//	memcpy(rutaBitMap, fileSystem->punto_montaje, len_mntpnt);
+//	memcpy(rutaBitMap + len_mntpnt - 1, carpetaBitMap, len_dirbmp);
+//	FILE* bitmap = fopen(rutaBitMap, "wb");
+//	printf("Ruta del bitmap: %s\n", rutaBitMap);
 }
 
-void crearMetadata(){
-	rutaMetadata = malloc(sizeof(fileSystem->punto_montaje) + sizeof(carpetaMetadata));
-	memcpy(rutaMetadata, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	memcpy(rutaMetadata+sizeof(fileSystem->punto_montaje), carpetaMetadata, sizeof(carpetaMetadata));
-	printf("Ruta de la metadata: %s\n"
-			"", rutaMetadata);
-	FILE* metadataArch = fopen(rutaMetadata, "wb");
+int inicializarMetadata(void){
+	puts("Inicializando metadata...");
+
+	rutaMetadata = string_duplicate(fileSystem->punto_montaje);
+	string_append(&rutaMetadata, DIR_METADATA);
+	binMetadata_path = string_duplicate(rutaMetadata);
+	string_append(&binMetadata_path, BIN_METADATA);
+
+	if ((metadataArch = fopen(binMetadata_path, "rb")) == NULL){
+		perror("No se pudo abrir el archivo. error");
+		return FALLO_GRAL;
+	}
+
+	t_config *meta_bin     = config_create(binMetadata_path);
+	meta                   = malloc(sizeof *meta);
+	meta->magic_number     = string_new();
+	meta->cantidad_bloques = config_get_int_value(meta_bin, "CANTIDAD_BLOQUES");
+	meta->tamanio_bloques  = config_get_int_value(meta_bin, "TAMANIO_BLOQUES");
+	string_append(&meta->magic_number, config_get_string_value(meta_bin, "MAGIC_NUMBER"));
+
+	printf("Se levanto correctamente el archivo %s\n", binMetadata_path);
+	config_destroy(meta_bin);
+	return 0;
 }
 
-void crearDirMetadata(){
-	char* rutaDirMetadata = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Metadata"));
-	int off=0;
-	memcpy(rutaDirMetadata, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaDirMetadata+off, "/Metadata", sizeof("/Metadata"));
-	mkdir(rutaDirMetadata, S_IWUSR); //para que el usuario pueda escribir
-	printf("Directorio %s creado!\n", rutaDirMetadata);
-	free(rutaDirMetadata);
+int inicializarBitmap(void){
+	puts("Inicializando bitmap...");
+
+	int fd;
+	binBitmap_path = string_duplicate(rutaMetadata);
+	string_append(&binBitmap_path, BIN_BITMAP);
+
+	if ((fd = open(binBitmap_path, O_RDWR)) == -1){
+		perror("No se pudo crear el archivo. error");
+		return FALLO_GRAL;
+	}
+	printf("Se creo el archivo %s\n", binBitmap_path);
+
+	bitArray = mapearBitArray(fd);
+	return 0;
 }
 
-void crearDirArchivos(){
-	char* rutaArchivos = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Archivos"));
-	int off=0;
-	memcpy(rutaArchivos, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaArchivos+off, "/Archivos", sizeof("/Archivos"));
-	mkdir(rutaArchivos, S_IWUSR); //para que el usuario pueda escribir
-	printf("Directorio %s creado!\n", rutaArchivos);
-	free(rutaArchivos);
+t_bitarray* mapearBitArray(int fd){
+
+	struct stat bmpstat;
+	if (fstat(fd, &bmpstat) < 0){
+		perror("Fallo seteo de stat del bitmap. error");
+		return NULL;
+	}
+
+	mapeado = mmap(NULL, bmpstat.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
+	return bitarray_create_with_mode(mapeado, meta->cantidad_bloques, LSB_FIRST);
 }
-void crearDirBloques(){
-	char* rutaBloques = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Bloques"));
-	int off=0;
-	memcpy(rutaBloques, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaBloques+off, "/Bloques", sizeof("/Bloques"));
-	mkdir(rutaBloques, S_IWUSR); //para que el usuario pueda escribir
-	printf("Directorio %s creado!\n", rutaBloques);
-	free(rutaBloques);
+
+void crearDirMontaje(void){
+
+	if (mkdir(fileSystem->punto_montaje, 0766) == -1){
+		perror("No se pudo crear el directorio. error");
+		printf("Path intentado: %s\n", fileSystem->punto_montaje);
+	}
+}
+
+void crearDirectoriosBase(void){
+	puts("Se recrea el arbol principal de directorios");
+
+	crearDir(DIR_METADATA);
+	crearDir(DIR_ARCHIVOS);
+	crearDir(DIR_BLOQUES);
+}
+
+void crearDir(char *dir){
+	printf("Se intenta crear el directorio %s\n", dir);
+
+	char* rutaDir = string_duplicate(fileSystem->punto_montaje);
+	string_append(&rutaDir, dir);
+
+	if (mkdir(rutaDir, 0766) != 0){ //para que el usuario pueda escribir
+		if (errno != EEXIST){
+			perror("No se pudo crear directorio. error:");
+			return;
+		}
+
+		printf("Ya existia la ruta %s\n", rutaDir);
+		return;
+	}
+
+	printf("Directorio %s creado\n", rutaDir);
+	free(rutaDir);
 }
 
 void escribirInfoEnArchivo(char* path, tArchivos* info){
@@ -113,37 +175,15 @@ tArchivos* getInfoDeArchivo(char* path){
 	return ret;
 }
 
-tMetadata* getInfoMetadata(char* path){
-	t_config* conf = config_create(path);
-	tMetadata* ret = malloc(sizeof(tMetadata));
-	ret->cantidad_bloques = config_get_int_value(conf, "CANTIDAD_BLOQUES");
-	ret->tamanio_bloques= config_get_int_value(conf, "TAMANIO_BLOQUES");
-	ret->magic_number = config_get_string_value(conf, "MAGIC_NUMBER");
-	config_destroy(conf);
-	return ret;
-}
-
 void marcarBloquesOcupados(char* bloques[]){
 	int i=0;
-	while(i<sizeof(bloques)/sizeof(bloques[0])){
-		bitarray_set_bit(bitArray, atoi(bloques[i])); //esto no me quedo claro si lo marca ocupado o libre, despues se cambia si no
-		msync(bitArray, sizeof(t_bitarray), MS_SYNC);
+	while(i < sizeof(bloques)/sizeof(bloques[0])){
+
+		bitarray_set_bit(bitArray, atoi(bloques[i]));
+		if (!msync(bitArray, sizeof(t_bitarray), MS_SYNC))
+			perror("Fallo sync del bitArray. error");
 		i++;
 	}
-}
-
-t_bitarray* mapearBitArray(char* path){
-	int fd = open(path, O_RDWR);
-	struct stat mystat;
-
-	/*if (fstat(fd, &mystat) < 0) {
-	    printf("Error al establecer fstat\n");
-	    close(fd);
-	    return EXIT_FAILURE;
-	}*/
-	mapeado = mmap(NULL, mystat.st_size, PROT_WRITE | PROT_READ, MAP_SHARED, fd, 0);
-	t_bitarray* bitmap = bitarray_create(mapeado, sizeof(mapeado));
-	return bitmap;
 }
 
 void escucharKernel(){

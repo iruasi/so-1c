@@ -28,9 +28,9 @@
 
 //extern sem_t haySTDIN;
 
-extern t_list *gl_Programas; // va a almacenar relaciones entre Programas y Codigo Fuente
+extern t_list *gl_Programas, *list_infoProc; // va a almacenar relaciones entre Programas y Codigo Fuente
 
-extern pthread_mutex_t mux_exec, mux_ready, mux_gl_Programas;
+extern pthread_mutex_t mux_exec, mux_ready, mux_gl_Programas, mux_infoProc;
 extern t_queue *Ready, *Exit;
 extern t_list *Exec;
 extern t_log * logTrace;
@@ -275,4 +275,73 @@ bool estaEnExit(int pid){
 			return true;
 	}
 	return false;
+}
+
+void crearInfoProcess(int pid){
+
+	t_infoProcess *ip = malloc(sizeof *ip);
+	ip->pid = pid;
+	ip->cant_syscalls = 0;
+	MUX_LOCK(&mux_infoProc);
+	list_add(list_infoProc, ip);
+	MUX_UNLOCK(&mux_infoProc);
+}
+
+t_infoProcess *getInfoProcessByPID(int pid){
+
+	int i;
+	t_infoProcess *ip;
+
+	for (i = 0; i < list_size(list_infoProc); ++i){
+		ip = list_get(list_infoProc, i);
+
+		if (ip->pid == pid)
+			return ip;
+	}
+
+	return NULL;
+}
+
+void sumarSyscall(int pid){
+
+	t_infoProcess *ip;
+	if ((ip = getInfoProcessByPID(pid)) == NULL){
+		printf("No se pudo obtener infoProcess para el PID %d\n", pid);
+		return;
+	}
+
+	ip->cant_syscalls++;
+}
+
+void sumarPaginaHeap(int pid){
+
+	t_infoProcess *ip;
+	if ((ip = getInfoProcessByPID(pid)) == NULL){
+		printf("No se pudo obtener infoProcess para el PID %d\n", pid);
+		return;
+	}
+
+	ip->ih->cant_heaps++;
+}
+
+void sumarSizeYAlloc(int pid, int size){
+	t_infoProcess *ip;
+	if ((ip = getInfoProcessByPID(pid)) == NULL){
+		printf("No se pudo obtener infoProcess para el PID %d\n", pid);
+		return;
+	}
+
+	ip->ih->cant_alloc++;
+	ip->ih->bytes_allocd += size;
+}
+
+void sumarFreeYDealloc(int pid, int size){
+	t_infoProcess *ip;
+	if ((ip = getInfoProcessByPID(pid)) == NULL){
+		printf("No se pudo obtener infoProcess para el PID %d\n", pid);
+		return;
+	}
+
+	ip->ih->cant_frees++;
+	ip->ih->bytes_freed += size;
 }

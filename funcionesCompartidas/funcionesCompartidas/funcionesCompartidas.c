@@ -12,7 +12,6 @@
 #include <tiposRecursos/misc/pcb.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
-#include <funcionesPaquetes/funcionesPaquetes.h>
 #include "funcionesCompartidas.h"
 
 #define BACKLOG 20

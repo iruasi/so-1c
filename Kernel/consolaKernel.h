@@ -29,13 +29,11 @@ void mostrarColaBlock();
 
 void mostrarCantRafagasEjecutadasDe(tPCB *pcb);
 
-void mostrarCantPrivilegiadasDe(tPCB *pcb);
-
 void mostrarTablaDeArchivosDe(tPCB *pcb);
 
-void mostrarCantHeapUtilizadasDe(tPCB *pcb);
+void mostrarCantHeapUtilizadasDe(int pid);
 
-void mostrarCantSyscallsUtilizadasDe(tPCB *pcb);
+void mostrarCantSyscallsUtilizadasDe(int pid);
 
 int getQueuePositionByPid(int pid, t_queue *queue);
 

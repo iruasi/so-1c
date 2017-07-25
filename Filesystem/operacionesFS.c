@@ -14,6 +14,9 @@
 #include "manejadorSadica.h"
 //todo: ver como usar los bitarray y el mmap
 
+extern t_bitarray *bitArray;
+extern tMetadata *meta;
+
 static int getattr(const char *path, struct stat *stbuf) {
 	int res = 0;
 
@@ -181,14 +184,13 @@ int validarArchivo(char* path){
 	return 0;
 }
 
-
 void setupFuseOperations(void){
 	oper.getattr = getattr;
 //	oper.readdir = readdir;
-	oper.open = open2;
-	oper.read = read2;
-	oper.write = write2;
-	oper.unlink = unlink2;
+	oper.open    = open2;
+	oper.read    = read2;
+	oper.write   = write2;
+	oper.unlink  = unlink2;
 }
 
 

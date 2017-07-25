@@ -11,11 +11,11 @@
 
 
 #ifndef LOCK_PLANIF
-#define LOCK_PLANIF (LOCK_MUX(&mux_new), LOCK_MUX(&mux_ready), LOCK_MUX(&mux_exec), LOCK_MUX(&mux_block), LOCK_MUX(&mux_exit))
+#define LOCK_PLANIF (MUX_LOCK(&mux_new), MUX_LOCK(&mux_ready), MUX_LOCK(&mux_exec), MUX_LOCK(&mux_block), MUX_LOCK(&mux_exit))
 #endif
 
 #ifndef UNLOCK_PLANIF
-#define UNLOCK_PLANIF (UNLOCK_MUX(&mux_new), UNLOCK_MUX(&mux_ready), UNLOCK_MUX(&mux_exec), UNLOCK_MUX(&mux_block), UNLOCK_MUX(&mux_exit))
+#define UNLOCK_PLANIF (MUX_UNLOCK(&mux_new), MUX_UNLOCK(&mux_ready), MUX_UNLOCK(&mux_exec), MUX_UNLOCK(&mux_block), MUX_UNLOCK(&mux_exit))
 #endif
 
 void setupGlobales_planificador(void);
