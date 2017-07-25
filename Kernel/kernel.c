@@ -30,6 +30,7 @@
 #include "manejadores.h"
 
 int frames, frame_size; // para guardar datos a recibir de Memoria
+extern int MAX_ALLOC_SIZE;
 int sock_mem, sock_fs, fdInotify;
 tKernel *kernel;
 
@@ -80,6 +81,7 @@ int interconectarProcesos(ker_socks *ks, const char* path){
 		return FALLO_GRAL;
 	}
 	printf("Se trabaja una Memoria con %d frames de size %d\n", frames, frame_size);
+	MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
 
 	// Se trata de conectar con Filesystem
 	if ((sock_fs = establecerConexion(kernel->ip_fs, kernel->puerto_fs)) < 0){
@@ -179,7 +181,6 @@ int main(int argc, char* argv[]){
 		puts("Fallo en la conexion con el resto de los procesos");
 		return ABORTO_KERNEL;
 	}
-
 
 	if( pthread_create(&planif_thread, NULL, (void*) setupPlanificador, NULL) < 0){
 		perror("no pudo crear hilo. error");

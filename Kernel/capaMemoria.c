@@ -18,8 +18,8 @@
 #include "auxiliaresKernel.h"
 
 t_dictionary *dict_heap; // pid_string(char*) : heap_pages(t_list)-> tHeapProc(int, int)
-pthread_mutex_t mux_dict_heap, mux_list_infoP;
-extern t_list *list_infoProc; // contiene t_infoProcess;
+pthread_mutex_t mux_dict_heap;
+extern pthread_mutex_t mux_infoProc;
 sem_t sem_heapDict, sem_bytes, sem_end_exec;
 
 int MAX_ALLOC_SIZE;
@@ -29,14 +29,12 @@ extern t_log * logger;
 
 void setupGlobales_capaMemoria(void){
 
-	MAX_ALLOC_SIZE = frame_size - 2 * SIZEOF_HMD;
 	dict_heap      = dictionary_create();
 
 	sem_init(&sem_heapDict, 0, 0);
 	sem_init(&sem_bytes,    0, 0);
 	sem_init(&sem_end_exec, 0, 0);
 
-	pthread_mutex_init(&mux_list_infoP, NULL);
 	pthread_mutex_init(&mux_dict_heap,  NULL);
 }
 
@@ -104,6 +102,9 @@ t_puntero reservar(int pid, int size){
 		if ( !(ptr = intentarReservaUnica(pid, size)) )
 			return 0;
 
+	MUX_LOCK(&mux_infoProc);
+	sumarSizeYAlloc(pid, size);
+	MUX_UNLOCK(&mux_infoProc);
 	return ptr;
 }
 
@@ -325,6 +326,9 @@ int crearNuevoHeap(int pid){
 	}
 
 	agregarHeapAPID(heap_pp->pid, heap_pp->pageCount);
+	MUX_LOCK(&mux_infoProc);
+	sumarPaginaHeap(pid);
+	MUX_UNLOCK(&mux_infoProc);
 
 	free(heap_pp);
 	free(buffer);
@@ -355,6 +359,9 @@ int liberar(int pid, t_puntero ptr){
 
 	hmd = (tHeapMeta *) (heap + off);
 	hmd->isFree = true; // liberamos el bloque
+	MUX_LOCK(&mux_infoProc);
+	sumarFreeYDealloc(pid, hmd->size);
+	MUX_UNLOCK(&mux_infoProc);
 	consolidar(heap);
 	hp->max_size = getMaxFreeBlock(heap);
 
@@ -452,6 +459,11 @@ void agregarHeapAPID(int pid, int pag){
 	hp->page = pag; hp->max_size = MAX_ALLOC_SIZE;
 
 	if (!tieneHeap(pid)){
+		MUX_LOCK(&mux_infoProc);
+		t_infoProcess *ip = getInfoProcessByPID(pid);
+		MUX_UNLOCK(&mux_infoProc);
+		ip->ih = malloc(sizeof *ip->ih);
+
 		t_list *heaps = list_create();
 		MUX_LOCK(&mux_dict_heap);
 		dictionary_put(dict_heap, spid, heaps);

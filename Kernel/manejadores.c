@@ -30,7 +30,7 @@ extern tKernel *kernel;
 extern t_dictionary *tablaGlobal;
 
 t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas;
-pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas;
+pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc;
 extern pthread_mutex_t mux_exec;
 extern sem_t eventoPlani, sem_heapDict, sem_end_exec, sem_bytes;
 
@@ -41,14 +41,13 @@ void setupGlobales_manejadores(void){
 	gl_Programas  = list_create();
 	finalizadosPorConsolas = list_create();
 
+	pthread_mutex_init(&mux_infoProc,         NULL);
 	pthread_mutex_init(&mux_gl_Programas,     NULL);
 	pthread_mutex_init(&mux_listaFinalizados, NULL);
 	pthread_mutex_init(&mux_listaDeCPU,       NULL);
 }
 
-
 void cpu_manejador(void *infoCPU){
-
 	t_RelCC *cpu_i = (t_RelCC *) infoCPU;
 	cpu_i->con->pid=cpu_i->con->fd_con=-1;
 	log_trace(logger, "cpu_manejador socket %d\n", cpu_i->cpu.fd_cpu);
@@ -63,6 +62,7 @@ void cpu_manejador(void *infoCPU){
 	tPackVal *alloc, *fd_rta;
 	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
+
 
 	do {
 	printf("(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
@@ -86,6 +86,9 @@ void cpu_manejador(void *infoCPU){
 		head.tipo_de_proceso = KER;
 		head.tipo_de_mensaje = waitSyscall(sem_bytes->bytes, cpu_i->cpu.pid);
 		informarResultado(cpu_i->cpu.fd_cpu, head);
+		MUX_LOCK(&mux_infoProc);
+		sumarSyscall(cpu_i->cpu.pid);
+		MUX_UNLOCK(&mux_infoProc);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &sem_bytes);
@@ -110,6 +113,9 @@ void cpu_manejador(void *infoCPU){
 		head.tipo_de_mensaje = (signalSyscall(sem_bytes->bytes) == -1)?
 				VAR_NOT_FOUND : S_SIGNAL;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
+		MUX_LOCK(&mux_infoProc);
+		sumarSyscall(cpu_i->cpu.pid);
+		MUX_UNLOCK(&mux_infoProc);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &sem_bytes);
@@ -135,6 +141,9 @@ void cpu_manejador(void *infoCPU){
 		head.tipo_de_mensaje = ((stat = setGlobalSyscall(val_comp)) != 0)?
 				stat : SET_GLOBAL;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
+		MUX_LOCK(&mux_infoProc);
+		sumarSyscall(cpu_i->cpu.pid);
+		MUX_UNLOCK(&mux_infoProc);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &val_comp);
@@ -185,6 +194,9 @@ void cpu_manejador(void *infoCPU){
 			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
 		}
+		MUX_LOCK(&mux_infoProc);
+		sumarSyscall(cpu_i->cpu.pid);
+		MUX_UNLOCK(&mux_infoProc);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &var);
@@ -228,6 +240,9 @@ void cpu_manejador(void *infoCPU){
 			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
 		}
+		MUX_LOCK(&mux_infoProc);
+		sumarSyscall(cpu_i->cpu.pid);
+		MUX_UNLOCK(&mux_infoProc);
 
 		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &alloc);
@@ -252,6 +267,9 @@ void cpu_manejador(void *infoCPU){
 		head.tipo_de_mensaje = ((stat = liberar(cpu_i->cpu.pid, alloc->val)) < 0)?
 				stat : LIBERAR;
 		informarResultado(cpu_i->cpu.fd_cpu, head);
+		MUX_LOCK(&mux_infoProc);
+		sumarSyscall(cpu_i->cpu.pid);
+		MUX_UNLOCK(&mux_infoProc);
 
 		puts("Fin case LIBERAR");
 		break;
@@ -334,6 +352,10 @@ void cpu_manejador(void *infoCPU){
 				perror("error al enviar el paquete a la cpu. error");
 				break;
 			}
+			MUX_LOCK(&mux_infoProc);
+			sumarSyscall(cpu_i->cpu.pid);
+			MUX_UNLOCK(&mux_infoProc);
+
 			freeAndNULL((void ** )&fd_rta);freeAndNULL((void **)&buffer);
 			//free(abrir->direccion); freeAndNULL((void **) &abrir);
 			puts("Fin case ABRIR");
@@ -371,6 +393,9 @@ void cpu_manejador(void *infoCPU){
 					break;
 				}
 			}
+			MUX_LOCK(&mux_infoProc);
+			sumarSyscall(cpu_i->cpu.pid);
+			MUX_UNLOCK(&mux_infoProc);
 
 			freeAndNULL((void ** )&buffer);
 			break;
@@ -390,9 +415,11 @@ void cpu_manejador(void *infoCPU){
 				perror("error al enviar mensaje de cerrado a la cpu");
 				break;
 			}
+			MUX_LOCK(&mux_infoProc);
+			sumarSyscall(cpu_i->cpu.pid);
+			MUX_UNLOCK(&mux_infoProc);
 
 			freeAndNULL((void ** )&buffer);
-
 			break;
 
 		case MOVERCURSOR:
@@ -426,6 +453,9 @@ void cpu_manejador(void *infoCPU){
 			if((stat = send(cpu_i->cpu.fd_cpu,cursor_serial,pack_size,0))<0){
 				perror("error al enviar el cambio de cursor a la cpu");
 			}
+			MUX_LOCK(&mux_infoProc);
+			sumarSyscall(cpu_i->cpu.pid);
+			MUX_UNLOCK(&mux_infoProc);
 
 			break;
 		case ESCRIBIR:
@@ -464,6 +494,9 @@ void cpu_manejador(void *infoCPU){
 				}
 			}
 			*/
+			MUX_LOCK(&mux_infoProc);
+			sumarSyscall(cpu_i->cpu.pid);
+			MUX_UNLOCK(&mux_infoProc);
 
 			free(escr->info); free(escr);
 			freeAndNULL((void **) &buffer);
@@ -495,6 +528,10 @@ void cpu_manejador(void *infoCPU){
 					break;
 				}
 			}*/
+			MUX_LOCK(&mux_infoProc);
+			sumarSyscall(cpu_i->cpu.pid);
+			MUX_UNLOCK(&mux_infoProc);
+
 			free(leer->info); free(leer);
 			freeAndNULL((void **)&buffer);
 			break;

@@ -63,4 +63,14 @@ void desconexionCpu(t_RelCC *cpu_i);
 
 bool estaEnExit(int pid);
 
+// todo: podria poner esto en otro lado? o aca estara bien...
+
+void crearInfoProcess(int pid);
+t_infoProcess *getInfoProcessByPID(int pid);
+
+void sumarSyscall(int pid);
+void sumarPaginaHeap(int pid);
+void sumarSizeYAlloc(int pid, int size);
+void sumarFreeYDealloc(int pid, int size);
+
 #endif // AUXILIARESKERNEL_H_

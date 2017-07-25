@@ -73,7 +73,6 @@ void setupPlanificador(void){
 
 void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
-	//sem_wait(&codigoEnviado);
 	int pack_size, stat;
 	pack_size = 0;
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
@@ -97,7 +96,7 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
 	printf("Se agrego sock_cpu #%d a lista \n",cpu->cpu.fd_cpu);
 
-	//free(pcb_serial);
+	free(pcb_serial);
 }
 
 void asociarProgramaACPU(t_RelCC *cpu){
@@ -254,6 +253,7 @@ void encolarDeNewEnReady(tPCB *pcb){
 
 		avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
 		iniciarYAlojarEnMemoria(pf, code_pages + kernel->stack_size);
+		crearInfoProcess(pcb->id);
 
 		MUX_LOCK(&mux_ready);
 		queue_push(Ready, pcb);
