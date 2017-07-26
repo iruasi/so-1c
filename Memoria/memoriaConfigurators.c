@@ -3,12 +3,14 @@
 #include <string.h>
 
 #include <commons/config.h>
+
+#include <commons/log.h>
 #include "memoriaConfigurators.h"
 #include <tiposRecursos/tiposPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 
 extern tMemoria *memoria;
-
+extern t_log * logTrace;
 tMemoria *getConfigMemoria(char* ruta){
 	printf("Ruta del archivo de configuracion: %s\n", ruta);
 	tMemoria *memoria = malloc(sizeof(tMemoria));
@@ -42,7 +44,7 @@ void mostrarConfiguracion(tMemoria *memoria){
 }
 
 void liberarConfiguracionMemoria(void){
-
+	log_trace(logTrace,"liberar config memoria");
 	freeAndNULL((void **) &memoria->puerto_entrada);
 	freeAndNULL((void **) &memoria);
 }

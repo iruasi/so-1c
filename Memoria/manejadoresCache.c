@@ -15,21 +15,24 @@ tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 extern char* MEM_FIS;
 extern tMemoria *memoria;    // configuracion de Memoria
 extern int pid_free; // definiciones para paginas de Memoria, Tabla de Invertidas y paginas libres
-extern t_log*logger;
+extern t_log*logTrace;
 int setupCache(void){
-
+	log_trace(logTrace,"funcion setupCache");
 	if ((CACHE = malloc(memoria->entradas_cache * memoria->marco_size)) == NULL){
+		log_error(logTrace,"no se pudo crear espacio de memoria para mem de cache");
 		fprintf(stderr, "No se pudo crear espacio de memoria para Memoria de CACHE");
 		return FALLO_GRAL;
 	}
 
 	if ((CACHE_lines = malloc(memoria->entradas_cache * sizeof *CACHE_lines)) == NULL){
 		fprintf(stderr, "No se pudo crear espacio de memoria para Lineas de CACHE");
+		log_error(logTrace,"no se pudo crear espacio de memoria para lineas de cahche");
 		return FALLO_GRAL;
 	}
 	setupCacheLines();
 
 	if ((CACHE_accs = calloc(memoria->entradas_cache, sizeof *CACHE_accs)) == NULL){
+		log_error(logTrace,"no se pudo crear espacio de memoria para accesos de cache");
 		fprintf(stderr, "No se pudo crear espacio de memoria para Accesos de CACHE");
 		return FALLO_GRAL;
 	}
@@ -49,29 +52,31 @@ void setupCacheLines(void){
 }
 
 char *getCacheContent(int pid, int page){
-	puts("Buscando contenido en CACHE...");
-
+	//puts("Buscando contenido en CACHE...");
+	log_trace(logTrace,"buscando contenido en cache");
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
 		if (CACHE_lines[i].pid == pid && CACHE_lines[i].page == page){
-			puts("CACHE hit");
+			//puts("CACHE hit");
+			log_trace(logTrace,"cache hit");
 			cachePenalizer(i);
 			return CACHE_lines[i].dir_cont;
 		}
 	}
-
-	puts("CACHE miss");
+	log_trace(logTrace,"cache miss");
+	//puts("CACHE miss");
 	return NULL;
 }
 
 void actualizarCache(int pid, int page, int frame){
-
+	log_trace(logTrace,"funcion actualizar cache");
 	int i;
 	char *mem_cont = MEM_FIS + frame * memoria->marco_size;
 
 	for (i = 0; i < memoria->entradas_cache; ++i){
 		if ((CACHE_lines + i)->pid == pid && (CACHE_lines + i)->page == page){
-			puts("Se encontro el frame a actualizar en cache. Writeback...");
+			//puts("Se encontro el frame a actualizar en cache. Writeback...");
+			log_trace(logTrace,"se encontro el frame a actualizar en cache. writeback..");
 			memcpy((CACHE_lines + i)->dir_cont, mem_cont, memoria->marco_size);
 			return;
 		}
@@ -79,7 +84,7 @@ void actualizarCache(int pid, int page, int frame){
 }
 
 void cachePenalizer(int accessed){
-
+	log_trace(logTrace,"funcion cachepenalizer");
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i)
 		CACHE_accs[i]--;
@@ -87,10 +92,11 @@ void cachePenalizer(int accessed){
 }
 
 int insertarEnCache(int pid, int page, char *cont){
-
+	log_trace(logTrace,"funcion insertar en cache");
 	int min_pos;
 
 	if (pageCachedQuantity(pid) >= memoria->cache_x_proc){
+		log_info(logTrace,"el proceso %d tiene la max cant de entradas en cache permitidas. no se sinstera una nueva",pid);
 		printf("El proceso %d tiene la maxima cantidad de entradas en CACHE permitidas\nNo se inserta entrada nueva\n", pid);
 		return MAX_CACHE_ENTRIES;
 	}
@@ -106,7 +112,7 @@ int insertarEnCache(int pid, int page, char *cont){
 }
 
 tCacheEntrada *getCacheVictim(int *min_line){
-
+	log_trace(logTrace,"funcion get cache victim");
 	int i;
 	for (i = *min_line = 0; i < memoria->entradas_cache; ++i){
 
@@ -120,7 +126,7 @@ tCacheEntrada *getCacheVictim(int *min_line){
 }
 
 int pageCachedQuantity(int pid){
-
+	log_trace(logTrace,"funcion page cached quantity");
 	int i, pages;
 	for (i = pages = 0; i < memoria->entradas_cache; ++i){
 		(CACHE_lines[i].pid == pid)? pages++ : pages;
@@ -130,7 +136,7 @@ int pageCachedQuantity(int pid){
 }
 
 void dumpCache(void){
-
+	log_trace(logTrace,"funcion dump cache");
 	int i;
 	puts("Comienzo dump Cache");
 
