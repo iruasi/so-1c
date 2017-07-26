@@ -22,8 +22,8 @@ ALGORITMO=FIFO
 
 GRADO_MULTIPROG=3
 SEM_IDS=[c, mutexArch, b, SEM1, SEM2, SEM3 ]
-SEM_INIT=[2, 1, 1, 0, 0, 5 ]
+SEM_INIT=[2, 1, 5, 0, 0, 5 ]
 SEM_CANT=5
-SHARED_VARS=[!colas, !Global, !UnaVar, !tiempo3 ]
-SHARED_CANT=4
+SHARED_VARS=[!pasadas,!colas, !Global, !UnaVar, !tiempo3 ]
+SHARED_CANT=5
 STACK_SIZE=2
