@@ -27,9 +27,11 @@ void mostrarColaExit();
 
 void mostrarColaBlock();
 
-void mostrarCantRafagasEjecutadasDe(tPCB *pcb);
+void mostrarCantRafagasEjecutadasDe(int pid);
 
-void mostrarTablaDeArchivosDe(tPCB *pcb);
+void mostrarTablaDeArchivosDe(int pid);
+
+void mostrarTablaGlobalArchivos(void);
 
 void mostrarCantHeapUtilizadasDe(int pid);
 

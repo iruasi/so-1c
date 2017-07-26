@@ -511,7 +511,6 @@ void agregarHeapAPID(int pid, int pag){
 		MUX_LOCK(&mux_infoProc);
 		t_infoProcess *ip = getInfoProcessByPID(pid);
 		MUX_UNLOCK(&mux_infoProc);
-		ip->ih = malloc(sizeof *ip->ih);
 
 		t_list *heaps = list_create();
 		MUX_LOCK(&mux_dict_heap);

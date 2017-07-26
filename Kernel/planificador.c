@@ -38,7 +38,7 @@ int grado_mult;
 extern tKernel *kernel;
 
 sem_t eventoPlani;
-pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU,mux_gradoMultiprog;;
+pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU, mux_gradoMultiprog;;
 extern pthread_mutex_t mux_gl_Programas;
 
 void pausarPlanif(void){
@@ -506,21 +506,22 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	}
 }
 
-void encolarEnExit(tPCB *pcb,t_RelCC *cpu){
+void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 	log_trace(logTrace,"Encolamos en exit a %d ",pcb->id);
 	int q;
 	tPackHeader * headerFin = malloc(sizeof headerFin); //lo uso para indicar a consola de q termino el proceso.
+
+	t_infoProcess *ip = getInfoProcessByPID(pcb->id);
+	ip->rafagas_exec = pcb->rafagasEjecutadas;
 
 	printf("\n\n#####EXIT CODE DEL PROCESO %d: %d\n\n#####", pcb->id, pcb->exitCode);
 	log_trace(logTrace,"Exit code de %d: %d",pcb->id,pcb->exitCode);
 	if(pcb->exitCode != CONS_DISCONNECT){
 
-		if(pcb->exitCode!= DESCONEXION_CPU){
-			headerFin->tipo_de_proceso = KER; headerFin->tipo_de_mensaje = FIN_PROG;
-		}
-		else{
-			headerFin->tipo_de_proceso=KER;headerFin->tipo_de_mensaje=DESCONEXION_CPU;
-		}
+		headerFin->tipo_de_proceso = KER;
+		headerFin->tipo_de_mensaje = (pcb->exitCode!= DESCONEXION_CPU)?
+				FIN_PROG : DESCONEXION_CPU;
+
 		informarResultado(cpu->con->fd_con, *headerFin);
 	}
 

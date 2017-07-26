@@ -27,20 +27,24 @@ extern t_log *logTrace;
 
 extern tKernel *kernel;
 
-extern t_dictionary *tablaGlobal;
-
-t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas;
+t_dictionary *tablaGlobal;
+t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas, *tablaProcesos;
 pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc;
 extern pthread_mutex_t mux_exec, mux_tablaPorProceso, mux_archivosAbiertos;
 extern sem_t eventoPlani, sem_heapDict, sem_end_exec, sem_bytes;
 
 void setupGlobales_manejadores(void){
 	log_trace(logTrace,"setup globales_manejadores");
+
+	tablaGlobal   = dictionary_create();
+	tablaProcesos = list_create();
 	listaDeCpu    = list_create();
 	list_infoProc = list_create();
 	gl_Programas  = list_create();
 	finalizadosPorConsolas = list_create();
 
+	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
+	pthread_mutex_init(&mux_archivosAbiertos, NULL);
 	pthread_mutex_init(&mux_infoProc,         NULL);
 	pthread_mutex_init(&mux_gl_Programas,     NULL);
 	pthread_mutex_init(&mux_listaFinalizados, NULL);
@@ -65,8 +69,7 @@ void cpu_manejador(void *infoCPU){
 
 
 	do {
-	//printf("(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
-		log_trace(logTrace,"(CPU) proc: %d  t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+	log_trace(logTrace,"(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 	switch((int) head.tipo_de_mensaje){
 	case S_WAIT:
 		puts("Signal wait a semaforo");
@@ -206,7 +209,6 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case RESERVAR:
-		puts("Funcion reservar");
 		log_trace(logTrace,"Funcion reservar");
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;

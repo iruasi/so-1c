@@ -142,6 +142,7 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 		perror("inotify_init. error");
 		puts("Se trabaja sin actualizacion de configuracion Kernel");
 	}
+	ks->fd_max = MAX(ks->fd_max, ks->sock_inotify);
 
 	// Creamos un monitor sobre un path indicando que eventos queremos escuchar
 	ks->sock_watch = inotify_add_watch(ks->sock_inotify, pathDirectorio, IN_MODIFY);
@@ -150,7 +151,7 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 	FD_SET(sock_fs,          &ks->master);
 	FD_SET(ks->sock_lis_cpu, &ks->master);
 	FD_SET(ks->sock_lis_con, &ks->master);
-	FD_SET(ks->sock_inotify,   &ks->master); //todo
+	FD_SET(ks->sock_inotify, &ks->master);
 	return 0;
 }
 
@@ -197,14 +198,10 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(kernel);
 	setupVariablesPorSubsistema();
 
-	int pathLen = string_length(argv[1]);
-	int rutaLen = string_length("/config_kernel");
-	int directorioLen = pathLen-rutaLen;
-	char* pathDirectorio = string_substring_until(argv[1],directorioLen);
+	int directorioLen = string_length(argv[1]) - string_length("/config_kernel");
+	char* pathDirectorio = string_substring_until(argv[1], directorioLen);
 
-	//para debug desde eclipse:
-	//char*pathDirectorio = "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/Kernel";
-	printf("path dire: %s\n",pathDirectorio);
+	printf("path dire: %s\n", pathDirectorio);
 
 	if (interconectarProcesos(ks, pathDirectorio) != 0){
 		log_error(logTrace,"Fallo en la conexion c el resto de los procesos");
@@ -251,8 +248,8 @@ int main(int argc, char* argv[]){
 				if(fd == ks->sock_inotify){
 					//puts("El socket es de inotify");
 					log_trace(logTrace,"el socket es de inotify");
-					inotifyer(argv[1],ks->sock_inotify);
-					//break;
+					inotifyer(argv[1], ks->sock_inotify);
+					break;
 				}
 
 				// Controlamos el listen de CPU o de Consola
@@ -336,7 +333,7 @@ int main(int argc, char* argv[]){
 	return stat;
 }
 
-void inotifyer(char *path,int fdInotify){
+void inotifyer(char *path, int fdInotify){
 
 	// El file descriptor creado por inotify, es el que recibe la información sobre los eventos ocurridos
 	// para leer esta información el descriptor se lee como si fuera un archivo comun y corriente pero
@@ -366,23 +363,16 @@ void inotifyer(char *path,int fdInotify){
 			// Dentro de "mask" tenemos el evento que ocurrio y sobre donde ocurrio
 			// sea un archivo o un directorio
 			if ((event->mask & IN_MODIFY) && !(event->mask & IN_ISDIR)){
-				printf("The file %s was modified.\n", event->name);
-				log_trace(logTrace,"el archivo %s fue modificado",event->name);
+				log_trace(logTrace,"el archivo %s fue modificado", event->name);
 				if (strncmp(event->name, "config_kernel", 13) == 0){
-					puts("Actualizamos los valores de la config de kernel");
-					log_trace(logTrace,"se actualizan el valor del QS ");
-					//liberarConfiguracionKernel(kernel);
-					//kernel = getConfigKernel(path);
-					puts("entro");
+					log_trace(logTrace,"Se actualiza el valor del QS");
+
 					kernel->quantum_sleep = getNewQS(path);
-					puts("salgo");
-					//offset=length;
 					break;
 				}
 
 			} else {
-				log_trace(logTrace,"hubo una accion sobre un archivo q no manejamos");
-				printf("Hubo una accion sobre %s que no manejamos...\n", event->name);
+				log_trace(logTrace,"Hubo una accion sobre un archivo que no manejamos");
 				break;
 			}
 		}

@@ -10,8 +10,9 @@
 
 typedef struct {
 	int pid,
-		cant_syscalls;
-	infoHeap *ih;
+		cant_syscalls,
+		rafagas_exec;
+	infoHeap ih;
 } t_infoProcess;
 
 int *formarPtrPIDs(int *len);
@@ -33,8 +34,6 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src);
  * El parametro src_size es un auxiliar para obtener ese dato hasta fuera del proceso
  */
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size);
-
-void setupGlobales_auxiliares(void);
 
 void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir);
 void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid);

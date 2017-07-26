@@ -304,9 +304,13 @@ void mostrarInfoDe(int pidElegido){
 
 		tPCB * pcbAuxiliar;
 
+		// todo: algo hace segfault
 		mostrarCantHeapUtilizadasDe(pidElegido);
 		mostrarCantSyscallsUtilizadasDe(pidElegido);
-		return; //todo: tarea
+		mostrarCantRafagasEjecutadasDe(pidElegido);
+		mostrarTablaDeArchivosDe(pidElegido);
+		mostrarTablaGlobal();
+		return;
 
 		MUX_LOCK(&mux_new);
 		if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
@@ -380,12 +384,19 @@ void mostrarInfoDe(int pidElegido){
 		return;
 }
 
-void mostrarCantRafagasEjecutadasDe(tPCB *pcb){
+void mostrarCantRafagasEjecutadasDe(int pid){
 	log_trace(logTrace,"mostrar cant rafagas ejecutadas");
-	//todo: ampliar pcb con la cant de rafagas totales?
-	int cantRafagas=0;
-	cantRafagas =  pcb->rafagasEjecutadas;
-	printf("####PROCESO %d####\nCantidad de rafagas ejecutadas: %d\n",pcb->id,cantRafagas);
+
+	int pos;
+	MUX_LOCK(&mux_infoProc);
+	if ((pos = getInfoProcPosByPID(list_infoProc, pid)) == -1){
+		MUX_UNLOCK(&mux_infoProc);
+		return;
+	}
+	t_infoProcess *ip = list_get(list_infoProc, pos);
+	MUX_UNLOCK(&mux_infoProc);
+
+	printf("Cantidad de rafagas ejecutadas:         %d\n", ip->rafagas_exec);
 	log_trace(logTrace,"fin mostrar cant rafagas ejecutadas");
 }
 
@@ -404,36 +415,37 @@ void armarStringPermisos(char* permisos, int creacion, int lectura, int escritur
 	log_trace(logTrace,"fin armar string permisos");
 }
 
-void mostrarTablaDeArchivosDe(tPCB *pcb){
-	log_trace(logTrace,"inicio mostrar tabla de archivos");
-	char pid[MAXPID_DIG];
-	sprintf(pid,"%d",pcb->id);
+void mostrarTablaDeArchivosDe(int pid){
+	log_trace(logTrace, "inicio mostrar tabla de archivos");
+
 	bool encontrarPid(t_procesoXarchivo * proceso){
-			return proceso->pid == pcb->id;
+			return proceso->pid == pid;
 	}
-	t_procesoXarchivo * pa = list_find(tablaProcesos, encontrarPid);
-	tProcesoArchivo * _unArchivo;
-	if(list_is_empty(pa->archivosPorProceso)){
-		printf("La tabla de procesos del proceso %d se encuentra vacía",pcb->id);
+
+	tProcesoArchivo *archProceso;
+	t_procesoXarchivo *pa;
+
+	if ((pa = list_find(tablaProcesos, (void *) encontrarPid)) == NULL
+			|| list_is_empty(pa->archivosPorProceso)){
+		printf("La tabla de procesos del proceso %d se encuentra vacía\n", pid);
 		log_trace(logTrace,"fin mostrar tabla de archivos");
 		return;
 	}
-	char * permisos = string_new();
-	armarStringPermisos(permisos,_unArchivo->flag.creacion,_unArchivo->flag.escritura,_unArchivo->flag.lectura);
+
+	char *permisos = string_new();
+	printf("####PROCESO %d####\nTabla de archivos abiertos del proceso\n", pid);
 	int i;
 	for(i = 0; i < list_size(pa->archivosPorProceso); i++){
-		_unArchivo = (tProcesoArchivo *) list_get(pa->archivosPorProceso, i);
-		printf("####PROCESO %d####\nTabla de archivos abiertos del proceso\n",pcb->id);
-		printf("Permisos: %s --fdGlobalAsociado: %d -- cursor: %d",permisos,_unArchivo->fd,_unArchivo->posicionCursor);
+		archProceso = list_get(pa->archivosPorProceso, i);
+		armarStringPermisos(permisos, archProceso->flag.creacion, archProceso->flag.escritura, archProceso->flag.lectura);
 
+		printf("Permisos: %s -- fdGlobalAsociado: %d -- cursor: %d", permisos, archProceso->fd, archProceso->posicionCursor);
 	}
-	log_trace(logTrace,"fin mosdtrar tabla de archivos");
+	log_trace(logTrace,"fin mostrar tabla de archivos");
 }
 
 void mostrarCantHeapUtilizadasDe(int pid){
-
 	log_trace(logTrace,"inicio mostrar cant heap utilizadas");
-
 
 	int pos;
 
@@ -445,14 +457,13 @@ void mostrarCantHeapUtilizadasDe(int pid){
 	t_infoProcess *ip = list_get(list_infoProc, pos);
 	MUX_UNLOCK(&mux_infoProc);
 
-	printf("####PROCESO %d####\nCantidad de paginas de heap utilizadas: \t %d \n", pid, ip->ih->cant_heaps);
-	printf("####PROCESO %d####\nCantidad de allocaciones realizadas: \t %d \n",    pid, ip->ih->cant_alloc);
-	printf("####PROCESO %d####\nCantidad de bytes allocados: \t\t %d \n",          pid, ip->ih->bytes_allocd);
-	printf("####PROCESO %d####\nCantidad de liberaciones realizadas: \t %d \n",    pid, ip->ih->cant_frees);
-	printf("####PROCESO %d####\nCantidad de bytes liberados: \t\t %d \n",          pid, ip->ih->bytes_freed);
+	printf("Cantidad de paginas de heap utilizadas: %d\n", ip->ih.cant_heaps);
+	printf("Cantidad de allocaciones realizadas:    %d\n", ip->ih.cant_alloc);
+	printf("Cantidad de bytes allocados:            %d\n", ip->ih.bytes_allocd);
+	printf("Cantidad de liberaciones realizadas:    %d\n", ip->ih.cant_frees);
+	printf("Cantidad de bytes liberados:            %d\n", ip->ih.bytes_freed);
 
 	log_trace(logTrace,"fin mostrar cant heap utilizadas");
-
 }
 
 int getInfoProcPosByPID(t_list *infoProc, int pid){
@@ -472,8 +483,6 @@ int getInfoProcPosByPID(t_list *infoProc, int pid){
 	return -1;
 }
 
-
-
 void mostrarCantSyscallsUtilizadasDe(int pid){
 	log_trace(logTrace,"inicio mostrar cant syscal utilizadas");
 
@@ -486,8 +495,7 @@ void mostrarCantSyscallsUtilizadasDe(int pid){
 	}
 	t_infoProcess *ip = list_get(list_infoProc, pos);
 	MUX_UNLOCK(&mux_infoProc);
-
-	printf("####PROCESO %d####\nCantidad de syscalls utilizadas : \t\t %d \n", pid, ip->cant_syscalls);
+	printf("Cantidad de syscalls utilizadas:        %d\n", ip->cant_syscalls);
 	log_trace(logTrace,"fin mostrar cant syscall utilizadas");
 }
 
@@ -515,24 +523,30 @@ void finalizarProceso(int pidAFinalizar){
 	log_trace(logTrace,"fin finalizar proceso");
 }
 
-void mostrarTablaGlobal(){
+void mostrarTablaGlobal(void){
 	log_trace(logTrace,"inicio mostrar tabla global");
-	puts("Mostrar tabla global");
+
 	if(dictionary_is_empty(tablaGlobal)){
 		printf("La tabla global de archivos se encuentra vacía\n");
 		log_trace(logTrace,"fin mostrar tabla global");
 		return;
 	}
-	tDatosTablaGlobal * datosGlobal;
-	int i ;
+
+	tDatosTablaGlobal *datosGlobal;
+	printf("Los datos de la tabla global son: \n");
+
+	int i;
 	char contAux[MAXPID_DIG];
-	for(i = 0 ; i < dictionary_size(tablaGlobal);i++){
+	for(i = 3; i < dictionary_size(tablaGlobal); i++){
 		sprintf(contAux, "%d", i);
-		datosGlobal = (tDatosTablaGlobal *) dictionary_get(tablaGlobal,contAux);
-		printf("Los datos de la tabla global son: \n");
-		printf("FD: %d --- Direccion: %s --- Cantidad de veces abierta: %d\n",datosGlobal->fd,datosGlobal->direccion,datosGlobal->cantidadOpen);
+
+		if (!dictionary_has_key(tablaGlobal, contAux))
+			continue;
+
+		datosGlobal = dictionary_get(tablaGlobal, contAux);
+		printf("FD: %d --- Direccion: %s --- Cantidad aperturas: %d\n",
+				datosGlobal->fd, datosGlobal->direccion, datosGlobal->cantidadOpen);
 	}
-	log_trace(logTrace,"fin mostrar tabla global");
 }
 
 void stopKernel(){

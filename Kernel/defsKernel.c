@@ -14,7 +14,6 @@ void setupVariablesPorSubsistema(void){
 	setupGlobales_consolaKernel();
 	setupGlobales_manejadores();
 	setupGlobales_capaMemoria();
-	setupGlobales_auxiliares();
 	setupGlobales_syscalls();
 	setupGlobales_planificador();
  // todo: verificar que esten todos los mutexes y demas cosas inicializados..

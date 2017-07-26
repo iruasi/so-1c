@@ -66,18 +66,11 @@ tKernel *getConfigKernel(char* ruta){
 
 int getNewQS(char* ruta){
 
-	puts("1");
-	printf("RUTA: %s\n",ruta);
 	t_config *kernelConfig2 = config_create(ruta);
-	puts("2");
 	int qs;
-	puts("3");
 	qs= config_get_int_value(kernelConfig2, "QUANTUM_SLEEP");
-	puts("4");
-	printf("%d\n",qs);
-	puts("4.1");
+	log_trace(logTrace, "Nuevo quantum_sleep: %d\n",qs);
 	config_destroy(kernelConfig2); //todo: ROMPE ACA !?!?!?!?!??!?!?!??!?!??!?!?!?!??!?!?!?!?!?
-	puts("5");
 	return qs;
 
 }

@@ -37,22 +37,10 @@ extern t_log * logTrace;
 
 int globalPID;
 int globalFD;
-t_dictionary *tablaGlobal;
-t_list *tablaProcesos;
+extern t_dictionary *tablaGlobal;
+extern t_list *tablaProcesos;
 
 pthread_mutex_t mux_tablaPorProceso, mux_archivosAbiertos;
-
-void setupGlobales_auxiliares(void){ // todo: por ahi esto entero se puede delegar en manejadores..?
-
-	tablaGlobal   = dictionary_create();
-	tablaProcesos = list_create();
-
-	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
-	pthread_mutex_init(&mux_archivosAbiertos, NULL);
-
-	log_trace(logTrace,"fin setup variables globales");
-}
-
 
 void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir){
 	char fd_str[MAXPID_DIG];
@@ -90,7 +78,6 @@ void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int
 	log_trace(logTrace,"fin agregar archivo a tabla procesos");
 }
 
-
 tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
 	log_trace(logTrace,"inicio obtener proceso segun fd");
 	bool encontrarFD(tProcesoArchivo * archivo){
@@ -99,8 +86,9 @@ tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
 	bool encontrarPid(t_procesoXarchivo * proceso){
 		return proceso->pid == pid;
 	}
-	t_procesoXarchivo * _unProceso = (t_procesoXarchivo *)list_find(tablaProcesos,encontrarPid);
-	tProcesoArchivo * _unArchivo = (tProcesoArchivo *) list_find(_unProceso->archivosPorProceso,encontrarFD);
+
+	t_procesoXarchivo * _unProceso = list_find(tablaProcesos, (void *) encontrarPid);
+	tProcesoArchivo * _unArchivo   = list_find(_unProceso->archivosPorProceso, (void *) encontrarFD);
 
 	if(_unArchivo == NULL){
 		perror("No hay archivo");
@@ -109,6 +97,7 @@ tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
 	log_trace(logTrace,"fin obtener proceso segun fd");
 	return _unArchivo;
 }
+
 tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 	log_trace(logTrace,"inicio encontrar tbla por fd");
 	tDatosTablaGlobal * unaTabla;
@@ -119,8 +108,8 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 		return unProceso->pid == pid;
 	}
 
-	t_procesoXarchivo * _proceso  = list_find(tablaProcesos, encontrarProceso);
-	tProcesoArchivo * _archivo = (tProcesoArchivo *) list_find(_proceso->archivosPorProceso, encontrarFD);
+	t_procesoXarchivo * _proceso = list_find(tablaProcesos, (void *) encontrarProceso);
+	tProcesoArchivo * _archivo   = list_find(_proceso->archivosPorProceso, (void *) encontrarFD);
 
 	char fd_s[MAXPID_DIG];
 	sprintf(fd_s,"%d",fd);
@@ -303,6 +292,8 @@ void crearInfoProcess(int pid){
 	t_infoProcess *ip = malloc(sizeof *ip);
 	ip->pid = pid;
 	ip->cant_syscalls = 0;
+	ip->rafagas_exec  = 0;
+	memset(&ip->ih, 0, sizeof(ip->ih));
 	MUX_LOCK(&mux_infoProc);
 	list_add(list_infoProc, ip);
 	MUX_UNLOCK(&mux_infoProc);
@@ -342,7 +333,7 @@ void sumarPaginaHeap(int pid){
 		return;
 	}
 
-	ip->ih->cant_heaps++;
+	ip->ih.cant_heaps++;
 }
 
 void sumarSizeYAlloc(int pid, int size){
@@ -352,8 +343,8 @@ void sumarSizeYAlloc(int pid, int size){
 		return;
 	}
 
-	ip->ih->cant_alloc++;
-	ip->ih->bytes_allocd += size;
+	ip->ih.cant_alloc++;
+	ip->ih.bytes_allocd += size;
 }
 
 void sumarFreeYDealloc(int pid, int size){
@@ -363,6 +354,6 @@ void sumarFreeYDealloc(int pid, int size){
 		return;
 	}
 
-	ip->ih->cant_frees++;
-	ip->ih->bytes_freed += size;
+	ip->ih.cant_frees++;
+	ip->ih.bytes_freed += size;
 }
