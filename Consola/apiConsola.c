@@ -148,7 +148,7 @@ void accionesFinalizacion(int pid){
 			printf ("###HORA DE INICIO: %s\n", buffInicio);
 			printf ("###HORA DE FIN: %s\n", buffFin);
 			printf("###SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
-			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: XXXXXXX\n");//todo:imporesiones x pantala
+			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: %d\n",aux->cantImpresiones);//todo:impresiones x pantala
 
 
 			log_info(logTrace,"HORA DE INICIO: %s",buffInicio);
@@ -208,6 +208,7 @@ void *programa_handler(void *atributos){
 		log_error(logTrace, "no se pudo establecer conexion con kernel.");
 		return NULL;
 	}
+	args->cantImpresiones = 0;
 
 	time(&args->horaInicio);
 	log_trace(logTrace,"momento de inicio");
@@ -259,9 +260,11 @@ void *programa_handler(void *atributos){
 				return (void *) FALLO_RECV;
 			}
 
+			tPackRW * prints=deserializeRW(buffer);
 
-			//puts("Kernel manda algo a imprimir");
-			//recv..
+			printf("[Impresion para PID:%d]: %s\n",args->pidProg, (char *) prints->info);
+			args->cantImpresiones++;
+
 		}
 
 

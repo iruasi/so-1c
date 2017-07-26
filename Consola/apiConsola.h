@@ -21,6 +21,7 @@ typedef struct {
 	int pidProg;
 	time_t horaInicio;
 	time_t horaFin;
+	int cantImpresiones;
 } tAtributosProg;
 
 
