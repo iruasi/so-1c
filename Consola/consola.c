@@ -38,7 +38,6 @@ t_list *listaAtributos,*listaFinalizados;
 tConsola *cons_data;
 
 t_log *logTrace;
-int sock_kern;
 
 int main(int argc, char* argv[]){
 
@@ -83,7 +82,7 @@ int main(int argc, char* argv[]){
 
 			//TODO:Chequear error de ruta..
 			tAtributosProg *atributos = malloc(sizeof *atributos);
-			atributos->sock = sock_kern;
+			atributos->sock = -1;
 			atributos->path = ruta;
 
 			//printf("Ruta del programa: %s\n",atributos->path);

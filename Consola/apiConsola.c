@@ -25,9 +25,8 @@
 #define SIGDISCONNECT 80
 
 
-int siguientePID(void){return 1;}
 int tamanioPrograma;
-int sock_kern;
+
 extern t_list *listaAtributos;
 extern t_log *logTrace;
 extern tConsola *cons_data;
@@ -72,6 +71,14 @@ int Finalizar_Programa(int pid){
 	int pack_size;
 	char *pid_serial;
 	tPackPID pack_pid;
+	tAtributosProg *attr;
+
+	pthread_mutex_lock(&mux_listaAtributos);
+	if ((attr = getAttrProgDeLista(pid)) == NULL){
+		pthread_mutex_unlock(&mux_listaAtributos);
+		return FALLO_GRAL;
+	}
+	pthread_mutex_unlock(&mux_listaAtributos);
 
 	pack_pid.head.tipo_de_proceso = CON; pack_pid.head.tipo_de_mensaje = KILL_PID;
 	pack_pid.val = pid;
@@ -83,7 +90,7 @@ int Finalizar_Programa(int pid){
 		return FALLO_SERIALIZAC;
 	}
 
-	if ((stat = send(sock_kern, pid_serial, pack_size, 0)) == -1){
+	if ((stat = send(attr->sock, pid_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de PID a Consola. error");
 		return FALLO_SEND;
 	}
@@ -121,7 +128,7 @@ int Finalizar_Programa(int pid){
 
 	return 0;
 }
-void accionesFinalizacion(int pid ){
+void accionesFinalizacion(int pid){
 	int i;
 	char buffInicio[100];
     char buffFin[100];
@@ -191,22 +198,27 @@ void *programa_handler(void *atributos){
 	char *buffer;
 	char buffInicio[100];
 	int pack_size;
-	int motivoFin;
 	int stat;
 
 	tAtributosProg *args = (tAtributosProg *) atributos;
+
+	args->sock = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
+	if (args->sock < 0){
+		errno = FALLO_CONEXION;
+		log_error(logTrace, "no se pudo establecer conexion con kernel.");
+		return NULL;
+	}
+
 	time(&args->horaInicio);
 	log_trace(logTrace,"momento de inicio");
 	strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&args->horaInicio));
 	printf ("Hora de inicio: %s\n", buffInicio);
 
-	handshakeCon(sock_kern, CON);
+	handshakeCon(args->sock, CON);
 	log_trace(logTrace,"handshake realizado");
 	tPackHeader head_tmp;
 
 	log_trace(logTrace,"creando codigo fuente");
-
-
 	tPackSrcCode *src_code = readFileIntoPack(CON, args->path);
 	log_trace(logTrace,"codigo fuente creado");
 	log_trace(logTrace,"serializando codigo fuente");
@@ -218,16 +230,9 @@ void *programa_handler(void *atributos){
 
 	log_trace(logTrace,"conectando con kernel");
 
-		sock_kern = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
-		if (sock_kern < 0){
-			errno = FALLO_CONEXION;
-			log_error(logTrace,"no se pudo estalecer conexion con kernel.");
-			return NULL;
-		}
+	log_trace(logTrace,"enviando codigo fuente");
 
-		log_trace(logTrace,"enviando codigo fuente");
-
-	if ((stat = send(sock_kern, buffer, pack_size, 0)) == -1){
+	if ((stat = send(args->sock, buffer, pack_size, 0)) == -1){
 		log_error(logTrace,"no se pudo enviar codigo fuente a kernel. ");
 		return (void *) FALLO_SEND;
 	}
@@ -242,14 +247,14 @@ void *programa_handler(void *atributos){
 	tPackPID *ppid;
 	int finalizar = 0;
 	log_trace(logTrace,"esperando a recibir el PID");
-	while((stat = recv(sock_kern, &(head_tmp), HEAD_SIZE, 0)) > 0){
+	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == IMPRIMIR){
 			log_trace(logTrace,"kernel manda algo a imprimir");
 
 			log_trace(logTrace, "recibimos info para imprimir");
 
-			if ((buffer = recvGeneric(sock_kern)) == NULL){
+			if ((buffer = recvGeneric(args->sock)) == NULL){
 				log_error(logTrace,"error al recibir la info a imprimir");
 				return (void *) FALLO_RECV;
 			}
@@ -263,7 +268,7 @@ void *programa_handler(void *atributos){
 		if (head_tmp.tipo_de_mensaje == PID){
 			log_trace(logTrace,"recibimos PID");
 
-			if ((buffer = recvGeneric(sock_kern)) == NULL){
+			if ((buffer = recvGeneric(args->sock)) == NULL){
 				log_error(logTrace,"error al recibir el pid");
 				return (void *) FALLO_RECV;
 			}
@@ -300,7 +305,7 @@ void *programa_handler(void *atributos){
 
 			accionesFinalizacion(args->pidProg);
 
-			close(sock_kern); //todo:revisar esto
+			close(args->sock); //todo:revisar esto
 
 
 			//pthread_cancel(aux->hiloProg);
@@ -311,7 +316,7 @@ void *programa_handler(void *atributos){
 			printf("Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n",args->pidProg);
 			log_trace(logTrace,"Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)",args->pidProg);
 			accionesFinalizacion(args->pidProg);
-			close(sock_kern);
+			close(args->sock);
 		}
 
 
