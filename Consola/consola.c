@@ -46,7 +46,20 @@ int main(int argc, char* argv[]){
 	//logger = log_create("/home/utnso/logConsolaInfo.txt","CONSOLA",1,LOG_LEVEL_INFO);
 	logTrace = log_create("/home/utnso/logConsolaTrace.txt","CONSOLA",0,LOG_LEVEL_TRACE);
 
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
 	log_trace(logTrace,"Inicia nueva ejecucion de CONSOLA");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
 
 	inicializarSemaforos();
 	if(argc!=2){

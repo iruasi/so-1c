@@ -176,6 +176,8 @@ int main(int argc, char* argv[]){
 	//tPackHeader *head = malloc(sizeof *head);
 	tPackHeader head;
 	char *pcb_serial;
+	tPackVal *packNuevoQS;
+	char *buffer;
 
 	//pthread_create(&signalH_th, NULL, (void *) signal_handler, NULL);
 
@@ -184,14 +186,34 @@ int main(int argc, char* argv[]){
 		//puts("Se recibio un paquete de Kernel");
 		//printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
 		log_trace(logTrace,"Se recibio un paquete de kernel");
-		if (head.tipo_de_mensaje == FIN){
-			puts("Kernel se va!");
-			log_trace(logTrace,"kernel se va");
-			liberarConfiguracionCPU(cpu_data);
+		if(head.tipo_de_mensaje == 87){
+				if ((buffer = recvGeneric(sock_kern)) == NULL){
+					log_error(logTrace,"error al recibir el nuevo qs");
+					return FALLO_RECV;
+				}
 
-		} else if (head.tipo_de_mensaje == PCB_EXEC){
+				if ((packNuevoQS = deserializeVal(buffer)) == NULL){
+					log_error(logTrace,"error al deserializar el packQS");
+					return FALLO_DESERIALIZAC;
+				}
 
+				log_trace(logTrace,"asigno nuevo qs");
 
+				memcpy(&q_sleep, &packNuevoQS->val, sizeof(int));
+
+				set_quantum_sleep();
+
+				//freeAndNULL((void **)&nuevoQS);
+
+				log_trace(logTrace,"NUEVO QS: %d ",q_sleep);
+
+				printf("NUEVO QS: %d (segs)\n", q_sleep);
+				printf("NUEVO QS: %f (flo)\n",q_sleep_segs);
+
+		}
+		else if (head.tipo_de_mensaje == PCB_EXEC){
+
+			ejecutando=true;
 			if((pcb_serial = recvGeneric(sock_kern)) == NULL){
 				return FALLO_RECV;
 			}
@@ -214,8 +236,9 @@ int main(int argc, char* argv[]){
 			}
 
 		} else {
-			puts("Me re fui");
-			return ABORTO_CPU;
+			//puts("Me re fui");
+			//return ABORTO_CPU; todo:por las dudas no abortaría ... y pondria un recibi cualqui
+			puts("recibi un mensaje no considerado");
 		}
 	}
 
@@ -226,6 +249,7 @@ int main(int argc, char* argv[]){
 		close(sock_kern);
 		close(sock_mem);
 		//free(head);
+		ejecutando=false;
 		liberarConfiguracionCPU(cpu_data);
 		return FALLO_GRAL;
 	}

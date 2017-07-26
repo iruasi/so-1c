@@ -28,8 +28,8 @@ extern t_log *logTrace;
 extern tKernel *kernel;
 
 t_dictionary *tablaGlobal;
-t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas, *tablaProcesos;
-pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc;
+t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas, *tablaProcesos,*listaAvisarQS;
+pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc,mux_listaAvisar;
 extern pthread_mutex_t mux_exec, mux_tablaPorProceso, mux_archivosAbiertos;
 extern sem_t eventoPlani, sem_heapDict, sem_end_exec, sem_bytes;
 
@@ -42,6 +42,7 @@ void setupGlobales_manejadores(void){
 	list_infoProc = list_create();
 	gl_Programas  = list_create();
 	finalizadosPorConsolas = list_create();
+	listaAvisarQS = list_create();
 
 	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
 	pthread_mutex_init(&mux_archivosAbiertos, NULL);
@@ -49,6 +50,7 @@ void setupGlobales_manejadores(void){
 	pthread_mutex_init(&mux_gl_Programas,     NULL);
 	pthread_mutex_init(&mux_listaFinalizados, NULL);
 	pthread_mutex_init(&mux_listaDeCPU,       NULL);
+	pthread_mutex_init(&mux_listaAvisar,NULL);
 }
 
 void cpu_manejador(void *infoCPU){
@@ -560,6 +562,7 @@ void cpu_manejador(void *infoCPU){
 			log_trace(logTrace,"case para enviar a cola exit o block");
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
+		informarNuevoQSLuego(cpu_i);
 	break;
 
 	case HSHAKE:
@@ -599,7 +602,7 @@ void cpu_manejador(void *infoCPU){
 
 	puts("CPU se desconecto, la sacamos de la listaDeCpu..");
 	log_trace(logTrace,"Cpu se desconecto, sale de la lista de CPU");
-	if(cpu_i->con->pid > -1){ //esta cpu tenia asignado un proceso.
+	if(cpu_i->con->pid > -1){ //esta cpu tenia asignado un proceso. //con->pid o cpu->pid ?!? todo;
 
 		desconexionCpu(cpu_i);//en esta funcion ponemos el pcb mas actual en exit y avisamos a consola el fin..
 	}

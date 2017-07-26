@@ -18,3 +18,7 @@ void setupVariablesPorSubsistema(void){
 	setupGlobales_planificador();
  // todo: verificar que esten todos los mutexes y demas cosas inicializados..
 }
+
+
+
+

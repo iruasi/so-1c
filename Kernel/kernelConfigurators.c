@@ -65,11 +65,18 @@ tKernel *getConfigKernel(char* ruta){
 }
 
 int getNewQS(char* ruta){
-
 	t_config *kernelConfig2 = config_create(ruta);
-	int qs;
-	qs= config_get_int_value(kernelConfig2, "QUANTUM_SLEEP");
-	log_trace(logTrace, "Nuevo quantum_sleep: %d\n",qs);
+
+	printf("ruta: %s\n",ruta);
+	int qs=-1;
+	if(config_has_property(kernelConfig2,"QUANTUM_SLEEP")){
+		qs= config_get_int_value(kernelConfig2, "QUANTUM_SLEEP");
+		log_trace(logTrace, "Nuevo quantum_sleep: %d\n",qs);
+		printf("Nuevo valor de QUANTUM_SLEEP %d\n",qs);
+	}else{
+		//puts("LA CONFIG NO TIENE EL VALOR QUANTUM_SLEEP");
+	}
+
 	config_destroy(kernelConfig2); //todo: ROMPE ACA !?!?!?!?!??!?!?!??!?!??!?!?!?!??!?!?!?!?!?
 	return qs;
 

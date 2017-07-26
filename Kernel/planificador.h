@@ -73,6 +73,11 @@ void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages);
 void blockByPID(int pid, tPCB *pcbCPU);
 void unBlockByPID(int pid);
 
+void informarNuevoQS();
+void informarNuevoQSLuego(t_RelCC *cpu_i);
+
+void avisarNewQSaCPU(int qs, int sock);
+
 int fueFinalizadoPorConsola(int pid);
 
 void encolarEnExit(tPCB *pcb,t_RelCC *cpu);

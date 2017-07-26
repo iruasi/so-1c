@@ -26,7 +26,7 @@
 
 extern int sock_mem;
 extern int frame_size;
-extern t_list *gl_Programas, *listaDeCpu;
+extern t_list *gl_Programas, *listaDeCpu,*listaAvisarQS;
 
 t_queue *New, *Exit, *Ready;
 t_list	*cpu_exec, *Exec, *Block;
@@ -38,8 +38,8 @@ int grado_mult;
 extern tKernel *kernel;
 
 sem_t eventoPlani;
-pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU, mux_gradoMultiprog;;
-extern pthread_mutex_t mux_gl_Programas;
+pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU, mux_gradoMultiprog;
+extern pthread_mutex_t mux_gl_Programas,mux_listaAvisar;
 
 void pausarPlanif(void){
 
@@ -590,4 +590,80 @@ void unBlockByPID(int pid){
 	MUX_UNLOCK(&mux_ready);
 
 	sem_post(&eventoPlani);
+}
+
+void informarNuevoQS(){
+	int k;
+	t_RelCC * cpu;
+	MUX_LOCK(&mux_listaDeCPU);
+	for(k=0;k<list_size(listaDeCpu);k++){
+		cpu = (t_RelCC *) list_get(listaDeCpu, k);
+		if(cpu->cpu.pid==-1){
+			//esta inactiva, le aviso
+			avisarNewQSaCPU(kernel->quantum_sleep,cpu->cpu.fd_cpu);
+			printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu->cpu.fd_cpu,kernel->quantum_sleep);
+
+		}
+		if(cpu->cpu.pid > -1){
+			//no esta inactiva, la agrego a una lista para avisarle dps
+			MUX_LOCK(&mux_listaAvisar);
+			list_add(listaAvisarQS,cpu->cpu.fd_cpu);
+			MUX_UNLOCK(&mux_listaAvisar);
+		}
+	}
+	MUX_UNLOCK(&mux_listaDeCPU);
+}
+
+void informarNuevoQSLuego(t_RelCC *cpu_i){
+	int k;
+	int fdAuxCpu;
+	MUX_LOCK(&mux_listaAvisar);
+	for(k=0;k<list_size(listaAvisarQS);k++){
+		fdAuxCpu = list_get(listaAvisarQS, k);
+		if(cpu_i->cpu.fd_cpu == fdAuxCpu)
+		{
+			if(cpu_i->cpu.pid == -1)
+				{
+					avisarNewQSaCPU(kernel->quantum_sleep,cpu_i->cpu.fd_cpu);
+					printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu_i->cpu.fd_cpu,kernel->quantum_sleep);
+					list_remove(listaAvisarQS,k);
+					MUX_UNLOCK(&mux_listaAvisar);
+					return;
+
+				}
+			}
+		}
+
+
+	MUX_UNLOCK(&mux_listaAvisar);
+}
+
+void avisarNewQSaCPU(int qs, int sock){
+	log_trace(logTrace,"avisar newQS %d a programa %d",qs,sock);
+	int pack_size, stat;
+	char *qs_serial;
+	tPackPID pack_qs;
+
+	pack_qs.head.tipo_de_proceso = KER;
+	//pack_pid.head.tipo_de_mensaje = NEWQS;
+	pack_qs.head.tipo_de_mensaje = 87;
+	pack_qs.val = qs;
+
+	pack_size = 0;
+	if ((qs_serial = serializeVal(&pack_qs, &pack_size)) == NULL){
+		log_error(logTrace,"no se serializo bien");
+		//puts("No se serializo bien");
+		return;
+	}
+
+	printf("Aviso al cpu %d el nuevo qs\n", sock);
+	if ((stat = send(sock, qs_serial, pack_size, 0)) == -1){
+		log_error(logTrace,"fallo envio de qs a cpu");
+		perror("Fallo envio de qs a cpu. error");
+		return;
+	}
+	log_trace(logTrace,"se enviaron %d bytes alfd cpu #%d",stat,sock);
+	//printf("Se enviaron %d bytes al hilo_consola\n", stat);
+
+	free(qs_serial);
 }

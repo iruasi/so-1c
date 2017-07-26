@@ -150,11 +150,11 @@ void accionesFinalizacion(int pid){
 			printf("###SEGUNDOS DE EJECUCION: %.f segundos \n",diferencia);
 			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: %d\n",aux->cantImpresiones);//todo:impresiones x pantala
 
-
+			log_info(logTrace,"FIN DE EJECUCION PROCESO %d",pid);
 			log_info(logTrace,"HORA DE INICIO: %s",buffInicio);
 			log_info(logTrace,"HORA DE FIN: %s",buffFin);
 			log_info(logTrace,"SEGUNDOS DE EJECUCION: %.f",diferencia);
-			log_info(logTrace,"CANTIDAD DE IMPRESIONES X PANTALLA: XX");
+			log_info(logTrace,"CANTIDAD DE IMPRESIONES X PANTALLA: %d",aux->cantImpresiones);
 
 			//Lo sacamos de la lista de programas en ejecucion
 
@@ -211,7 +211,7 @@ void *programa_handler(void *atributos){
 	args->cantImpresiones = 0;
 
 	time(&args->horaInicio);
-	log_trace(logTrace,"momento de inicio");
+	log_trace(logTrace,"momento de inicio programa [%s]",args->path);
 	strftime (buffInicio, 100, "%Y-%m-%d %H:%M:%S.000", localtime (&args->horaInicio));
 	printf ("Hora de inicio: %s\n", buffInicio);
 
@@ -251,12 +251,12 @@ void *programa_handler(void *atributos){
 	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 		if (head_tmp.tipo_de_mensaje == IMPRIMIR){
-			log_trace(logTrace,"kernel manda algo a imprimir");
+			log_trace(logTrace,"kernel manda algo a imprimir [PID %d]",args->pidProg);
 
-			log_trace(logTrace, "recibimos info para imprimir");
+			log_trace(logTrace, "recibimos info para imprimir[PID %d]",args->pidProg);
 
 			if ((buffer = recvGeneric(args->sock)) == NULL){
-				log_error(logTrace,"error al recibir la info a imprimir");
+				log_error(logTrace,"error al recibir la info a imprimir[PID %d]",args->pidProg);
 				return (void *) FALLO_RECV;
 			}
 
@@ -302,7 +302,7 @@ void *programa_handler(void *atributos){
 
 		if (head_tmp.tipo_de_mensaje == FIN_PROG){
 
-			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa",args->pidProg);
+			log_trace(logTrace,"Kernel nos avisa que termino de ejecutar el programa %d",args->pidProg);
 
 			printf("Kernel nos avisa que termino de ejecutar el programa %d\n", args->pidProg);
 
@@ -316,7 +316,7 @@ void *programa_handler(void *atributos){
 		}
 
 		if((int) head_tmp.tipo_de_mensaje == DESCONEXION_CPU){
-			printf("Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n",args->pidProg);
+			printf("\n\n\n #####Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n####",args->pidProg);
 			log_trace(logTrace,"Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)",args->pidProg);
 			accionesFinalizacion(args->pidProg);
 			close(args->sock);

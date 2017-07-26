@@ -198,9 +198,9 @@ int main(int argc, char* argv[]){
 	mostrarConfiguracion(kernel);
 	setupVariablesPorSubsistema();
 
-	int directorioLen = string_length(argv[1]) - string_length("/config_kernel");
-	char* pathDirectorio = string_substring_until(argv[1], directorioLen);
-
+	//int directorioLen = string_length(argv[1]) - string_length("/config_kernel");
+	//char* pathDirectorio = string_substring_until(argv[1], directorioLen);
+	char* pathDirectorio = "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/Kernel"; //hardcode para debug
 	printf("path dire: %s\n", pathDirectorio);
 
 	if (interconectarProcesos(ks, pathDirectorio) != 0){
@@ -342,7 +342,7 @@ void inotifyer(char *path, int fdInotify){
 
 	char buffer[BUF_LEN];
 
-	int length;
+	int length,newQS;
 	if ((length = read(fdInotify, buffer, BUF_LEN)) == -1){
 		perror("read Inotify. error");
 		return;
@@ -366,8 +366,10 @@ void inotifyer(char *path, int fdInotify){
 				log_trace(logTrace,"el archivo %s fue modificado", event->name);
 				if (strncmp(event->name, "config_kernel", 13) == 0){
 					log_trace(logTrace,"Se actualiza el valor del QS");
-
-					kernel->quantum_sleep = getNewQS(path);
+					if((newQS=getNewQS(path))>0){
+						kernel->quantum_sleep = newQS;
+						informarNuevoQS();
+					}
 					break;
 				}
 
