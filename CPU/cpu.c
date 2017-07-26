@@ -40,6 +40,8 @@ int pag_size, stack_size;
 int q_sleep;
 float q_sleep_segs;
 bool ejecutando;
+bool finalizate;
+tCPU *cpu_data;
 
 void set_quantum_sleep(void){
 	q_sleep_segs = q_sleep / 1000.0;
@@ -105,33 +107,32 @@ void err_handler(void){
 
 
 void signal_handler(void){
-
-
 	signal(SIGUSR1, sigusr1Handler);
-	signal(SIGINT, sigintHandler);
+//	signal(SIGINT,sigusr1Handler);
 }
 
 void sigusr1Handler(void){
 
 	puts("Señal SIGUSR1 detectada");
-	if(ejecutando){
-		puts("Esperamos a que termine al rafaga para desconectar esta cpu");
+	if(!finalizate){
+		if(ejecutando){
+			puts("Esperamos a que termine la rafaga para desconectar esta cpu");
+			finalizate = true;
+		}
+		else{
+			puts("No hay rafaga ejecutando, procedemos a desconectar esta cpu");
+			finalizate = true;
+			close(sock_kern);
+			close(sock_mem);
+			liberarConfiguracionCPU(cpu_data);
+			exit(0);
+
+		}
 	}
-	else{
-		puts("No hay rafaga ejecutando, procedemos a desconectar esta cpu");
-//		close(sock_kern);
-//		close(sock_mem);
-//		free(head);
-//		liberarConfiguracionCPU(cpu_data);
-//		exit(1);
-	}
+	return;
 }
 
-void sigintHandler(void){
 
-	puts("Señal SIGINT detectada");
-
-}
 
 
 int main(int argc, char* argv[]){
@@ -140,7 +141,7 @@ int main(int argc, char* argv[]){
 		printf("Error en la cantidad de parametros\n");
 		return EXIT_FAILURE;
 	}
-
+	signal(SIGUSR1, sigusr1Handler);
 	logTrace = log_create("/home/utnso/logCPUTrace.txt","CPU",0,LOG_LEVEL_TRACE);
 
 	log_trace(logTrace,"Inicia nueva ejecucion de CPU");
@@ -149,7 +150,8 @@ int main(int argc, char* argv[]){
 	int stat;
 	int *retval;
 	ejecutando = false;
-	tCPU *cpu_data = getConfigCPU(argv[1]);
+	finalizate=false;
+	cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
 	//crearLogger();
 	setupCPUFunciones();
@@ -159,10 +161,10 @@ int main(int argc, char* argv[]){
 	pthread_mutex_init(&mux_pcb, NULL);
 	pthread_t pcb_th;
 	pthread_t errores_th;
-	pthread_t signalH_th;
+	//pthread_t signalH_th;
 	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
 
-	pthread_create(&signalH_th, NULL, (void *) signal_handler, NULL);
+
 
 
 	if ((stat = conectarConServidores(cpu_data)) != 0){
@@ -171,20 +173,23 @@ int main(int argc, char* argv[]){
 		return FALLO_GRAL;
 	}
 
-	tPackHeader *head = malloc(sizeof *head);
+	//tPackHeader *head = malloc(sizeof *head);
+	tPackHeader head;
 	char *pcb_serial;
 
-	while((stat = recv(sock_kern, head, sizeof *head, 0)) > 0){
+	//pthread_create(&signalH_th, NULL, (void *) signal_handler, NULL);
+
+	while((stat = recv(sock_kern, &head, HEAD_SIZE, 0)) > 0){
 
 		//puts("Se recibio un paquete de Kernel");
 		//printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
 		log_trace(logTrace,"Se recibio un paquete de kernel");
-		if (head->tipo_de_mensaje == FIN){
+		if (head.tipo_de_mensaje == FIN){
 			puts("Kernel se va!");
 			log_trace(logTrace,"kernel se va");
 			liberarConfiguracionCPU(cpu_data);
 
-		} else if (head->tipo_de_mensaje == PCB_EXEC){
+		} else if (head.tipo_de_mensaje == PCB_EXEC){
 
 
 			if((pcb_serial = recvGeneric(sock_kern)) == NULL){
@@ -203,28 +208,44 @@ int main(int argc, char* argv[]){
 			printf("Termino la ejecucion del PCB con valor retorno = %d\n", *retval);
 			log_trace(logTrace,"termino la ejecucion del PCB con valor retorno");
 
+			if(finalizate == true){
+				puts("Fin de ejecucion, nos desconectamos por el SIGIUSR1 detectado");
+				break;
+			}
+
 		} else {
 			puts("Me re fui");
 			return ABORTO_CPU;
 		}
 	}
 
-	if (stat == -1){
+	if (stat == -1 && finalizate == false){
 		perror("Error en la recepcion con Kernel. error");
 		log_trace(logTrace,"se limpia el proceso y se cierra..");
 		//puts("Se limpia el proceso y se cierra..");
 		close(sock_kern);
 		close(sock_mem);
-		free(head);
+		//free(head);
 		liberarConfiguracionCPU(cpu_data);
 		return FALLO_GRAL;
 	}
-	log_trace(logTrace,"kernel termino la conexion, limpiando proceso..");
-	printf("Kernel termino la conexion\nLimpiando proceso...\n");
-	close(sock_kern);
-	close(sock_mem);
-	free(head);
-	liberarConfiguracionCPU(cpu_data);
+
+	if(finalizate == false){
+		log_trace(logTrace,"kernel termino la conexion, limpiando proceso..");
+		printf("Kernel termino la conexion\nLimpiando proceso...\n");
+		close(sock_kern);
+		close(sock_mem);
+		liberarConfiguracionCPU(cpu_data);
+
+	}
+
+	//free(head);
+
+
+
+	//pthread_join de los hilos de error y signal?..
+
+
 	return 0;
 }
 
