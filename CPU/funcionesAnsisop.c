@@ -562,7 +562,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	int stat;
 	tPackHeader head;
 
-	tPackBytes * bytes;
+	tPackPID * bytes;
 	tPackAbrir * abrir = malloc(sizeof *abrir);
 
 	abrir->longitudDireccion = strlen(dir) + 1;
@@ -594,14 +594,14 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 		pthread_exit(&err_exec);
 	}
 	t_descriptor_archivo fd;
-	if ((bytes = deserializeBytes(buffer)) == NULL){
+	if ((bytes = deserializeVal(buffer)) == NULL){
 				err_exec = FALLO_DESERIALIZAC;
 				sem_post(&sem_fallo_exec);
 				pthread_exit(&err_exec);
 			}else{
 				pcb->cantSyscalls ++;
 			}
-	fd = *((int *) bytes->bytes);
+	fd = bytes->val;
 	log_trace(logTrace,"fin abrir");
 	return fd;
 }
@@ -702,7 +702,7 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 
 	enviar(esc_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ARCHIVO_ESCRITO};
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ESCRIBIR};
 	tPackHeader header;
 
 	if(validarRespuesta(sock_kern,h_esp,&header)){

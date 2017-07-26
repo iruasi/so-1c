@@ -113,7 +113,7 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 
 	char fd_s[MAXPID_DIG];
 	sprintf(fd_s,"%d",fd);
-	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal, fd_s);
+	if(_archivo->fd == fd && dictionary_has_key(tablaGlobal,fd_s)) unaTabla = (tDatosTablaGlobal *) dictionary_get(tablaGlobal, fd_s);
 	log_trace(logTrace,"fin encontrar tabla por fd");
 	return unaTabla;
 }
