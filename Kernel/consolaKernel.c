@@ -92,17 +92,18 @@ void consolaKernel(void){
 			cambiarGradoMultiprogramacion(nuevoGrado);
 			continue;
 		}
+		if (strncmp(opcion,"info",4)==0){
+			puts("Opcion info");
+			log_trace(logTrace,"opcion info seleccionada");
+
+			char *pidInfo=opcion+5;
+			int pidElegido = atoi(pidInfo);
+			mostrarInfoDe(pidElegido);
+			continue;
+		}
+
 		if(!planificacionBloqueada){
-			if (strncmp(opcion,"info",4)==0){
-				puts("Opcion info");
-				log_trace(logTrace,"opcion info seleccionada");
 
-				char *pidInfo=opcion+5;
-				int pidElegido = atoi(pidInfo);
-				mostrarInfoDe(pidElegido);
-				continue;
-
-			}
 			if (strncmp(opcion,"finalizar",9)==0){
 				puts("Opcion finalizar");
 				log_trace(logTrace,"opcion finalizar seleccionada");
@@ -303,9 +304,9 @@ void mostrarInfoDe(int pidElegido){
 
 		tPCB * pcbAuxiliar;
 
-		/*mostrarCantHeapUtilizadasDe(pidElegido);
+		mostrarCantHeapUtilizadasDe(pidElegido);
 		mostrarCantSyscallsUtilizadasDe(pidElegido);
-		return;*/
+		return; //todo: tarea
 
 		MUX_LOCK(&mux_new);
 		if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
@@ -510,9 +511,8 @@ void finalizarProceso(int pidAFinalizar){
 
 	MUX_LOCK(&mux_listaFinalizados);
 	list_add(finalizadosPorConsolas, fc);
-	pthread_mutex_unlock(&mux_listaFinalizados);
-	log_trace(logTrace,"fin finalizar proceso");
 	MUX_UNLOCK(&mux_listaFinalizados);
+	log_trace(logTrace,"fin finalizar proceso");
 }
 
 void mostrarTablaGlobal(){
@@ -537,29 +537,24 @@ void mostrarTablaGlobal(){
 
 void stopKernel(){
 	log_trace(logTrace,"inicio stop kernel");
-	pthread_mutex_lock(&mux_planificacionBloqueada);
 
 	MUX_LOCK(&mux_planificacionBloqueada);
 	if(!planificacionBloqueada){
 		log_trace(logTrace,"planificacion bloqueada");
 		puts("#####DETENEMOS LA PLANIFICACION#####");
+		LOCK_PLANIF;
 		planificacionBloqueada=true;
-		//LOCK_PLANIF;
-		MUX_LOCK(&mux_new);MUX_LOCK(&mux_ready);MUX_LOCK(&mux_exec);MUX_LOCK(&mux_block);MUX_LOCK(&mux_exit);
+
 	}else{
 		log_trace(logTrace,"planificaicon desbloqueada");
 		puts("#####REANUDAMOS LA PLANIFICACION#####");
+		UNLOCK_PLANIF;
 		planificacionBloqueada=false;
-		//UNLOCK_PLANIF;
-		MUX_UNLOCK(&mux_new);MUX_UNLOCK(&mux_ready);MUX_UNLOCK(&mux_exec);MUX_UNLOCK(&mux_block);MUX_UNLOCK(&mux_exit);
-
 	}
 
 	log_trace(logTrace,"fin stop kernel");
-	pthread_mutex_unlock(&mux_planificacionBloqueada);
 
 	MUX_UNLOCK(&mux_planificacionBloqueada);
-
 }
 
 int getQueuePositionByPid(int pid, t_queue *queue){

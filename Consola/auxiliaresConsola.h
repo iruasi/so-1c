@@ -4,7 +4,7 @@
 #include <tiposRecursos/tiposPaquetes.h>
 
 tPackSrcCode *readFileIntoPack(tProceso sender, char* ruta);
-void *serializarSrcCode(tPackSrcCode *src_code);
 
+tAtributosProg *getAttrProgDeLista(int pid);
 
 #endif // AUXILIARES_H_
