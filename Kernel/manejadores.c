@@ -28,6 +28,7 @@ extern t_log *logTrace;
 extern tKernel *kernel;
 
 extern t_dictionary *tablaGlobal;
+extern t_list * tablaProcesos;
 
 t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas;
 pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc;
@@ -62,6 +63,7 @@ void cpu_manejador(void *infoCPU){
 	tPackVal *alloc, *fd_rta;
 	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
+	tPackHeader h_esp;
 
 
 	do {
@@ -286,8 +288,8 @@ void cpu_manejador(void *infoCPU){
 		freeAndNULL((void **) &buffer);
 
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
-		//buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-		buffer = serializeAbrir(abrir,&pack_size);
+		buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+		//buffer = serializeAbrir(abrir,&pack_size);
 		printf("La direccion es %s\n", (char *) abrir->direccion);
 		if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
 			perror("No se pudo validar el archivo. error");
@@ -303,53 +305,33 @@ void cpu_manejador(void *infoCPU){
 		pack_size = 0;
 		//file_serial = serializeAbrir(abrir, &pack_size);
 
-
 		head.tipo_de_mensaje = VALIDAR_RESPUESTA;
 		head.tipo_de_proceso = FS;
 
-		if(true){//validarRespuesta(sock_fs,head,&h_esp)
+		if(validarRespuesta(sock_fs,head,&h_esp)){//validarRespuesta(sock_fs,head,&h_esp)
 			//printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
 			log_trace(logTrace,"El archivo existe, verificamos si la contiene la tabla global");
 			agregarArchivoTablaGlobal(datosGlobal,abrir);
 			agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
-		}else if (head.tipo_de_mensaje == CREAR_ARCHIVO){
-			//printf("Como no fue validado el archivo, fue creado.\n");
-			//printf("El archivo %s fue creado con éxito \n",abrir->direccion);
-			//printf("Se lo agrega a la lista de procesos y tabla global\n");
-			log_trace(logTrace,"El archivo no fue validado, se crea con exito y se agrega a la listsa de procesos y tabla global");
-			agregarArchivoTablaGlobal(datosGlobal,abrir);
-			agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
+		}else if(abrir->flags.creacion){
+			head.tipo_de_mensaje = CREAR_ARCHIVO;
+			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+			if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
+				perror("No se pudo validar el archivo. error");
+				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
+				informarResultado(cpu_i->cpu.fd_cpu, head); // como fallo ejecucion, avisamos a CPU
+				break;
+			}else if(validarRespuesta(sock_fs,head,&h_esp)){
+				log_trace(logTrace,"El archivo se crea con exito y se agrega a la listsa de procesos y tabla global");
+				agregarArchivoTablaGlobal(datosGlobal,abrir);
+				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
+			}
 		}else{
 			printf("El archivo no pudo ser validado ni creado, fijese el posible error\n");
 			log_error(logTrace,"El archivo no pudo ser validado ni creado");
 		}
 
-		//Ahora me fijo que permisos tiene y si puede crearlos
 
-		/*if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
-				perror("Error al recivir respuesta del fs");
-			}*/
-		/*if(false){//Agregar validar_archivo a tiposPaqueteshead.tipo_de_mensaje == VALIDAR_ARCHIVO
-				printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
-
-				agregarArchivoTablaGlobal(datosGlobal,abrir);
-				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
-
-
-			} else if(abrir->flags.creacion){
-				if ((stat = send(sock_fs,file_serial,pack_size,0))< 0){
-					perror("No se pudo validar el archivo\n");
-				}
-				if((stat = recv(sock_fs,&head,HEAD_SIZE,0))<0){
-					perror("Error al recivir respuesta del fs");
-				}
-				if(true){//head.tipo_de_mensaje == ARCHIVO_CREADO
-					agregarArchivoTablaGlobal(datosGlobal,abrir);
-					agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
-					printf("Agregamos el archivo a la tabla de procesos \n");
-
-				}
-			}*/
 
 		fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
 		fd_rta->val = datosGlobal->fd;
@@ -371,10 +353,10 @@ void cpu_manejador(void *infoCPU){
 	case BORRAR:
 		log_trace(logTrace,"Case Borrar");
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		tPackBytes * borrar_fd =  deserializeBytes(buffer);
+		tPackPID * borrar_fd =  deserializeVal(buffer);
 		tDatosTablaGlobal * unaTabla;
 
-		unaTabla = encontrarTablaPorFD(*((int *) borrar_fd->bytes),cpu_i->con->pid);
+		unaTabla = encontrarTablaPorFD(borrar_fd->val,cpu_i->con->pid);
 		if(unaTabla->cantidadOpen <= 0){
 			log_error(logTrace,"El arc hivo no se encuentra abierto");
 			perror("El archivo no se encuentra abierto");
@@ -386,7 +368,7 @@ void cpu_manejador(void *infoCPU){
 		}
 
 		tPackHeader header = {.tipo_de_proceso = FS, .tipo_de_mensaje = BORRAR};
-		char * borrar_serial = serializeBytes(header,borrar_fd->bytes,sizeof(int),&pack_size);
+		char * borrar_serial = serializeBytes(header,borrar_fd->val,sizeof(int),&pack_size);
 
 		if((stat = send(sock_fs,borrar_serial,pack_size,0)) == -1){
 			log_error(logTrace,"Error al mandar peticion de borrado de archivo al fs");
@@ -416,22 +398,18 @@ void cpu_manejador(void *infoCPU){
 	case CERRAR:
 		log_trace(logTrace,"Case CERRAR");
 		buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-		tPackBytes * cerrar_fd =  deserializeBytes(buffer);
-		tDatosTablaGlobal * archivoCerrado = encontrarTablaPorFD(*((int *)cerrar_fd),cpu_i->con->pid);
+		tPackPID * cerrar_fd =  deserializeVal(buffer);
+		tDatosTablaGlobal * archivoCerrado = encontrarTablaPorFD(cerrar_fd->val,cpu_i->con->pid);
 
 		archivoCerrado -> cantidadOpen--;
 
-		printf("Se cerró el archivo de fd #%d y de direccion %s",*((int *)cerrar_fd),(char *) &(archivoCerrado-> direccion));
+		printf("Se cerró el archivo de fd #%d y de direccion %s",cerrar_fd->val,(char *) &(archivoCerrado-> direccion));
 		log_trace(logTrace,"se cerro el archivo solicitado");
-		tPackHeader header2 = {.tipo_de_proceso = KER, .tipo_de_mensaje = 120}; //ARCHIVO_CERRADO = 120
+		tPackHeader header2 = {.tipo_de_proceso = KER, .tipo_de_mensaje = ARCHIVO_CERRADO}; //ARCHIVO_CERRADO = 120
 		pack_size = 0;
-		char * cerrar_serial = serializeHeader(header2,&pack_size);
+		//char * cerrar_serial = serializeHeader(header2,&pack_size);
+		informarResultado(cpu_i->cpu.fd_cpu,header2);
 
-		if((stat = send(cpu_i->cpu.fd_cpu,cerrar_serial,pack_size,0))<0){
-			log_error(logTrace,"error al enviar msj de cerrado a la cpu");
-			perror("error al enviar mensaje de cerrado a la cpu");
-			break;
-		}
 		MUX_LOCK(&mux_infoProc);
 		sumarSyscall(cpu_i->cpu.pid);
 		MUX_UNLOCK(&mux_infoProc);
@@ -493,9 +471,19 @@ void cpu_manejador(void *infoCPU){
 		}
 
 		sprintf(sfd, "%d", escr->fd);
+		tDatosTablaGlobal * path;
+		tProcesoArchivo * banderas;
 		MUX_LOCK(&mux_archivosAbiertos); MUX_LOCK(&mux_tablaPorProceso);
-		tDatosTablaGlobal * path = dictionary_get(tablaGlobal, sfd); // todo: convendria que verificar antes si dictionary_has_key(dict, sfd)
-		tProcesoArchivo * banderas = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
+		if(dictionary_has_key(tablaGlobal,sfd)){
+			path = dictionary_get(tablaGlobal, sfd); // todo: convendria que verificar antes si dictionary_has_key(dict, sfd)
+			banderas = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
+			log_trace(logTrace,"El archivo de fd #%d del proceso #%d fue obtenido con exito de la tabla globa",escr->fd,cpu_i->con->pid);
+		}else{
+			log_error(logTrace,"La tabla global de archivos no posee el fd solicitado");
+			free(escr->info); free(escr);
+			freeAndNULL((void **) &buffer);
+			break;
+		}
 		MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
 
 		printf("El path del direcctorio elegido es: %s\n", path->direccion);
@@ -507,22 +495,20 @@ void cpu_manejador(void *infoCPU){
 			perror("error al enviar el paquete al filesystem");
 			break;
 		}
+		head.tipo_de_proceso = FS;
+		head.tipo_de_mensaje = ARCHIVO_ESCRITO;
+		if(validarRespuesta(sock_fs,head,&h_esp)){
+			head.tipo_de_mensaje =  ESCRIBIR;
+			head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+		}else{
+			log_error(logTrace,"No se pudieron escribir los datos solicitados");
+			head.tipo_de_proceso = KER;
+			head.tipo_de_mensaje = FALLO_ESCRITURA;
+			informarResultado(cpu_i->cpu.fd_cpu,head);
+		}
 
-		/*	if((stat = recv(sock_fs, &head, sizeof head, 0)) == -1){
-				perror("error al recibir el paquete al filesystem");
-				break;
-			}
-			if(true){//TODO: CAMBIAR ESTE 1 POR EL PROTOCOLO CORRESPONDIENTE head.tipo_de_mensaje == 1
-				buffer = recvGeneric(sock_fs);
-				if((stat = send(cpu_i->cpu.fd_cpu,buffer,pack_size,0)) == -1){
-					perror("error al enviar el paquete al filesystem");
-					break;
-				}else{
-					//Finalizar programa (hay alguna función así)?
-					break;
-				}
-			}
-		 */
+
 		MUX_LOCK(&mux_infoProc);
 		sumarSyscall(cpu_i->cpu.pid);
 		MUX_UNLOCK(&mux_infoProc);

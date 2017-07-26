@@ -67,6 +67,7 @@ void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir){
 		log_trace(logTrace,"la tabla no contiene el archivo, la agregamos");
 		dictionary_put(tablaGlobal, fd_str, datos);
 		//printf("Los datos del fd # %s fueron agregados a la tabla global \n",fd_str);
+		log_trace(logTrace,"Los datos del fd # %s fueron agregados a la tabla global con direccion: %s ",fd_str,(char *)datos->direccion);
 		log_trace(logTrace,"los datos fueron agregados a la tabla global");
 	}else{
 		//printf("El archivo ya se encuentra en la tabla global\n");
@@ -124,7 +125,7 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 
 	char fd_s[MAXPID_DIG];
 	sprintf(fd_s,"%d",fd);
-	if(_archivo->fd == fd) unaTabla = dictionary_get(tablaGlobal, fd_s);
+	if(_archivo->fd == fd && dictionary_has_key(tablaGlobal,fd_s)) unaTabla = (tDatosTablaGlobal *) dictionary_get(tablaGlobal, fd_s);
 	log_trace(logTrace,"fin encontrar tabla por fd");
 	return unaTabla;
 }
@@ -290,6 +291,7 @@ int escribirAConsola(int sock_con, tPackRW *escr){
 
 	if ((stat = send(sock_con, buff, pack_size, 0)) == -1){
 		perror("Fallo envio escritura a Consola. error");
+		log_error(logTrace,"Fallo al enviar el mandado de impresion a consola");
 		return FALLO_SEND;
 	}
 	printf("Se enviaron %d bytes a Consola\n", stat);

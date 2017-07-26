@@ -1002,7 +1002,7 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
 	*pack_size += sizeof(int);
 
-	memcpy(leer_fs_serial + *pack_size, &path, dirSize);
+	memcpy(leer_fs_serial + *pack_size, path, dirSize);
 	*pack_size += dirSize;
 
 	memcpy(leer_fs_serial + *pack_size,&tamanio,sizeof(tamanio));

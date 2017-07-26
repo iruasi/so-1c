@@ -47,6 +47,9 @@ typedef enum {
 , FALLO_ASIGN=         -58
 , FALLO_SOLIC=         -59
 
+
+,INVALIDAR_RESPUESTA = -60
+
 , ABORTO_PCB=          -95
 , ABORTO_KERNEL=       -96
 , ABORTO_CPU=          -97
