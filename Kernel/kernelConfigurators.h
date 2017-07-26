@@ -37,6 +37,8 @@ typedef struct{
  */
 tKernel *getConfigKernel(char *ruta);
 
+int getNewQS(char *ruta);
+
 /* Muestra en stdout la configuracion del Kernel
  */
 void mostrarConfiguracion(tKernel *kernel);
