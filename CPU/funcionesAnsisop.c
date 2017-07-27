@@ -710,7 +710,7 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 
 	enviar(esc_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ESCRIBIR};//ARCHIVO_ESCRITO
+	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ARCHIVO_ESCRITO};//ARCHIVO_ESCRITO
 	tPackHeader header;
 
 	if(validarRespuesta(sock_kern,h_esp,&header)){

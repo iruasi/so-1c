@@ -989,16 +989,21 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 }
 
 char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size){
-	int dirSize = strlen(path);
-	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + dirSize + sizeof tamanio + tamanio);
-
-	tPackHeader head = {.tipo_de_proceso = FS,.tipo_de_mensaje = LEER};
+	int dirSize = strlen(path)+1;
+	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int)+ sizeof(int) + dirSize + sizeof tamanio + tamanio + sizeof(flag));
+	tPackHeader head;
+	head.tipo_de_proceso = FS;
+	if(flag.lectura){
+		head.tipo_de_mensaje = LEER;
+	}else if(flag.escritura){
+		head.tipo_de_mensaje = ESCRIBIR;
+	}
 
 
 	*pack_size = 0;
 	memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
-
+	*pack_size += sizeof(int);
 	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
 	*pack_size += sizeof(int);
 
@@ -1011,7 +1016,7 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 	memcpy(leer_fs_serial + *pack_size, info, tamanio);
 	*pack_size += tamanio;
 
-	memcpy(leer_fs_serial + *pack_size,&flag,sizeof(int)),
+	memcpy(leer_fs_serial + *pack_size,&flag,sizeof(flag)),
 	*pack_size += sizeof(int);
 
 	memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));

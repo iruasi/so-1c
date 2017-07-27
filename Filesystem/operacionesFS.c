@@ -116,6 +116,7 @@ static int read2(const char *path, char *buf, size_t size, off_t offset, struct 
 	fread(buf, size, 1, path);
 	printf("Datos leidos: %s\n", buf);
 	return size;
+
 }
 
 static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi){

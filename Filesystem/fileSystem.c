@@ -118,7 +118,7 @@ typedef struct{
 	t_banderas flag;
 }__attribute__((packed))tPackRecibirRW;
 
-tPackRecibirRW * deserializeLeerRW(char * recibir_serial){
+tPackRecibirRW * deserializeLeerFS(char * recibir_serial){
 	tPackRecibirRW * aux = malloc(sizeof(*aux));
 	int off = 0;
 
@@ -170,14 +170,15 @@ int *ker_manejador(void){
 			informarResultado(sock_kern,header);
 		}
 		freeAndNULL((void **)&buffer);
+		freeAndNULL((void **)&abrir);
 		puts("Fin case VALIDAR_ARCHIVO");
 		break;
 
 	case CREAR_ARCHIVO:
 		puts("Se pide crear un archivo");
 		buffer = recvGeneric(sock_kern);
-		abrir = deserializeAbrir(buffer);
-		if((operacion = open2(abrir->bytes,fi)) == 0){//todo: deberia ser crearArchivo, pero crearArchivo es void.
+		abrir = deserializeBytes(buffer);
+		if(true){//todo: deberia ser crearArchivo, pero crearArchivo es void.
 			puts("El archivo fue abierto con exito");
 			header.tipo_de_mensaje = CREAR_ARCHIVO;
 			informarResultado(sock_kern,header);
