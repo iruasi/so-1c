@@ -27,18 +27,16 @@ extern int free_page;
 extern t_log * logTrace;
 
 bool pid_match(int pid, int frame, int off){
-	log_trace(logTrace,"funcion pidmatch");
 	char *dirval = (MEM_FIS + frame * memoria->marco_size + off);
 	return (pid == (int) *dirval)? true : false;
 }
 
 bool frameLibre(int frame, int off){
-	log_trace(logTrace,"funcion frame libre");
 	return pid_match(pid_free, frame, off);
 }
 
 int pageQuantity(int pid){
-	log_trace(logTrace,"funcion page quantity");
+	log_trace(logTrace, "Funcion page quantity");
 	int off, fr;
 	int page_quant = 0;
 
@@ -51,17 +49,35 @@ int pageQuantity(int pid){
 	return page_quant;
 }
 
+int maxPage(int pid){
+	log_trace(logTrace, "Funcion max page");
+	int off, fr;
+	int max_page = -1;
+	tEntradaInv *inv;
+
+	for(off = fr = 0; fr < marcos_inv;){
+		if (pid_match(pid, fr, off)){
+			inv = (tEntradaInv *) (MEM_FIS + memoria->marco_size * fr + off);
+			max_page = MAX(inv->pag, max_page);
+		}
+
+		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
+	}
+
+	return max_page;
+}
+
 int reservarPaginas(int pid, int pageCount){
 	log_trace(logTrace,"funcion reservar paginas");
 	int fr_apr, fr, off, cic;
 	int pag_assign, nr_pag, max_page;
+	int init = 1; // distingue si el PID ya tiene paginas
 
-	if ((nr_pag = max_page = pageQuantity(pid)) < 0){
-		log_error(logTrace,"fallo conteo de pags para el pid %d",pid);
-		printf("Fallo conteo de paginas para el pid %d\n", pid);
-		return max_page;
+	if ((nr_pag = max_page = maxPage(pid)) == -1){
+		log_trace(logTrace, "El PID %d es nuevo en el sistema!", pid);
+		nr_pag = max_page = init = 0;
 	}
-	
+
 	pag_assign = cic = 0;
 	while (pag_assign != pageCount && cic < memoria->marcos){
 
@@ -70,8 +86,8 @@ int reservarPaginas(int pid, int pageCount){
 
 			gotoFrameInvertida(fr_apr, &fr, &off);
 			if (frameLibre(fr, off)){
-				memcpy(MEM_FIS + fr * memoria->marco_size +  off               , &pid    , sizeof (int));
-				memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag , sizeof (int));
+				memcpy(MEM_FIS + fr * memoria->marco_size +  off, &pid, sizeof (int));
+				memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag + init, sizeof (int));
 				pag_assign++; nr_pag++;
 				break;
 			}
@@ -82,7 +98,7 @@ int reservarPaginas(int pid, int pageCount){
 	if (cic == memoria->marcos){ // se recorrio toda la tabla de paginas invertidas
 		log_error(logTrace,"no hay mas frames disponibles en memoria para reservar");
 		puts("No hay mas frames disponibles en Memoria para reservar.");
-		return MEMORIA_LLENA;
+		return MEM_TOP_PAGES;
 	}
 
 	return max_page; // no sumamos 1 porque contamos desde el 0
@@ -105,18 +121,21 @@ void limpiarDeInvertidas(int pid){
 	tEntradaInv entry = {.pid = pid_free, .pag = free_page};
 
 	int lim = pageQuantity(pid);
-	for (pag = 0; pag < lim; ++pag){
+	int found;
+	for (pag = found = 0; found < lim; ++pag){
 
-		if ((frpid = buscarEnMemoria(pid, pag)) >= 0)
+		if ((frpid = buscarEnMemoria(pid, pag)) >= 0){
+			found++;
 			memcpy(MEM_FIS + frpid * sizeof(tEntradaInv), &entry, sizeof entry);
-		else
-			log_trace(logTrace,"no se encontro frame para la pag %d del pid %d. posible fragmentacion",pag,pid);
-			printf("No se encontro frame para la pagina %d del pid %d. Posible fragmentacion\n", pag, pid);
+		}
+		else{
+			log_trace(logTrace,"No se encontro frame para pag %d del pid %d", pag, pid);
+			continue;
+		}
 	}
 }
 
 void nextFrameValue(int *fr, int *off, int step_size){
-	log_trace(logTrace,"funcion next frame value");
 	if(*off + step_size >= memoria->marco_size){
 		(*fr)++; *off = 0;
 	} else {

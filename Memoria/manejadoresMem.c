@@ -122,8 +122,7 @@ char *getMemContent(int pid, int page){
 	log_trace(logTrace,"funcion get mem content");
 	int frame;
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
-		log_error(logTrace,"fallo buscar en memoria el pid %d y pag %d",pid,page);
-		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
+		log_error(logTrace,"Frame no encontrado (pid %d , pag %d)", pid, page);
 		return NULL;
 	}
 
@@ -133,6 +132,7 @@ char *getMemContent(int pid, int page){
 int buscarEnMemoria(int pid, int page){
 	sleep(retardo_mem);
 	log_trace(logTrace,"funcion buscar en memoria");
+
 	tEntradaInv *entry;
 	int cic, off, fr; // frame y offset para recorrer la tabla de invertidas
 	int frame_ap = frameHash(pid, page); // aproximacion de frame buscado
@@ -146,7 +146,6 @@ int buscarEnMemoria(int pid, int page){
 			return frame_ap;
 		frame_ap = (frame_ap+1) % memoria->marcos;
 	}
-
 	return FRAME_NOT_FOUND;
 }
 
@@ -184,12 +183,15 @@ void dumpMemContent(int pid){
 		return;
 	}
 
-	int pag;
+	int pag, found;
 	char *cont;
 	int page_count = pageQuantity(pid);
 
-	for (pag = 0; pag < page_count; ++pag){
-		cont = getMemContent(pid, pag);
+	for (pag = found = 0; found < page_count; ++pag){
+		if ((cont = getMemContent(pid, pag)) == NULL)
+			continue;
+		found++;
+
 		printf("PID \t PAGINA\n%d \t %d \t\n", pid, pag);
 		puts("CONTENIDO");
 		DumpHex(cont, memoria->marco_size);

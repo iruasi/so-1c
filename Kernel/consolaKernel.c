@@ -48,7 +48,7 @@ void showOpciones(void){
 
 void consolaKernel(void){
 
-	char *opcion = malloc(MAXOPCION);
+	char opcion[MAXOPCION];
 	int finalizar = 0;
 	showOpciones();
 	while(finalizar != 1){

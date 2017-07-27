@@ -3,96 +3,67 @@
 #include <string.h>
 
 #include "apiMemoria.h"
+#include "consolaMemoria.h"
 #include <commons/log.h>
 
-/* Con este macro verificamos igualdad de strings;
- * es mas expresivo que strcmp porque devuelve true|false mas humanamente
- */
-#define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
-
-#define CHAR_ESPUREO(C) ((C == '\0' || C == '\n' || C == '\t' || C == '\r')? true : false)
-
-void accionarMenu(void);
-int obtenerOpcionDump(void);
-void mostrarMenu(void);
 extern t_log*logTrace;
 // CONSOLA DE LA MEMORIA
 
-void *consolaUsuario(void){
+void showOpciones(void){
+	printf("\n \n \nIngrese accion a realizar:\n");
+	printf ("1-Para Modificar retardo: 'retardo <ms>'\n");
+	printf ("2-Para Generar reporte del estado actual: 'dump'\n");
+	printf ("3-Para limpiar la cache: 'flush'\n");
+	printf ("4-Para ver size de la memoria: 'sizeMemoria'\n");
+	printf ("5-Para ver size de un proceso: 'sizeProceso <PID>'\n");
 
-	accionarMenu();
-	// bla ble bli
-	return NULL;
 }
 
-// todo: mejorar forma de recibir inputs para que no se rompa de un soplo.
-//       es decir, por ahora el scanf toma el '\n' de lo que se ingrese,
-//       y eso es problematico...
-void accionarMenu(void){
-	log_trace(logTrace,"accionar menu");
-	int lag, pid;
-	char ch[3] = "u\n\0";
+void consolaMemoria(void){
 
-	while(ch != NULL){
-		mostrarMenu();
+	char opcion[MAXOPCION];
+	int finalizar = 0;
+	showOpciones();
+	while(finalizar != 1){
+		printf("Seleccione opcion: \n");
+		fgets(opcion, MAXOPCION, stdin);
+		opcion[strlen(opcion) - 1] = '\0';
 
-		fgets(ch, 3, stdin);
-
-		printf("Lo que mandaste fue %s..\n", ch);
-
-		if (STR_EQ(ch, "r\n\0")){
-
-			printf("Ingrese una latencia de accesos a Memoria en milisegundos \n > ");
-			scanf("%d", &lag);
-			if (lag <= 0){
-				printf("%d no es una latencia valida.\n", lag);
-				break;
-			}
-			log_trace(logTrace,"opcion retardo");
-			retardo(lag);
+		if (strncmp(opcion, "\0", 1) == 0){
+			showOpciones();
 			continue;
-			puts("fe");
 		}
 
-		else if (STR_EQ(ch, "d\n\0")){
+		if (strncmp(opcion, "retardo", 7) == 0){
+			puts("Opcion retardo");
+			log_trace(logTrace,"opcion retardo");
+			char *msChar = opcion + 8;
+			int ms = atoi(msChar);
+			retardo(ms);
+
+		} else if (strncmp(opcion, "dump", 4) == 0){
+			puts("Opcion dump");
 			log_trace(logTrace,"opcion dump");
-			dump(obtenerOpcionDump());
-			break;
-		}
+			char *dpChar = opcion + 5;
+			int dp = atoi(dpChar);
+			dump(dp);
 
-		else if (STR_EQ(ch, "f\n\0")){
-			puts("Se limpia la CACHE...");
+		} else if (strncmp(opcion, "flush", 5) == 0){
+			puts("Opcion flush");
 			log_trace(logTrace,"opcion flush");
 			flush();
-			puts("CACHE limpiada!");
-			break;
-		}
 
-		else if (STR_EQ(ch, "s\n\0")){
-			log_trace(logTrace,"opciom tamanio");
-			scanf("Ingrese el PID del cual quiere conocer su tamanio (negativo para Memoria).\n > %d", &pid);
+		} else if (strncmp(opcion, "sizeMemoria", 11) == 0){
+			puts("Opcion sizeMemoria");
+			log_trace(logTrace,"opcion size memoria");
+			size(-1);
+
+		} else if (strncmp(opcion, "sizeProceso", 11) == 0){
+			puts("Opcion sizeProceso");
+			log_trace(logTrace,"opcion sizeproceso");
+			char *pidProceso = opcion+12;
+			int pid = atoi(pidProceso);
 			size(pid);
-			break;
 		}
-
-		else{
-			puts("Opcion invalida");
-		}
-
-		puts("fa");
 	}
-}
-
-void mostrarMenu(void){
-	puts("\nIngrese su comando.");
-	puts("1. [r]etardo");
-	puts("2. [d]ump");
-	puts("3. [f]lush");
-	puts("4. [s]ize");
-}
-
-int obtenerOpcionDump(void){
-	puts("Quiere dumpear Cache, Tabla de Paginas, o procesos de Memoria?");
-	puts("bla ble bli");
-	return 0;
 }

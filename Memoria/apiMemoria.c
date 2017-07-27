@@ -61,34 +61,30 @@ void size(int pid){
 		printf("Cantidad de frames libres:     %d\n", mem_free);
 
 	} else
-		printf("Tamanio total del proceso %d:  %d\n", pid, pageQuantity(pid));
+		printf("Size del proceso %d: %d Bytes\n", pid, pageQuantity(pid) * memoria->marco_size);
 }
-
-
 
 
 // API DE LA MEMORIA
 
 int inicializarPrograma(int pid, int page_quant){
-	//puts("Se inicializa un programa");
-	log_trace(logTrace,"Se inicializa un programa");
+	log_trace(logTrace,"Se reservan %d paginas", page_quant);
 	int reservadas;
 
 	if ((reservadas = reservarPaginas(pid, page_quant)) < 0){
+		log_error(logTrace, "Fallo reserva: No hay frames libres en Memoria");
 		return reservadas;
 	}
-	//printf("Se reservaron bien las %d paginas solicitadas\n", page_quant);
-	log_trace(logTrace,"Se reservaron bien las pags solicitadas");
+	log_trace(logTrace,"Se reservaron %d paginas a partir de la %d", page_quant, reservadas);
 	return 0;
 }
 
 int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
-	//printf("Se almacenan para el PID %d: %d bytes en la pagina %d\n", pid, size, page);
-	log_trace(logTrace,"se almacenan para el PID %d: %d bytes en la pag %d",pid,size,page);
+
+	log_trace(logTrace, "Se almacenan para el PID %d: %d bytes en la pag %d", pid, size, page);
 	int frame;
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
-		log_error(logTrace,"fallo buscar en memoria el pid %d ypagina %d",pid,page);
-		printf("Fallo buscar En Memoria el pid %d y pagina %d; \tError: %d\n", pid, page, frame);
+		log_error(logTrace,"Fallo buscar en Memoria el pid %d y pagina %d", pid, page);
 		return frame;
 	}
 
@@ -99,7 +95,7 @@ int almacenarBytes(int pid, int page, int offset, int size, char *buffer){
 }
 
 char *solicitarBytes(int pid, int page, int offset, int size){
-	//printf("Se solicitan para el PID %d: %d bytes de la pagina %d\n", pid, size, page);
+
 	log_trace(logTrace,"Se solicitan para el PID %d: %d bytes de la pagina %d", pid, size, page);
 	char *buffer;
 	if ((buffer = leerBytes(pid, page, offset, size)) == NULL){
@@ -107,8 +103,6 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 		puts("No se pudieron leer los bytes de la pagina");
 		return NULL;
 	}
-
-
 	return buffer;
 }
 

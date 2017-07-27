@@ -56,22 +56,7 @@ int main(int argc, char* argv[]){
 	}
 
 	logTrace = log_create("/home/utnso/logMEMORIATrace.txt","MEMORIA",0,LOG_LEVEL_TRACE);
-
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"Inicia nueva ejecucion de MEMORIA");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-
+	log_trace(logTrace,"\n\n\n\n\n\n Inicia nueva ejecucion de MEMORIA \n\n\n\n\n\n");
 
 	int stat;
 
@@ -92,7 +77,7 @@ int main(int argc, char* argv[]){
 	clientSize = sizeof client;
 
 
-	if( pthread_create(&consMemoria_thread, NULL, (void*) consolaMemoria,NULL) < 0){
+	if( pthread_create(&consMemoria_thread, NULL, (void*) consolaMemoria, NULL) < 0){
 		log_error(logTrace,"no se pudo crear el hilo");
 		perror("No pudo crear hilo. error");
 		return FALLO_GRAL;
@@ -395,55 +380,3 @@ void* cpu_handler(void *socket_cpu){
 	log_trace(logTrace,"cpu cierra su conexion");
 	return NULL;
 }
-
-void consolaMemoria(void){
-
-	printf("\n \n \nIngrese accion a realizar:\n");
-	printf ("1-Para Modificar retardo: 'retardo <ms>'\n");
-	printf ("2-Para Generar reporte del estado actual: 'dump'\n");
-	printf ("3-Para limpiar la cache: 'flush'\n");
-	printf ("4-Para ver size de la memoria: 'sizeMemoria'\n");
-	printf ("5-Para ver size de un proceso: 'sizeProceso <PID>'\n");
-
-
-	int finalizar = 0;
-	while(finalizar != 1){
-		printf("Seleccione opcion: \n");
-		char opcion[MAXOPCION];
-		fgets(opcion, MAXOPCION, stdin);
-		opcion[strlen(opcion) - 1] = '\0';
-
-		if (strncmp(opcion, "retardo", 7) == 0){
-			puts("Opcion retardo");
-			log_trace(logTrace,"opcion retardo");
-			char *msChar = opcion + 8;
-			int ms = atoi(msChar);
-			retardo(ms);
-
-		} else if (strncmp(opcion, "dump", 4) == 0){
-			puts("Opcion dump");
-			log_trace(logTrace,"opcion dump");
-			char *dpChar = opcion + 5;
-			int dp = atoi(dpChar);
-			dump(dp);
-
-		} else if (strncmp(opcion, "flush", 5) == 0){
-			puts("Opcion flush");
-			log_trace(logTrace,"opcion flush");
-			flush();
-
-		} else if (strncmp(opcion, "sizeMemoria", 11) == 0){
-			puts("Opcion sizeMemoria");
-			log_trace(logTrace,"opcion size memoria");
-			size(-1);
-
-		} else if (strncmp(opcion, "sizeProceso", 11) == 0){
-			puts("Opcion sizeProceso");
-			log_trace(logTrace,"opcion sizeproceso");
-			char *pidProceso = opcion+12;
-			int pid = atoi(pidProceso);
-			size(pid);
-		}
-	}
-}
-

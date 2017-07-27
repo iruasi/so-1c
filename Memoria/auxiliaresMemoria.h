@@ -1,6 +1,11 @@
 #ifndef _AUXILIARESMEMORIA_H_
 #define _AUXILIARESMEMORIA_H_
 
+#ifndef MAX_AB
+#define MAX(A, B) ((A) > (B) ? (A) : (B))
+#endif
+
+
 /* Para un pid y cantidad de paginas, asigna las paginas subsiguientes
  * a las que ya tenga en la Tabla de Paginas Invertida.
  * Retorna el numero de la primera pagina nueva reservada, si finaliza correctamente.
@@ -13,6 +18,10 @@ int reservarPaginas(int pid, int pageCount);
  * Sino retorna la cantidad de paginas encontrada (pueden ser 0 o muchas).
  */
 int pageQuantity(int pid);
+
+/* Retorna la pagina de mas alto valor existente para PID.
+ */
+int maxPage(int pid);
 
 /* Retorna true si, dados un frame y offset, el PID coincide con el de la Tabla de Paginas Invertida
  * Retorna false en caso contrario
