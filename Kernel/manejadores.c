@@ -486,17 +486,14 @@ void cpu_manejador(void *infoCPU){
 			}
 			MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
 
-<<<<<<< HEAD
 			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
 			log_trace(logTrace,"el path del dir elegido es %s",path->direccion);
 
-			file_serial = serializeLeerFS(path->direccion, escr->info, escr->tamanio, banderas->flag, &pack_size);
-=======
-			printf("El path del direcctorio elegido es: %s\n", path->direccion);
+
+			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
 
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ESCRIBIR;
 			file_serial = serializeLeerFS(head, path->direccion, escr->info, escr->tamanio, procArchivo->flag, &pack_size);
->>>>>>> 8f56814ec8006c51bb9cc5f6986550431cb7bd2f
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
 				log_error(logTrace,"error al enviar el paquete al fs");
 				perror("error al enviar el paquete al filesystem");
