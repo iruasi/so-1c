@@ -7,15 +7,17 @@
 #include <fcntl.h>
 #include <math.h>
 
+#include <commons/log.h>
 #include <commons/collections/list.h>
 #include <commons/config.h>
 
 #include "operacionesFS.h"
 #include "manejadorSadica.h"
-//todo: ver como usar los bitarray y el mmap
 
 extern t_bitarray *bitArray;
 extern tMetadata *meta;
+
+extern t_log *logTrace;
 
 static int getattr(const char *path, struct stat *stbuf) {
 	int res = 0;

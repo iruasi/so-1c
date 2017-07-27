@@ -463,9 +463,10 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	tPackHeader * headerFin = malloc(sizeof headerFin);//lo uso para indicar a consola de la forma en q termino el proceso.
 	tPCB *pcbCPU, *pcbPlanif;
 	t_finConsola * fcAux = malloc(sizeof fcAux);
-	char *buffer = recvGeneric(cpu->cpu.fd_cpu);
-	pcbCPU = deserializarPCB(buffer);
 	int k;
+
+	char *buffer = recvGenericWFlags(cpu->cpu.fd_cpu, MSG_WAITALL);
+	pcbCPU = deserializarPCB(buffer);
 
 	switch(cpu->msj){
 	case (FIN_PROCESO):
@@ -520,8 +521,14 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	case (PCB_BLOCK):
 		printf("Se bloquea el PID %d\n", cpu->cpu.pid);
 
-		if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1){
-			fcAux=list_get(finalizadosPorConsolas,k);
+		MUX_LOCK(&mux_exec);
+		pcbPlanif = list_remove(Exec, getPCBPositionByPid(cpu->cpu.pid, Exec));
+		MUX_UNLOCK(&mux_exec);
+
+		mergePCBs(&pcbPlanif, pcbCPU);
+
+		if((k = fueFinalizadoPorConsola(pcbCPU->id))!=-1){
+			fcAux = list_get(finalizadosPorConsolas,k);
 			pcbCPU->exitCode = fcAux->ecode;
 			encolarEnExit(pcbCPU,cpu);
 		}
@@ -605,19 +612,12 @@ void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 
 }
 
-void blockByPID(int pid, tPCB *pcbCPU){
+void blockByPID(int pid, tPCB *pcb){
 	//printf("Pasamos PID %d desde Exec a Block\n", pid);
 	log_trace(logTrace,"Se pasa a %d de exec a block",pid);
-	tPCB *pcbPlanif;
-
-	MUX_LOCK(&mux_exec);
-	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pid, Exec));
-	MUX_UNLOCK(&mux_exec);
-
-	mergePCBs(&pcbPlanif, pcbCPU);
 
 	MUX_LOCK(&mux_block);
-	list_add(Block, pcbPlanif);
+	list_add(Block, pcb);
 	MUX_UNLOCK(&mux_block);
 }
 

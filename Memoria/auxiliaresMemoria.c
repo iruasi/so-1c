@@ -21,7 +21,7 @@
 extern tCacheEntrada *CACHE_lines;
 extern char *MEM_FIS;
 extern tMemoria *memoria;
-extern int marcos_inv;
+extern int size_inv;
 extern int pid_free;
 extern int free_page;
 extern t_log * logTrace;
@@ -40,7 +40,7 @@ int pageQuantity(int pid){
 	int off, fr;
 	int page_quant = 0;
 
-	for(off = fr = 0; fr < marcos_inv;){
+	for(off = fr = 0; fr * memoria->marco_size + off < size_inv;){
 		if (pid_match(pid, fr, off))
 			page_quant++;
 		nextFrameValue(&fr, &off, sizeof(tEntradaInv));
@@ -51,11 +51,12 @@ int pageQuantity(int pid){
 
 int maxPage(int pid){
 	log_trace(logTrace, "Funcion max page");
+
+	tEntradaInv *inv;
 	int off, fr;
 	int max_page = -1;
-	tEntradaInv *inv;
 
-	for(off = fr = 0; fr < marcos_inv;){
+	for(off = fr = 0; fr * memoria->marco_size + off < size_inv; ){
 		if (pid_match(pid, fr, off)){
 			inv = (tEntradaInv *) (MEM_FIS + memoria->marco_size * fr + off);
 			max_page = MAX(inv->pag, max_page);

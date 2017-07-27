@@ -63,26 +63,8 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 
-
 	logTrace = log_create("/home/utnso/logFILESYSTEMTrace.txt","FILESYSTEM",0,LOG_LEVEL_TRACE);
-
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"Inicia nueva ejecucion de FILESYSTEM");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-		log_trace(logTrace,"");
-
-
-
+	log_trace(logTrace,"\n\n\n\n\n Inicia nueva ejecucion de FILESYSTEM \n\n\n\n\n");
 
 	int stat, fuseret, *retval;
 	pthread_t kern_th;
@@ -92,7 +74,7 @@ int main(int argc, char* argv[]){
 
 	setupFuseOperations();
 
-	char* argumentos[] = {"", fileSystem->punto_montaje, ""};
+	char* argumentos[] = {"", fileSystem->punto_montaje, "-f -o nonempty"};
 	struct fuse_args args = FUSE_ARGS_INIT(3, argumentos);
 
 	// Limpio la estructura que va a contener los parametros
@@ -104,6 +86,9 @@ int main(int argc, char* argv[]){
 		log_error(logTrace,"invalid arguments");
 		return EXIT_FAILURE;
 	}
+
+
+
 
 	//bitmap
 	crearDirMontaje();
@@ -266,7 +251,7 @@ int *ker_manejador(void){
 
 	default:
 		//puts("Se recibio un mensaje no manejado!");
-		log_info(logTrace,"se recibio un msj no manejado; PROC %d MENSAJE %d",head.tipo_de_proceso,head_tipo_de_mensaje);
+		log_info(logTrace,"se recibio un msj no manejado; PROC %d MENSAJE %d", head.tipo_de_proceso, head.tipo_de_mensaje);
 		//printf("Proc %d, Mensaje %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 		break;
 

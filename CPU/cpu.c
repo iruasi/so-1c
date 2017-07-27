@@ -127,25 +127,12 @@ int main(int argc, char* argv[]){
 	signal(SIGUSR1, sigusr1Handler);
 	logTrace = log_create("/home/utnso/logCPUTrace.txt", "CPU", 0, LOG_LEVEL_TRACE);
 
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"Inicia nueva ejecucion de CPU");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
+	log_trace(logTrace,"\n\n\n\n\n Inicia nueva ejecucion de CPU \n\n\n\n\n");
 
 	int stat;
 	int *retval;
 	ejecutando = false;
-	finalizate=false;
+	finalizate = false;
 	cpu_data = getConfigCPU(argv[1]);
 	mostrarConfiguracionCPU(cpu_data);
 	setupCPUFunciones();
@@ -155,11 +142,7 @@ int main(int argc, char* argv[]){
 	pthread_mutex_init(&mux_pcb, NULL);
 	pthread_t pcb_th;
 	pthread_t errores_th;
-	//pthread_t signalH_th;
 	pthread_create(&errores_th, NULL, (void *) err_handler, NULL);
-
-
-
 
 	if ((stat = conectarConServidores(cpu_data)) != 0){
 		puts("No se pudo conectar con ambos servidores");

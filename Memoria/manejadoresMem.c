@@ -20,7 +20,7 @@
 #include <tiposRecursos/tiposErrores.h>
 
 int pid_free, pid_inv, free_page;
-int marcos_inv; // cantidad de frames que ocupa la tabla de invertidas en MEM_FIS
+int size_inv;   // size en bytes de la tabla de invertidas. Util p/ controlar recorrido sobre ella
 
 extern float retardo_mem;   // latencia de acceso a Memoria Fisica
 extern tMemoria *memoria;   // configuracion de Memoria
@@ -30,7 +30,6 @@ extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 extern t_log * logTrace;
 extern int sock_kernel;
-t_list *proc_lims; // almacena t_procCtl: limites de stack por PID
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
@@ -65,7 +64,6 @@ int setupMemoria(void){
 	if ((stat = setupCache()) != 0)
 		return MEM_EXCEPTION;
 
-	proc_lims = list_create();
 	return 0;
 }
 
@@ -76,9 +74,8 @@ void populateInvertidas(void){
 	tEntradaInv entry_inv  = {.pid = pid_inv,  .pag = free_page};
 	tEntradaInv entry_free = {.pid = pid_free, .pag = free_page};
 
-	int size_inv_total = sizeof(tEntradaInv) * memoria->marcos;
-	marcos_inv = ceil((float) size_inv_total / memoria->marco_size);
-
+	size_inv = sizeof(tEntradaInv) * memoria->marcos;
+	int marcos_inv = ceil((float) size_inv / memoria->marco_size);
 
 	// creamos las primeras entradas administrativas, una por cada `marco_invertido'
 	for(i = off = fr = 0; i < marcos_inv; i++){

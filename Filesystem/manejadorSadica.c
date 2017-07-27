@@ -5,12 +5,15 @@
 #include <commons/config.h>
 #include <commons/bitarray.h>
 #include <commons/string.h>
+#include <commons/log.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 
 #include "fileSystemConfigurators.h"
 #include "manejadorSadica.h"
 #include "operacionesFS.h"
+
+t_log *logTrace;
 
 //todo: estos conviene dejarlos como global o en la struct tfilesystem?
 tMetadata* meta;
@@ -25,17 +28,15 @@ extern tFileSystem *fileSystem;
 
 int crearArchivo(char* ruta){
 
-	int fd;
 	char *path = string_duplicate(fileSystem->punto_montaje);
-	string_append(&path, "Archivos/"); string_append(&path, ruta);
+	string_append(&path, "Archivos"); string_append(&path, ruta);
 
-	if ((fd = open(path, O_RDWR | O_CREAT)) == -1){
-		log_error(logTrace,"no se pudo crear el archivo");
+	if ((open(path, O_RDWR | O_CREAT, 0777)) == -1){
 		perror("No se pudo crear el archivo. error");
+		log_error(logTrace,"no se pudo crear el archivo");
 		return FALLO_GRAL;
 	}
 	log_trace(logTrace,"se creo el archivo %s",path);
-	//printf("Se creo el archivo %s\n", path);
 
 //	if (!asignarBloques(1)){ // todo: le asingamos al menos 1 bloque
 //		free(path);
@@ -44,12 +45,12 @@ int crearArchivo(char* ruta){
 	return 0;
 }
 
-int crearBloques(void){ //todo: que cree segun la cantidad de bloques pedida
-	//puts("Creando bloques..");
+int crearBloques(void){
 	log_trace(logTrace,"creando bloques");
+
 	int off=0;
 	int i;
-	for(i=0; i<=meta->cantidad_bloques; i++){
+	for(i = 0; i <= meta->cantidad_bloques; i++){
 		char* nro = malloc(10); //no va a superar esta cantidad de numeros..
 		sprintf(nro, i);
 		char* rutaBloque = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Bloques/") + sizeof(nro) + sizeof(".bin"));
@@ -139,7 +140,7 @@ t_bitarray* mapearBitArray(int fd){
 
 void crearDirMontaje(void){
 
-	if (mkdir(fileSystem->punto_montaje, 0766) == -1){
+	if (mkdir(fileSystem->punto_montaje, 0777) == -1){
 		perror("No se pudo crear el directorio. error");
 		log_error(logTrace,"no se pudo crear el dire;path intentado: %s",fileSystem->punto_montaje);
 		//printf("Path intentado: %s\n", fileSystem->punto_montaje);
@@ -160,7 +161,7 @@ void crearDir(char *dir){
 	char* rutaDir = string_duplicate(fileSystem->punto_montaje);
 	string_append(&rutaDir, dir);
 
-	if (mkdir(rutaDir, 0766) != 0){ //para que el usuario pueda escribir
+	if (mkdir(rutaDir, 0777) != 0){ //para que el usuario pueda escribir
 		if (errno != EEXIST){
 			log_error(logTrace,"no se pudo crear directorio");
 			perror("No se pudo crear directorio. error:");

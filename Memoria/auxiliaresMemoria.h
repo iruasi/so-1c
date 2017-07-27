@@ -5,6 +5,10 @@
 #define MAX(A, B) ((A) > (B) ? (A) : (B))
 #endif
 
+#ifndef MPTR_FMO // Frame * Marco_size + Offset
+#define MPTR(F,M,O) F * M + O
+#endif
+
 
 /* Para un pid y cantidad de paginas, asigna las paginas subsiguientes
  * a las que ya tenga en la Tabla de Paginas Invertida.
