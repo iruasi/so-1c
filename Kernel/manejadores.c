@@ -68,6 +68,7 @@ void cpu_manejador(void *infoCPU){
 	tPackVal *alloc, *fd_rta;
 	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
+	tDatosTablaGlobal * datosGlobal;
 	tProcesoArchivo * procArchivo;
 	tPackHeader h_esp;
 
@@ -257,7 +258,6 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case LIBERAR:
-		//puts("Funcion liberar");
 		log_trace(logTrace,"Funcion liberar");
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
@@ -279,60 +279,54 @@ void cpu_manejador(void *infoCPU){
 		MUX_LOCK(&mux_infoProc);
 		sumarSyscall(cpu_i->cpu.pid);
 		MUX_UNLOCK(&mux_infoProc);
-
-		//puts("Fin case LIBERAR");
 		break;
 
 	case ABRIR:
-		//	puts("CPU quiere abrir un archivo");
-			log_trace(logTrace,"Cpu quiere abrir un archivo");
+			log_trace(logTrace,"CPU quiere abrir un archivo");
+
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackAbrir * abrir = deserializeAbrir(buffer);
 			freeAndNULL((void **) &buffer);
+			head.tipo_de_proceso = KER;
 
-			head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
-			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-			//buffer = serializeAbrir(abrir,&pack_size);
-			//printf("La direccion es %s\n", (char *) abrir->direccion);
-			if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
-				perror("No se pudo validar el archivo. error");
-				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
-				informarResultado(cpu_i->cpu.fd_cpu, head); // como fallo ejecucion, avisamos a CPU
+			if ((stat = validarArchivo(abrir, sock_fs)) == FALLO_SEND){
+				head.tipo_de_mensaje = stat;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
-			//	freeAndNULL((void **) buffer);
 
-			tDatosTablaGlobal * datosGlobal = malloc(sizeof *datosGlobal);
-			datosGlobal->direccion = malloc(abrir->longitudDireccion);
-
-			pack_size = 0;
-			//file_serial = serializeAbrir(abrir, &pack_size);
-
-			head.tipo_de_mensaje = VALIDAR_RESPUESTA;
-			head.tipo_de_proceso = FS;
-
-			if(validarRespuesta(sock_fs,head,&h_esp)==0){//validarRespuesta(sock_fs,head,&h_esp)
-				//printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
-				log_trace(logTrace,"El archivo existe, verificamos si la contiene la tabla global");
-				agregarArchivoTablaGlobal(datosGlobal,abrir);
-				agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
-			}else if(abrir->flags.creacion){
-				head.tipo_de_mensaje = CREAR_ARCHIVO;
-				buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-				if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
-					perror("No se pudo validar el archivo. error");
-					head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
-					informarResultado(cpu_i->cpu.fd_cpu, head); // como fallo ejecucion, avisamos a CPU
+			// Si no existe el archivo, tratamos de registrarlo..
+			if (stat == INVALIDAR_RESPUESTA){ // hay que validar permiso de creacion y registrar al Archivo
+				if (!abrir->flags.creacion){
+					head.tipo_de_mensaje = NOCREAT_PERM;
+					informarResultado(cpu_i->cpu.fd_cpu, head);
 					break;
-				}else if(validarRespuesta(sock_fs,head,&h_esp)==0){
-					log_trace(logTrace,"El archivo se crea con exito y se agrega a la listsa de procesos y tabla global");
-					agregarArchivoTablaGlobal(datosGlobal,abrir);
-					agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
 				}
-			}else{
-				printf("El archivo no pudo ser validado ni creado, fijese el posible error\n");
-				log_error(logTrace,"El archivo no pudo ser validado ni creado");
 			}
+
+			head.tipo_de_mensaje = CREAR_ARCHIVO;
+			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+			if ((send(sock_fs, buffer, pack_size, 0)) == -1){
+				perror("Fallo send de crear archivo a Filesystem. error");
+				log_error(logTrace, "No se pudo enviar creacion de archivo a Filesystem");
+				head.tipo_de_mensaje = FALLO_SEND;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				break;
+			}
+
+			h_esp.tipo_de_proceso = FS; h_esp.tipo_de_mensaje = CREAR_ARCHIVO;
+			if (validarRespuesta(sock_fs, h_esp, &head) != 0){
+				log_error(logTrace, "Filesystem no pudo crear el archivo");
+				head.tipo_de_proceso = KER;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				break;
+			}
+
+			// Ahora si, el archivo ya esta creado. Lo asignamos a las tablas..
+			datosGlobal = malloc(sizeof *datosGlobal);
+			datosGlobal->direccion = malloc(abrir->longitudDireccion);
+			agregarArchivoTablaGlobal(datosGlobal, abrir);
+			agregarArchivoATablaProcesos(datosGlobal, abrir->flags, cpu_i->con->pid);
 
 			fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
 			fd_rta->val = datosGlobal->fd;
@@ -342,15 +336,16 @@ void cpu_manejador(void *infoCPU){
 				perror("error al enviar el paquete a la cpu. error");
 				break;
 			}
+
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
 
-			freeAndNULL((void ** )&fd_rta);freeAndNULL((void **)&buffer);
-			//free(abrir->direccion); freeAndNULL((void **) &abrir);
-			//puts("Fin case ABRIR");
+			freeAndNULL((void **) &buffer);
+			freeAndNULL((void **) &file_serial);
 			log_trace(logTrace,"fin case abrir");
 			break;
+
 		case BORRAR:
 			log_trace(logTrace,"Case Borrar");
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);

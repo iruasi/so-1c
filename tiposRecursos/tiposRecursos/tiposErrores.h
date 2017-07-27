@@ -17,6 +17,8 @@ typedef enum {
 , MEM_TOP_PAGES=        -9
 
 // nuestros fallso
+, NOCREAT_PERM=        -10
+
 , UNDEFINED_ERR=       -20
 , FALLO_GRAL=          -21
 , FALLO_CONFIGURACION= -22
@@ -47,7 +49,7 @@ typedef enum {
 , FALLO_ASIGN=         -58
 , FALLO_SOLIC=         -59
 
-,INVALIDAR_RESPUESTA= -60
+,INVALIDAR_RESPUESTA=  -60
 
 , ABORTO_PCB=          -95
 , ABORTO_KERNEL=       -96

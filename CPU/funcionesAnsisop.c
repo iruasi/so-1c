@@ -537,38 +537,21 @@ void liberar (t_puntero puntero){
 
 }
 
-tPackFS * deserializeFileDescriptor(char * aux_serial){
-	tPackFS * aux = malloc(sizeof *aux);
-	log_trace(logTrace,"inicio deserialize file Descriptor");
-	int off = 0;
-
-	memcpy(&aux->fd, aux_serial + off, sizeof(int));
-	off += sizeof(int);
-	memcpy(&aux->cantidadOpen, aux_serial + off, sizeof(int));
-	off += sizeof(int);
-	log_trace(logTrace,"fin deserialize file descriptor");
-	return aux;
-} //Lo pase a funcionesPaquetes pero lo dejo comentado si tengo que debuggearlo en algun futuro no muy lejano
-
-
-
-
 t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
-	log_trace(logTrace,"inicio abrir");
-	printf("Se pide al kernel abrir el archivo %s\n",direccion);
-	char * dir = eliminarWhitespace(direccion);
+	char *dir = eliminarWhitespace(direccion);
+	log_trace(logTrace, "Se pide al kernel abrir el archivo %s\n", dir);
+
 	int pack_size = 0;
-	char * buffer;
-	int stat;
-	tPackHeader head;
+	char *buffer, *abrir_serial;
+	tPackHeader head, h_esp;
 	tPackPID *val;
-	tPackAbrir * abrir = malloc(sizeof *abrir);
+	tPackAbrir *abrir = malloc(sizeof *abrir);
+	t_descriptor_archivo fd;
 
 	abrir->longitudDireccion = strlen(dir) + 1;
 	abrir->direccion = dir;
 	abrir->flags     = flags;
 
-	char *abrir_serial;
 	if ((abrir_serial = serializeAbrir(abrir, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
@@ -577,32 +560,31 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
 	enviar(abrir_serial, pack_size);
 
-	if ((stat = recv(sock_kern, &head, HEAD_SIZE, MSG_WAITALL)) < 0){
-		perror("Fallo recv de puntero alojado de Kernel. error");
-		err_exec = FALLO_RECV;
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = ENTREGO_FD;
+	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+		err_exec = head.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	printf("El head recibido es de %d y tiene el mensaje %d \n", head.tipo_de_proceso, head.tipo_de_mensaje);
-
 
 	if ((buffer = recvGeneric(sock_kern)) == NULL){
 		err_exec = FALLO_RECV;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	t_descriptor_archivo fd;
+
 	if ((val = deserializeVal(buffer)) == NULL){
-				err_exec = FALLO_DESERIALIZAC;
-				sem_post(&sem_fallo_exec);
-				pthread_exit(&err_exec);
-			}else{
-				pcb->cantSyscalls ++;
-			}
+		err_exec = FALLO_DESERIALIZAC;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+
+	}else{
+		pcb->cantSyscalls ++;
+	}
+
 	//fd = *((int *) bytes->bytes);
 	fd = val->val;
-	printf("El fd recibido es %d\n",fd);
-	log_trace(logTrace,"fin abrir");
+	log_trace(logTrace, "Se recibio el fd %d \nFin abrir", fd);
 
 	free(abrir_serial);
 	free(buffer);

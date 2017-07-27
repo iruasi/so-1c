@@ -42,24 +42,24 @@ extern t_list *tablaProcesos;
 
 pthread_mutex_t mux_tablaPorProceso, mux_archivosAbiertos;
 
-void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir){
+void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos, tPackAbrir * abrir){
 	char fd_str[MAXPID_DIG];
 	log_trace(logTrace,"inicio agregar archivo a tabla global");
+
 	memcpy(datos->direccion, abrir->direccion, abrir->longitudDireccion);
 	datos->cantidadOpen = 0;
 	datos->fd = globalFD; globalFD++;
 	sprintf(fd_str, "%d", datos->fd);
 
 	if(!dictionary_has_key(tablaGlobal, fd_str)){
-		//printf("La tabla no contiene el archivo, la agregamos\n");
 		log_trace(logTrace,"la tabla no contiene el archivo, la agregamos");
 		dictionary_put(tablaGlobal, fd_str, datos);
-		//printf("Los datos del fd # %s fueron agregados a la tabla global \n",fd_str);
+
 		log_trace(logTrace,"los datos fueron agregados a la tabla global");
-	}else{
-		//printf("El archivo ya se encuentra en la tabla global\n");
+
+	} else
 		log_trace(logTrace,"el archivo ya se encuentra en la tabla global");
-	}
+
 	log_trace(logTrace,"fin agregar archivo a tabla global");
 }
 void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid){
@@ -383,4 +383,26 @@ void sumarFreeYDealloc(int pid, int size){
 
 	ip->ih.cant_frees++;
 	ip->ih.bytes_freed += size;
+}
+
+int validarArchivo(tPackAbrir *abrir, int sock_fs){
+
+	char *buffer;
+	int pack_size;
+	tPackHeader head  = {.tipo_de_proceso = KER, .tipo_de_mensaje = VALIDAR_ARCHIVO};
+
+	head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
+	buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+	if (send(sock_fs, buffer, pack_size, 0) < 0){
+		perror("No se pudo validar el archivo. error");
+		return FALLO_SEND;
+	}
+
+	tPackHeader h_esp = {.tipo_de_proceso = FS,  .tipo_de_mensaje = VALIDAR_RESPUESTA};
+	if (validarRespuesta(sock_fs, h_esp, &head) != 0){
+		log_trace(logTrace, "Validacion del archivo %s resulto invalida", abrir->direccion);
+		return head.tipo_de_mensaje;
+	}
+
+	return 0;
 }

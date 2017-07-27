@@ -39,8 +39,8 @@ void escribirInfoEnArchivo(char* path, tArchivos* info);
 
 void crearDirMontaje(void);
 
-void crearArchivo(char* ruta);
-void crearBloques(void);
+int crearArchivo(char* ruta);
+int crearBloques(void);
 
 int inicializarMetadata(void);
 int inicializarBitmap(void);

@@ -78,6 +78,7 @@ int reservarPaginas(int pid, int pageCount){
 		nr_pag = max_page = init = 0;
 	}
 
+	nr_pag += init;
 	pag_assign = cic = 0;
 	while (pag_assign != pageCount && cic < memoria->marcos){
 
@@ -87,7 +88,7 @@ int reservarPaginas(int pid, int pageCount){
 			gotoFrameInvertida(fr_apr, &fr, &off);
 			if (frameLibre(fr, off)){
 				memcpy(MEM_FIS + fr * memoria->marco_size +  off, &pid, sizeof (int));
-				memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag + init, sizeof (int));
+				memcpy(MEM_FIS + fr * memoria->marco_size + (off + sizeof(int)), &nr_pag, sizeof (int));
 				pag_assign++; nr_pag++;
 				break;
 			}

@@ -76,4 +76,6 @@ void sumarPaginaHeap(int pid);
 void sumarSizeYAlloc(int pid, int size);
 void sumarFreeYDealloc(int pid, int size);
 
+int validarArchivo(tPackAbrir *abrir, int sock_fs);
+
 #endif // AUXILIARESKERNEL_H_

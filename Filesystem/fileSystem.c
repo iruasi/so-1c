@@ -135,15 +135,12 @@ int *ker_manejador(void){
 		puts("Se pide validacion de archivo");
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
-		if((operacion = validarArchivo(abrir->bytes)) == 0){
-			puts("El archivo fue validado");
-			header.tipo_de_mensaje = VALIDAR_RESPUESTA;
-			informarResultado(sock_kern,header);
-		}else{
-			puts("El archivo no fue validado, debe crearlo");
-			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
-			informarResultado(sock_kern,header);
-		}
+
+		head.tipo_de_proceso = FS;
+		head.tipo_de_mensaje = (validarArchivo(abrir->bytes) == -1)?
+				INVALIDAR_RESPUESTA: VALIDAR_RESPUESTA;
+		informarResultado(sock_kern, head);
+
 		freeAndNULL((void **)&buffer);
 		freeAndNULL((void **)&abrir);
 		puts("Fin case VALIDAR_ARCHIVO");
@@ -151,18 +148,15 @@ int *ker_manejador(void){
 
 	case CREAR_ARCHIVO:
 		puts("Se pide crear un archivo");
+
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
-		if(true){//todo: deberia ser crearArchivo, pero crearArchivo es void.
-			puts("El archivo fue abierto con exito");
-			header.tipo_de_mensaje = CREAR_ARCHIVO;
-			informarResultado(sock_kern,header);
-		}else{
-			puts("El archivo no pudo ser abierto");
-			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
-			informarResultado(sock_kern,header);
-		}
-		freeAndNULL((void **)&buffer);
+
+		head.tipo_de_proceso = FS;
+		head.tipo_de_mensaje = (crearArchivo(abrir->bytes) < 0)?
+				INVALIDAR_RESPUESTA : CREAR_ARCHIVO;
+		informarResultado(sock_kern,header);
+
 		puts("Fin case CREAR_ARCHIVO");
 		break;
 
@@ -218,7 +212,7 @@ int *ker_manejador(void){
 		buffer = recvGeneric(sock_kern);
 		escribir = deserializeLeerFS(buffer);
 		if(true){//(operacion = write2(escribir->direccion)) == 0
-			puts("El archivo fue borrado con exito");
+			puts("El archivo fue escrito con exito");
 			header.tipo_de_mensaje = ARCHIVO_ESCRITO;
 			informarResultado(sock_kern,header);
 		}else{

@@ -23,20 +23,26 @@ FILE *metadataArch, *bitmapArch;
 int sock_kern;
 extern tFileSystem *fileSystem;
 
-void crearArchivo(char* ruta){
-	int off=0;
-	char* rutaArchivo = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Archivos/") + sizeof(ruta));
-	memcpy(rutaArchivo, fileSystem->punto_montaje, sizeof(fileSystem->punto_montaje));
-	off+=sizeof(fileSystem->punto_montaje);
-	memcpy(rutaArchivo+off, "/Archivos/", sizeof("/Archivos/"));
-	off+=sizeof(ruta);
-	memcpy(rutaArchivo+off, ruta, sizeof(ruta));
-	FILE* archivo = fopen(rutaArchivo, "w+");
-	printf("Ruta del archivo: %s", rutaArchivo);
-	free(rutaArchivo);
+int crearArchivo(char* ruta){
+
+	int fd;
+	char *path = string_duplicate(fileSystem->punto_montaje);
+	string_append(&path, "Archivos/"); string_append(&path, ruta);
+
+	if ((fd = open(path, O_RDWR | O_CREAT)) == -1){
+		perror("No se pudo crear el archivo. error");
+		return FALLO_GRAL;
+	}
+	printf("Se creo el archivo %s\n", path);
+
+//	if (!asignarBloques(1)){ // todo: le asingamos al menos 1 bloque
+//		free(path);
+//		return FALLO_GRAL;
+//	}
+	return 0;
 }
 
-void crearBloques(){
+int crearBloques(void){ //todo: que cree segun la cantidad de bloques pedida
 	puts("Creando bloques..");
 	int off=0;
 	int i;
@@ -55,6 +61,8 @@ void crearBloques(){
 		free(rutaBloque);
 		free(nro);
 	}
+
+	return 0;
 }
 
 void crearBitMap(void){

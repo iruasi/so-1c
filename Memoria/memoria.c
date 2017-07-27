@@ -187,8 +187,6 @@ void* kernel_handler(void *infoKer){
 	tPackPidPag *pp;
 	tPackPID *ppid;
 
-	//printf("(KERNEL_THR) Esperamos cosas del socket Kernel: %d\n", *ik->sock_ker);
-	log_trace(logTrace,"kernel thr");
 	do {
 
 		switch(head.tipo_de_mensaje){
@@ -289,19 +287,28 @@ void* kernel_handler(void *infoKer){
 			finalizarPrograma(ppid->val);
 			break;
 
+		case THREAD_INIT:
+			log_trace(logTrace, "Se inicia Thread Kernel en Memoria");
+			break;
+
 		default:
 			break;
 		}
 	} while((stat = recv(*ik->sock_ker, &head, HEAD_SIZE, 0)) > 0);
 
 	if (stat == -1){
-		log_error(logTrace,"se perdio conexion con kernel.");
 		perror("Se perdio conexion con Kernel. error");
+		log_error(logTrace,"Se perdio conexion con Kernel. Dumpeamos Memoria..");
+		dumpCache();
+		dumpMemStructs();
 		return NULL;
 	}
 
-	log_trace(logTrace,"kernel cerro la conexion");
-	puts("Kernel cerro la conexion.");
+	puts("Kernel cerro la conexion");
+	log_trace(logTrace,"Kernel cerro la conexion. Dumpeamos Memoria..");
+	dumpCache();
+	dumpMemStructs();
+
 	ik->kernExists = false;
 	close(*ik->sock_ker);
 	freeAndNULL((void **) &ik->sock_ker);
