@@ -208,7 +208,7 @@ void* kernel_handler(void *infoKer){
 
 		switch(head.tipo_de_mensaje){
 		case INI_PROG:
-			puts("Kernel quiere inicializar un programa.");
+			//puts("Kernel quiere inicializar un programa.");
 			log_trace(logTrace,"kernel manda ini_prog");
 			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;
@@ -230,7 +230,7 @@ void* kernel_handler(void *infoKer){
 			break;
 
 		case BYTES:
-			puts("Kernel quiere Solicitar Bytes");
+			//puts("Kernel quiere Solicitar Bytes");
 			log_trace(logTrace,"kernel solicita bytes");
 			pthread_mutex_lock(&mux_mem_access);
 			stat = manejarSolicitudBytes(*ik->sock_ker);
@@ -248,7 +248,7 @@ void* kernel_handler(void *infoKer){
 			break;
 
 		case ALMAC_BYTES:
-			puts("Kernel quiere almacenar bytes");
+			//puts("Kernel quiere almacenar bytes");
 			log_trace(logTrace,"kernel quiere almacenar bytes");
 			pthread_mutex_lock(&mux_mem_access);
 			stat = manejarAlmacenamientoBytes(*ik->sock_ker);
@@ -262,7 +262,7 @@ void* kernel_handler(void *infoKer){
 			break;
 
 		case ASIGN_PAG:
-			puts("Kernel quiere asignar paginas!");
+			//puts("Kernel quiere asignar paginas!");
 			log_trace(logTrace,"kernel quier asignar pags");
 			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)
 				break;

@@ -75,7 +75,7 @@ void cpu_manejador(void *infoCPU){
 	log_trace(logTrace,"(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 	switch((int) head.tipo_de_mensaje){
 	case S_WAIT:
-		puts("Signal wait a semaforo");
+		//puts("Signal wait a semaforo");
 		log_trace(logTrace,"Signal wait a semaforo");
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
@@ -101,7 +101,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case S_SIGNAL:
-		puts("Signal continuar a semaforo");
+		//puts("Signal continuar a semaforo");
 		log_trace(logTrace,"Signal continuar a semaforo");
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
@@ -128,7 +128,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case SET_GLOBAL:
-		puts("Se reasigna una variable global");
+		//puts("Se reasigna una variable global");
 		log_trace(logTrace,"Se reasigna una variable global");
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
@@ -156,7 +156,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case GET_GLOBAL:
-		puts("Se pide el valor de una variable global");
+		//puts("Se pide el valor de una variable global");
 		log_trace(logTrace,"Se pide el valor de una variable global");
 		t_valor_variable val;
 		tPackBytes *var_name;
@@ -257,7 +257,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case LIBERAR:
-		puts("Funcion liberar");
+		//puts("Funcion liberar");
 		log_trace(logTrace,"Funcion liberar");
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
@@ -284,7 +284,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case ABRIR:
-			puts("CPU quiere abrir un archivo");
+		//	puts("CPU quiere abrir un archivo");
 			log_trace(logTrace,"Cpu quiere abrir un archivo");
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackAbrir * abrir = deserializeAbrir(buffer);
@@ -293,7 +293,7 @@ void cpu_manejador(void *infoCPU){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
 			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
 			//buffer = serializeAbrir(abrir,&pack_size);
-			printf("La direccion es %s\n", (char *) abrir->direccion);
+			//printf("La direccion es %s\n", (char *) abrir->direccion);
 			if ((stat = send(sock_fs, buffer, pack_size, 0)) < 0){
 				perror("No se pudo validar el archivo. error");
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;

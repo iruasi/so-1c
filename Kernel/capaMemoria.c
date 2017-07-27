@@ -86,7 +86,7 @@ t_puntero reservarBytes(char* heap_page, int sizeReserva){
 }
 
 t_puntero reservar(int pid, int size){
-	printf("Se reservaran %d bytes para el PID %d\n", size, pid);
+	//printf("Se reservaran %d bytes para el PID %d\n", size, pid);
 	log_trace(logTrace,"inicio reservar bytes para pid");
 	int stat;
 	t_puntero ptr;
@@ -502,7 +502,7 @@ void agregarHeapAPID(int pid, int pag){
 	log_trace(logTrace,"inicio agergar heap a pid");
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
-	printf("Registramos la pagina de heap %d al PID %s\n", pag, spid);
+	//printf("Registramos la pagina de heap %d al PID %s\n", pag, spid);
 
 	tHeapProc *hp = malloc(sizeof *hp);
 	hp->page = pag; hp->max_size = MAX_ALLOC_SIZE;
