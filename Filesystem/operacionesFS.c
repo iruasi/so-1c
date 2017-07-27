@@ -12,7 +12,6 @@
 
 #include "operacionesFS.h"
 #include "manejadorSadica.h"
-//todo: ver como usar los bitarray y el mmap
 
 extern t_bitarray *bitArray;
 extern tMetadata *meta;

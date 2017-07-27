@@ -25,11 +25,10 @@ extern tFileSystem *fileSystem;
 
 int crearArchivo(char* ruta){
 
-	int fd;
 	char *path = string_duplicate(fileSystem->punto_montaje);
-	string_append(&path, "Archivos/"); string_append(&path, ruta);
+	string_append(&path, "Archivos"); string_append(&path, ruta);
 
-	if ((fd = open(path, O_RDWR | O_CREAT)) == -1){
+	if ((open(path, O_RDWR | O_CREAT, 0777)) == -1){
 		perror("No se pudo crear el archivo. error");
 		return FALLO_GRAL;
 	}
@@ -42,11 +41,11 @@ int crearArchivo(char* ruta){
 	return 0;
 }
 
-int crearBloques(void){ //todo: que cree segun la cantidad de bloques pedida
+int crearBloques(void){
 	puts("Creando bloques..");
 	int off=0;
 	int i;
-	for(i=0; i<=meta->cantidad_bloques; i++){
+	for(i = 0; i <= meta->cantidad_bloques; i++){
 		char* nro = malloc(10); //no va a superar esta cantidad de numeros..
 		sprintf(nro, i);
 		char* rutaBloque = malloc(sizeof(fileSystem->punto_montaje) + sizeof("/Bloques/") + sizeof(nro) + sizeof(".bin"));
@@ -133,7 +132,7 @@ t_bitarray* mapearBitArray(int fd){
 
 void crearDirMontaje(void){
 
-	if (mkdir(fileSystem->punto_montaje, 0766) == -1){
+	if (mkdir(fileSystem->punto_montaje, 0777) == -1){
 		perror("No se pudo crear el directorio. error");
 		printf("Path intentado: %s\n", fileSystem->punto_montaje);
 	}
@@ -153,7 +152,7 @@ void crearDir(char *dir){
 	char* rutaDir = string_duplicate(fileSystem->punto_montaje);
 	string_append(&rutaDir, dir);
 
-	if (mkdir(rutaDir, 0766) != 0){ //para que el usuario pueda escribir
+	if (mkdir(rutaDir, 0777) != 0){ //para que el usuario pueda escribir
 		if (errno != EEXIST){
 			perror("No se pudo crear directorio. error:");
 			return;

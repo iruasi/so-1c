@@ -68,7 +68,7 @@ int main(int argc, char* argv[]){
 
 	setupFuseOperations();
 
-	char* argumentos[] = {"", fileSystem->punto_montaje, ""};
+	char* argumentos[] = {"", fileSystem->punto_montaje, "-f -o nonempty"};
 	struct fuse_args args = FUSE_ARGS_INIT(3, argumentos);
 
 	// Limpio la estructura que va a contener los parametros
@@ -79,6 +79,9 @@ int main(int argc, char* argv[]){
 		perror("Invalid arguments!");
 		return EXIT_FAILURE;
 	}
+
+
+
 
 	//bitmap
 	crearDirMontaje();
