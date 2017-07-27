@@ -310,7 +310,7 @@ void cpu_manejador(void *infoCPU){
 			head.tipo_de_mensaje = VALIDAR_RESPUESTA;
 			head.tipo_de_proceso = FS;
 
-			if(true){//validarRespuesta(sock_fs,head,&h_esp)
+			if(validarRespuesta(sock_fs,head,&h_esp)==0){//validarRespuesta(sock_fs,head,&h_esp)
 				//printf("El archivo existe, ahora verificamos si la contiene la tabla Global \n");
 				log_trace(logTrace,"El archivo existe, verificamos si la contiene la tabla global");
 				agregarArchivoTablaGlobal(datosGlobal,abrir);
@@ -323,7 +323,7 @@ void cpu_manejador(void *infoCPU){
 					head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
 					informarResultado(cpu_i->cpu.fd_cpu, head); // como fallo ejecucion, avisamos a CPU
 					break;
-				}else if(validarRespuesta(sock_fs,head,&h_esp)){
+				}else if(validarRespuesta(sock_fs,head,&h_esp)==0){
 					log_trace(logTrace,"El archivo se crea con exito y se agrega a la listsa de procesos y tabla global");
 					agregarArchivoTablaGlobal(datosGlobal,abrir);
 					agregarArchivoATablaProcesos(datosGlobal,abrir->flags,cpu_i->con->pid);
@@ -467,7 +467,7 @@ void cpu_manejador(void *infoCPU){
 
 			if (escr->fd == FD_CONSOLA){ // lo mandamos a Consola y avisamos a CPU
 				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->fd_con, escr) < 0)?
-						FALLO_INSTR : ESCRIBIR;
+						FALLO_INSTR : ARCHIVO_ESCRITO;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
@@ -497,10 +497,10 @@ void cpu_manejador(void *infoCPU){
 				perror("error al enviar el paquete al filesystem");
 				break;
 			}
-			/*head.tipo_de_proceso = FS;
+			head.tipo_de_proceso = FS;
 			head.tipo_de_mensaje = ARCHIVO_ESCRITO;
-			if(validarRespuesta(sock_fs,head,&h_esp)){
-				head.tipo_de_mensaje =  ESCRIBIR;
+			if(validarRespuesta(sock_fs,head,&h_esp)== 0){
+				head.tipo_de_mensaje =  ARCHIVO_ESCRITO;
 				head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 			}else{
@@ -508,10 +508,9 @@ void cpu_manejador(void *infoCPU){
 				head.tipo_de_proceso = KER;
 				head.tipo_de_mensaje = FALLO_ESCRITURA;
 				informarResultado(cpu_i->cpu.fd_cpu,head);
-			}*/
-			head.tipo_de_mensaje = ESCRIBIR;
-			head.tipo_de_proceso = KER;
-			informarResultado(cpu_i->cpu.fd_cpu,head);
+			}
+
+
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
@@ -537,17 +536,18 @@ void cpu_manejador(void *infoCPU){
 				break;
 			}
 
-			/*if((stat = recv(sock_fs, &head, sizeof head, 0)) == -1){
-					perror("error al recibir el paquete al filesystem");
-					break;
-				}
-				if(head.tipo_de_mensaje == 1){//TODO: CAMBIAR ESTE 1 POR EL PROTOCOLO CORRESPONDIENTE
-					buffer = recvGeneric(sock_fs);
-					if((stat = send(cpu_i->cpu.fd_cpu,buffer,pack_size,0)) == -1){
-						perror("error al enviar el paquete al filesystem");
-						break;
-					}
-				}*/
+			head.tipo_de_proceso = FS;
+			head.tipo_de_mensaje = ARCHIVO_LEIDO;
+			if(validarRespuesta(sock_fs,head,&h_esp)== 0){
+				head.tipo_de_mensaje =  ARCHIVO_LEIDO;
+				head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+			}else{
+				log_error(logTrace,"No se pudieron escribir los datos solicitados");
+				head.tipo_de_proceso = KER;
+				head.tipo_de_mensaje = FALLO_ESCRITURA;
+				informarResultado(cpu_i->cpu.fd_cpu,head);
+			}
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
@@ -555,7 +555,6 @@ void cpu_manejador(void *infoCPU){
 			free(leer->info); free(leer);
 			freeAndNULL((void **)&buffer);
 			break;
-
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE):
 			case(PCB_PREEMPT): case(PCB_BLOCK)://COLA EXIT o BLOCK

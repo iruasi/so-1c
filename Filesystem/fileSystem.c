@@ -115,34 +115,103 @@ int *ker_manejador(void){
 
 	int stat;
 	int *retval = malloc(sizeof(int));
-	tPackHeader head;
-
+	tPackHeader head = {.tipo_de_proceso = KER,.tipo_de_mensaje = 9852};//9852, iniciar escuchaKernel
+	tPackHeader header;
+	char * buffer;
+	tPackBytes * abrir;
+	tPackRecibirRW * leer;
+	tPackRecibirRW * escribir;
+	tPackBytes * borrar;
+	struct fuse_file_info* fi;
+	int operacion;
+	header.tipo_de_proceso = FS;
 	do {
 	switch(head.tipo_de_mensaje){
 
 	case VALIDAR_ARCHIVO:
 		puts("Se pide validacion de archivo");
+		buffer = recvGeneric(sock_kern);
+		abrir = deserializeBytes(buffer);
+		if((operacion = validarArchivo(abrir->bytes)) == 0){
+			puts("El archivo fue validado");
+			header.tipo_de_mensaje = VALIDAR_RESPUESTA;
+			informarResultado(sock_kern,header);
+		}else{
+			puts("El archivo no fue validado, debe crearlo");
+			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
+			informarResultado(sock_kern,header);
+		}
+		freeAndNULL((void **)&buffer);
+		freeAndNULL((void **)&abrir);
 		puts("Fin case VALIDAR_ARCHIVO");
 		break;
 
 	case CREAR_ARCHIVO:
 		puts("Se pide crear un archivo");
+		buffer = recvGeneric(sock_kern);
+		abrir = deserializeBytes(buffer);
+		if(true){//todo: deberia ser crearArchivo, pero crearArchivo es void.
+			puts("El archivo fue abierto con exito");
+			header.tipo_de_mensaje = CREAR_ARCHIVO;
+			informarResultado(sock_kern,header);
+		}else{
+			puts("El archivo no pudo ser abierto");
+			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
+			informarResultado(sock_kern,header);
+		}
+		freeAndNULL((void **)&buffer);
 		puts("Fin case CREAR_ARCHIVO");
 		break;
 
-	case ARCHIVO_BORRADO:// todo: interprete bien lo de borrado? o es el mensaje de respuesta? Esta definido BORRAR, en \todo caso..
+	case BORRAR:
 		puts("Se peticiona el borrado de un archivo");
-		puts("Fin case ARCHIVO_BORRADO");
+		buffer = recvGeneric(sock_kern);
+		borrar = deserializeBytes(buffer);
+		if((operacion = unlink2(borrar->bytes)) == 0){
+			puts("El archivo fue borrado con exito");
+			header.tipo_de_mensaje = ARCHIVO_BORRADO;
+			informarResultado(sock_kern,header);
+		}else{
+			puts("El archivo no pudo ser borrado");
+			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
+			informarResultado(sock_kern,header);
+		}
+		puts("Fin case BORRAR");
+		freeAndNULL((void **)&buffer);
 		break;
 
-	case ARCHIVO_LEIDO:
+	case LEER:
 		puts("Se peticiona la lectura de un archivo");
-		puts("Fin case ARCHIVO_LEIDO");
+		buffer = recvGeneric(sock_kern);
+		leer = deserializeLeerFS(buffer);
+		if(true){//(operacion = read2(leer->direccion,)) == 0
+			puts("El archivo fue borrado con exito");
+			header.tipo_de_mensaje = ARCHIVO_LEIDO;
+			informarResultado(sock_kern,header);
+		}else{
+			puts("El archivo no pudo ser borrado");
+			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
+			informarResultado(sock_kern,header);
+		}
+		puts("Fin case LEER");
+		freeAndNULL((void **)&buffer);
 		break;
 
-	case ARCHIVO_ESCRITO:
+	case ESCRIBIR:
 		puts("Se peticiona la escritura de un archivo");
-		puts("Fin case ARCHIVO_ESCRITO");
+		buffer = recvGeneric(sock_kern);
+		escribir = deserializeLeerFS(buffer);
+		if(true){//(operacion = write2(escribir->direccion)) == 0
+			puts("El archivo fue borrado con exito");
+			header.tipo_de_mensaje = ARCHIVO_ESCRITO;
+			informarResultado(sock_kern,header);
+		}else{
+			puts("El archivo no pudo ser borrado");
+			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
+			informarResultado(sock_kern,header);
+		}
+		puts("Fin case ESCRIBIR");
+		freeAndNULL((void **)&buffer);
 		break;
 
 	default:

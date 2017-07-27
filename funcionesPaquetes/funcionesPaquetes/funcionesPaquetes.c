@@ -989,20 +989,25 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 }
 
 char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size){
-	int dirSize = strlen(path);
-	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + dirSize + sizeof tamanio + tamanio);
-
-	tPackHeader head = {.tipo_de_proceso = FS,.tipo_de_mensaje = LEER};
+	int dirSize = strlen(path)+1;
+	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int)+ sizeof(int) + dirSize + sizeof tamanio + tamanio + sizeof(flag));
+	tPackHeader head;
+	head.tipo_de_proceso = FS;
+	if(flag.lectura){
+		head.tipo_de_mensaje = LEER;
+	}else if(flag.escritura){
+		head.tipo_de_mensaje = ESCRIBIR;
+	}
 
 
 	*pack_size = 0;
 	memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
-
+	*pack_size += sizeof(int);
 	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
 	*pack_size += sizeof(int);
 
-	memcpy(leer_fs_serial + *pack_size, &path, dirSize);
+	memcpy(leer_fs_serial + *pack_size, path, dirSize);
 	*pack_size += dirSize;
 
 	memcpy(leer_fs_serial + *pack_size,&tamanio,sizeof(tamanio));
@@ -1011,12 +1016,32 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 	memcpy(leer_fs_serial + *pack_size, info, tamanio);
 	*pack_size += tamanio;
 
-	memcpy(leer_fs_serial + *pack_size,&flag,sizeof(int)),
+	memcpy(leer_fs_serial + *pack_size,&flag,sizeof(flag)),
 	*pack_size += sizeof(int);
 
 	memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));
 
 	return leer_fs_serial;
+}
+tPackRecibirRW * deserializeLeerFS(char * recibir_serial){
+	tPackRecibirRW * aux = malloc(sizeof(*aux));
+	int off = 0;
+
+	memcpy(&aux->dirSize,off + recibir_serial,sizeof(int));
+	off += sizeof(int);
+	aux->direccion = malloc(aux->dirSize);
+	memcpy(aux->direccion,off + recibir_serial,aux->dirSize);
+	off += aux->dirSize;
+	memcpy(&aux->tamanio,off + recibir_serial,sizeof(int));
+	off += sizeof(int);
+	aux->info = malloc(aux->tamanio);
+	memcpy(aux->info,off + recibir_serial,aux->tamanio);
+	off += aux->tamanio;
+	memcpy(&aux->flag,off + recibir_serial,sizeof(aux->flag));
+	off += sizeof(aux->flag);
+
+	return aux;
+
 }
 /*
  * FUNCIONES EXTRA...
