@@ -32,7 +32,6 @@ int *ejecutarPrograma(void);
 void set_quantum_sleep(void);
 void signal_handler(void);
 void sigusr1Handler(void);
-void sigintHandler(void);
 
 int conectarConServidores(tCPU *cpu_data);
 t_log * logTrace;
@@ -93,7 +92,6 @@ void err_handler(void){
 
 void signal_handler(void){
 	signal(SIGUSR1, sigusr1Handler);
-//	signal(SIGINT,sigusr1Handler);
 }
 
 void sigusr1Handler(void){
@@ -127,7 +125,7 @@ int main(int argc, char* argv[]){
 		return EXIT_FAILURE;
 	}
 	signal(SIGUSR1, sigusr1Handler);
-	logTrace = log_create("/home/utnso/logCPUTrace.txt","CPU",0,LOG_LEVEL_TRACE);
+	logTrace = log_create("/home/utnso/logCPUTrace.txt", "CPU", 0, LOG_LEVEL_TRACE);
 
 	log_trace(logTrace,"");
 	log_trace(logTrace,"");
@@ -182,29 +180,31 @@ int main(int argc, char* argv[]){
 		//puts("Se recibio un paquete de Kernel");
 		//printf("proc %d \t msj %d \n", head->tipo_de_proceso, head->tipo_de_mensaje);
 		log_trace(logTrace,"Se recibio un paquete de kernel");
-		if(head.tipo_de_mensaje == 87){
+
+		if(head.tipo_de_mensaje == NEW_QSLEEP){
 				if ((buffer = recvGeneric(sock_kern)) == NULL){
 					log_error(logTrace,"error al recibir el nuevo qs");
 					return FALLO_RECV;
 				}
 
 				if ((packNuevoQS = deserializeVal(buffer)) == NULL){
-					log_error(logTrace,"error al deserializar el packQS");
+					log_error(logTrace, "error al deserializar el packQS");
 					return FALLO_DESERIALIZAC;
 				}
 
-				log_trace(logTrace,"asigno nuevo qs");
+				log_trace(logTrace, "asigno nuevo quantum_sleep");
 
 				memcpy(&q_sleep, &packNuevoQS->val, sizeof(int));
 
 				set_quantum_sleep();
 
-				//freeAndNULL((void **)&nuevoQS);
+				freeAndNULL((void **) &packNuevoQS);
+				freeAndNULL((void **) &buffer);
 
-				log_trace(logTrace,"NUEVO QS: %d ",q_sleep);
+				log_trace(logTrace, "NUEVO QS: %d", q_sleep);
 
 				printf("NUEVO QS: %d (segs)\n", q_sleep);
-				printf("NUEVO QS: %f (flo)\n",q_sleep_segs);
+				printf("NUEVO QS: %f (flo)\n",  q_sleep_segs);
 
 		}
 		else if (head.tipo_de_mensaje == PCB_EXEC){

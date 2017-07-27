@@ -64,10 +64,11 @@ void cpu_manejador(void *infoCPU){
 	char *buffer, *var, sfd[MAXPID_DIG];
 	char *file_serial;
 	int stat, pack_size, p;
-	tPackBytes *sem_bytes;
+	tPackBytes *sem_bytes, *bytes;
 	tPackVal *alloc, *fd_rta;
 	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
+	tProcesoArchivo * procArchivo;
 	tPackHeader h_esp;
 
 	do {
@@ -333,8 +334,6 @@ void cpu_manejador(void *infoCPU){
 				log_error(logTrace,"El archivo no pudo ser validado ni creado");
 			}
 
-
-
 			fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
 			fd_rta->val = datosGlobal->fd;
 			file_serial = serializeVal(fd_rta, &pack_size);
@@ -473,24 +472,31 @@ void cpu_manejador(void *infoCPU){
 			}
 			sprintf(sfd, "%d", escr->fd);
 			tDatosTablaGlobal * path;
-			tProcesoArchivo * banderas;
 			MUX_LOCK(&mux_archivosAbiertos); MUX_LOCK(&mux_tablaPorProceso);
 			if(dictionary_has_key(tablaGlobal,sfd)){
-				path = dictionary_get(tablaGlobal, sfd); // todo: convendria que verificar antes si dictionary_has_key(dict, sfd)
-				banderas = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
+				path = dictionary_get(tablaGlobal, sfd);
+				procArchivo = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
 				log_trace(logTrace,"El archivo de fd #%d del proceso #%d fue obtenido con exito de la tabla globa",escr->fd,cpu_i->con->pid);
 			}else{
 				log_error(logTrace,"La tabla global de archivos no posee el fd solicitado");
 				free(escr->info); free(escr);
 				freeAndNULL((void **) &buffer);
+				MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
 				break;
 			}
 			MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
 
+<<<<<<< HEAD
 			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
 			log_trace(logTrace,"el path del dir elegido es %s",path->direccion);
 
 			file_serial = serializeLeerFS(path->direccion, escr->info, escr->tamanio, banderas->flag, &pack_size);
+=======
+			printf("El path del direcctorio elegido es: %s\n", path->direccion);
+
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ESCRIBIR;
+			file_serial = serializeLeerFS(head, path->direccion, escr->info, escr->tamanio, procArchivo->flag, &pack_size);
+>>>>>>> 8f56814ec8006c51bb9cc5f6986550431cb7bd2f
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
 				log_error(logTrace,"error al enviar el paquete al fs");
 				perror("error al enviar el paquete al filesystem");
@@ -521,38 +527,53 @@ void cpu_manejador(void *infoCPU){
 		case LEER:
 			log_trace(logTrace,"case leer");
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-			tPackRW * leer = deserializeRW(buffer);
-			path =  dictionary_get(tablaGlobal,(char *) &leer->fd);
-			//printf("El valor del fd en leer es %d \n", leer->fd);
-			log_trace(logTrace,"el valor del fd en leer es %d",leer->fd);
-			banderas = obtenerProcesoSegunFD(leer->fd,cpu_i->con->pid);
-			//printf("El path del direcctorio elegido es: %s\n", (char *) path->direccion);
+			tPackLeer *leer = deserializeLeer(buffer);
+			freeAndNULL((void **) &buffer);
 
-			file_serial = serializeLeerFS(path->direccion,leer->info,leer->tamanio,banderas->flag,&pack_size);
-			if((stat = send(sock_fs,file_serial,pack_size,0)) == -1){
-				log_error(logTrace,"error al enviar el paquete alfs");
+			sprintf(sfd, "%d", leer->fd);
+			path = dictionary_get(tablaGlobal, sfd);
+			log_trace(logTrace, "el valor del fd en leer es %d", leer->fd);
+			if ((procArchivo = obtenerProcesoSegunFD(leer->fd,cpu_i->con->pid)) == NULL){
+				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+			}
+
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = LEER;
+			file_serial = serializeLeerFS2(head, path->direccion, procArchivo->posicionCursor, leer->size, &pack_size); //todo: segfault
+			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
+				log_error(logTrace, "error al enviar el paquete a Filesystem");
 				perror("error al enviar el paquete al filesystem");
 				break;
 			}
+			freeAndNULL((void **) &file_serial);
 
-			head.tipo_de_proceso = FS;
-			head.tipo_de_mensaje = ARCHIVO_LEIDO;
-			if(validarRespuesta(sock_fs,head,&h_esp)== 0){
-				head.tipo_de_mensaje =  ARCHIVO_LEIDO;
+			h_esp.tipo_de_proceso = FS;
+			h_esp.tipo_de_mensaje = ARCHIVO_LEIDO;
+			if(validarRespuesta(sock_fs, h_esp, &head) != 0){
 				head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
+				log_error(logTrace, "No se pudieron leer los datos solicitados");
 				informarResultado(cpu_i->cpu.fd_cpu, head);
-			}else{
-				log_error(logTrace,"No se pudieron escribir los datos solicitados");
-				head.tipo_de_proceso = KER;
-				head.tipo_de_mensaje = FALLO_ESCRITURA;
-				informarResultado(cpu_i->cpu.fd_cpu,head);
+				break;
 			}
+
+			buffer = recvGeneric(sock_fs);
+			bytes = deserializeBytes(buffer);
+
+			head.tipo_de_proceso = KER;
+			file_serial = serializeBytes(head, bytes->bytes, bytes->bytelen, &pack_size);
+
+			if (send(cpu_i->cpu.fd_cpu, file_serial, pack_size, 0) == -1){
+				log_error(logTrace, "No se pudo enviar paquete leido a CPU");
+				perror("Fallo send de paquete lectura a CPU. error");
+				break;
+			}
+
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
 
-			free(leer->info); free(leer);
-			freeAndNULL((void **)&buffer);
+			freeAndNULL((void **) &leer);
+			freeAndNULL((void **)&buffer); freeAndNULL((void **) &bytes);
 			break;
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE):

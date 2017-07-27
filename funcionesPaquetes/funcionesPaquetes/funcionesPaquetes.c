@@ -841,31 +841,39 @@ char *serializeRW(tPackHeader head, tPackRW *read_write, int *pack_size){
 	return rw_serial;
 }
 
-//char *serializeLeer(t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio, int *pack_size){
-
-char * serializeLeer(tPackRW * read_write, int *pack_size){
+char *serializeLeer(tPackLeer *read, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = LEER};
 
-	char * rw_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + sizeof(read_write->tamanio) + read_write->tamanio);
+	char * r_serial = malloc(HEAD_SIZE + 3 * sizeof(int));
 
 	*pack_size = 0;
-	memcpy(rw_serial + *pack_size,&head,HEAD_SIZE);
+	memcpy(r_serial + *pack_size, &head, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
 
 	*pack_size += sizeof(int);
 
-	memcpy(rw_serial + *pack_size,&read_write->fd,sizeof(int));
+	memcpy(r_serial + *pack_size, &read->fd, sizeof(int));
 	*pack_size += sizeof(int);
-	memcpy(rw_serial + *pack_size,&read_write->tamanio,sizeof(read_write->tamanio));
-	*pack_size += sizeof(read_write->tamanio);
-	memcpy(rw_serial + *pack_size,read_write->info,read_write->tamanio),
-	*pack_size += read_write->tamanio;
+	memcpy(r_serial + *pack_size, &read->size, sizeof(int));
+	*pack_size += sizeof(int);
 
+	memcpy(r_serial + HEAD_SIZE, pack_size, sizeof(int));
 
-	memcpy(rw_serial + HEAD_SIZE, pack_size,sizeof(int));
+	return r_serial;
+}
 
-	return rw_serial;
+tPackLeer *deserializeLeer(char *leer_serial){
+
+	int off = 0;
+	tPackLeer *p_leer = malloc(sizeof *p_leer);
+
+	memcpy(&p_leer->fd, leer_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&p_leer->size, leer_serial + off, sizeof(int));
+	off += sizeof(int);
+
+	return p_leer;
 }
 
 tPackRW * deserializeRW(char * rw_serial){
@@ -988,17 +996,54 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 	return aux;
 }
 
-char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size){
+
+char *serializeLeerFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, int *pack_size){
+
+	int dirSize = strlen(path) + 1;
+	char *leer_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof cursor + sizeof(int));
+
+	*pack_size = 0;
+	memcpy(leer_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(leer_serial + *pack_size, &dirSize, sizeof(int)),
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, path, dirSize);
+	*pack_size += dirSize;
+	memcpy(leer_serial + *pack_size, &cursor, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, &size, sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(leer_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return leer_serial;
+}
+
+tPackRecvRW *deserializeLeerFS2(char *leer_serial){
+
+	int off;
+	tPackRecvRW *prw = malloc(sizeof *prw);
+
+	off = 0;
+	memcpy(&prw->dirSize, leer_serial + off, sizeof(int));
+	off += sizeof(int);
+	prw->direccion = malloc(prw->dirSize);
+	memcpy(prw->direccion, leer_serial + off, prw->dirSize);
+	off += prw->dirSize;
+	memcpy(&prw->cursor, leer_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&prw->size, leer_serial + off, sizeof(int));
+	off += sizeof(int);
+
+	return prw;
+}
+
+char * serializeLeerFS(tPackHeader head, t_direccion_archivo path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size){
 	int dirSize = strlen(path)+1;
 	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int)+ sizeof(int) + dirSize + sizeof tamanio + tamanio + sizeof(flag));
-	tPackHeader head;
-	head.tipo_de_proceso = FS;
-	if(flag.lectura){
-		head.tipo_de_mensaje = LEER;
-	}else if(flag.escritura){
-		head.tipo_de_mensaje = ESCRIBIR;
-	}
-
 
 	*pack_size = 0;
 	memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
@@ -1023,6 +1068,7 @@ char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable t
 
 	return leer_fs_serial;
 }
+
 tPackRecibirRW * deserializeLeerFS(char * recibir_serial){
 	tPackRecibirRW * aux = malloc(sizeof(*aux));
 	int off = 0;

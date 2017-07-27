@@ -15,6 +15,7 @@
 
 #include <fuse.h>
 
+#include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
@@ -113,18 +114,20 @@ int main(int argc, char* argv[]){
 
 int *ker_manejador(void){
 
-	int stat;
+	int stat, pack_size;
 	int *retval = malloc(sizeof(int));
-	tPackHeader head = {.tipo_de_proceso = KER,.tipo_de_mensaje = 9852};//9852, iniciar escuchaKernel
+	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = 9852};//9852, iniciar escuchaKernel
 	tPackHeader header;
-	char * buffer;
-	tPackBytes * abrir;
+	char *buffer, *info;
+	tPackBytes * abrir, *bytes;
+	tPackBytes * borrar;
+	tPackRecvRW *rw;
 	tPackRecibirRW * leer;
 	tPackRecibirRW * escribir;
-	tPackBytes * borrar;
-	struct fuse_file_info* fi;
+	struct fuse_file_info *fi = malloc(sizeof *fi);
 	int operacion;
 	header.tipo_de_proceso = FS;
+
 	do {
 	switch(head.tipo_de_mensaje){
 
@@ -183,18 +186,31 @@ int *ker_manejador(void){
 	case LEER:
 		puts("Se peticiona la lectura de un archivo");
 		buffer = recvGeneric(sock_kern);
-		leer = deserializeLeerFS(buffer);
-		if(true){//(operacion = read2(leer->direccion,)) == 0
-			puts("El archivo fue borrado con exito");
-			header.tipo_de_mensaje = ARCHIVO_LEIDO;
-			informarResultado(sock_kern,header);
-		}else{
-			puts("El archivo no pudo ser borrado");
-			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
-			informarResultado(sock_kern,header);
+		rw = deserializeLeerFS2(buffer);
+
+		info = malloc(rw->size);
+
+		if(read2(rw->direccion, &info, rw->size, rw->cursor, fi) != 0){
+			puts("Hubo un fallo ejecutando read2");
+			head.tipo_de_mensaje = INVALIDAR_RESPUESTA;
+			informarResultado(sock_kern, head);
 		}
+		puts("El archivo fue leido con exito");
+
+		head.tipo_de_proceso = FS; head.tipo_de_mensaje = ARCHIVO_LEIDO;
+		bytes = serializeBytes(head, info, rw->size, &pack_size);
+
+		if ((stat = send(sock_kern, bytes, pack_size, 0)) == -1){
+			perror("Fallo send de bytes leidos a Kernel. error");
+			break;
+		}
+		printf("Se enviaron %d bytes a Kernel\n", stat);
+
 		puts("Fin case LEER");
-		freeAndNULL((void **)&buffer);
+
+		freeAndNULL((void **) &buffer);
+		free(rw->direccion); freeAndNULL((void **) &rw);
+		free(bytes->bytes);  freeAndNULL((void **) &bytes);
 		break;
 
 	case ESCRIBIR:

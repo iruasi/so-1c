@@ -93,7 +93,7 @@ typedef struct{
 typedef struct{
 	t_banderas flag;
 	t_descriptor_archivo fd;
-	t_valor_variable posicionCursor;
+	t_puntero posicionCursor;
 }tProcesoArchivo;
 
 typedef struct{
