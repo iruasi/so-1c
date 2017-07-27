@@ -108,6 +108,7 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 		return NULL;
 	}
 
+
 	return buffer;
 }
 

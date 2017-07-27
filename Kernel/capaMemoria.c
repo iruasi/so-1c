@@ -527,8 +527,8 @@ void liberarHeapEnKernel(int pid){
 	log_trace(logTrace,"inicio liberar heap en kernel");
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
-	printf("Eliminamos los registros de Heap del PID %s\n", spid);
-
+	//printf("Eliminamos los registros de Heap del PID %s\n", spid);
+	log_trace(logTrace,"eliminalos los registros del heap para PID %d",pid);
 	if (!tieneHeap(pid)){
 		log_trace(logTrace,"fin liberar heap en kernel");
 		return;

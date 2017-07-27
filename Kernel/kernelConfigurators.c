@@ -67,7 +67,7 @@ tKernel *getConfigKernel(char* ruta){
 int getNewQS(char* ruta){
 	t_config *kernelConfig2 = config_create(ruta);
 
-	printf("ruta: %s\n",ruta);
+	//printf("ruta: %s\n",ruta);
 	int qs=-1;
 	if(config_has_property(kernelConfig2,"QUANTUM_SLEEP")){
 		qs= config_get_int_value(kernelConfig2, "QUANTUM_SLEEP");

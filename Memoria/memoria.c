@@ -46,22 +46,7 @@ struct infoKer{
 	int *sock_ker;
 	bool kernExists;
 };
-void crearLogger() {
-   char *pathLogger = string_new();
 
-   char cwd[1024];
-
-   string_append(&pathLogger, getcwd(cwd, sizeof(cwd)));
-
-   string_append(&pathLogger, "/logs/Memory_LOG.log");
-
-   char *logMemoria = strdup("Memory_LOG.log");
-
-   //logger = log_create(pathLogger, logMemoria, false, LOG_LEVEL_TRACE);
-
-   free(pathLogger);
-   free(logMemoria);
-}
 
 int main(int argc, char* argv[]){
 
@@ -91,7 +76,6 @@ int main(int argc, char* argv[]){
 	int stat;
 
 	pthread_mutex_init(&mux_mem_access, NULL);
-	crearLogger();
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
 
@@ -356,7 +340,7 @@ void* cpu_handler(void *socket_cpu){
 		switch(head.tipo_de_mensaje){
 		case BYTES:
 			log_trace(logTrace,"cpu solicita bytes");
-			puts("CPU quiere Solicitar Bytes");
+			//puts("CPU quiere Solicitar Bytes");
 			pthread_mutex_lock(&mux_mem_access);
 
 			if ((stat = manejarSolicitudBytes(*sock_cpu)) != 0){
@@ -369,7 +353,7 @@ void* cpu_handler(void *socket_cpu){
 			break;
 
 		case ALMAC_BYTES:
-			puts("CPU quiere Almacenar bytes CPU");
+			//puts("CPU quiere Almacenar bytes CPU");
 			log_trace(logTrace,"cpu quiere almacenar bytes");
 			pthread_mutex_lock(&mux_mem_access);
 
@@ -383,7 +367,7 @@ void* cpu_handler(void *socket_cpu){
 			break;
 
 		case INSTR:
-			puts("Se recibio pedido de instrucciones");
+			//puts("Se recibio pedido de instrucciones");
 			log_trace(logTrace,"se recibio pedido de instrucciones");
 			pthread_mutex_lock(&mux_mem_access);
 

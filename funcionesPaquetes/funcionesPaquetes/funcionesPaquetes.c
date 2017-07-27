@@ -1079,6 +1079,6 @@ void informarResultado(int sock, tPackHeader head){
 		puts("No se pudo enviar el paquete completo");
 		return;
 	}
-	printf("Se enviaron %d bytes al socket %d\n", stat, sock);
+	//printf("Se enviaron %d bytes al socket %d\n", stat, sock);
 	free(buffer);
 }

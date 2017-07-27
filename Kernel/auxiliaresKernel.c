@@ -270,7 +270,7 @@ int escribirAConsola(int pidProg,int sock_con, tPackRW *escr){
 
 	//verifico q la consola no este desconectada!
 
-	if(estaDesconectada(pidProg) > -1){
+	if(estaDesconectada(pidProg) > -1 && sock_con != -1){
 
 		char *buff;
 		int pack_size, stat;

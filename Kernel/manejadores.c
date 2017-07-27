@@ -463,7 +463,7 @@ void cpu_manejador(void *infoCPU){
 
 			head.tipo_de_proceso = KER;
 			log_trace(logTrace,"se recibio el fd %d",escr->fd);
-			printf("Se escribe en fd %d, la info %s\n", escr->fd, (char *) escr->info);
+			//printf("Se escribe en fd %d, la info %s\n", escr->fd, (char *) escr->info);
 
 			if (escr->fd == FD_CONSOLA){ // lo mandamos a Consola y avisamos a CPU
 				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->pid,cpu_i->con->fd_con, escr) < 0)?
@@ -487,8 +487,8 @@ void cpu_manejador(void *infoCPU){
 			}
 			MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
 
-			printf("El path del direcctorio elegido es: %s\n", path->direccion);
-
+			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
+			log_trace(logTrace,"el path del dir elegido es %s",path->direccion);
 
 			file_serial = serializeLeerFS(path->direccion, escr->info, escr->tamanio, banderas->flag, &pack_size);
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
@@ -577,7 +577,7 @@ void cpu_manejador(void *infoCPU){
 		list_add(listaDeCpu, cpu_i);
 		pthread_mutex_unlock(&mux_listaDeCPU);
 		sem_post(&eventoPlani);
-		puts("Fin case HSHAKE.");
+		//puts("Fin case HSHAKE.");
 		break;
 
 	case THREAD_INIT:
@@ -700,8 +700,9 @@ void cons_manejador(void *conInfo){
 	//printf("(CON) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 	log_trace(logTrace,"Se recibe un mensaje de consola %d",con_i->con->fd_con);
 	case SRC_CODE:
-		puts("Consola quiere iniciar un programa");
+		//puts("Consola quiere iniciar un programa");
 		log_trace(logTrace,"Consola quiere iniciar un programa");
+
 		if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
 			puts("Fallo recepcion de SRC_CODE");
 			log_error(logTrace,"Fallo recepcion de src code");
@@ -716,6 +717,9 @@ void cons_manejador(void *conInfo){
 
 		tPCB *new_pcb = crearPCBInicial();
 		con_i->con->pid = new_pcb->id;
+		avisarPIDaPrograma(new_pcb->id,con_i->con->fd_con);
+		log_trace(logTrace,"CONSOLA(fd=%d) ENVIA UN PROGRAMA PARA EJECUTAR. SU PID %d###\n",con_i->con->fd_con,new_pcb->id);
+		printf("###CONSOLA(fd=%d) ENVIA UN PROGRAMA PARA EJECUTAR. SU PID %d###\n",con_i->con->fd_con,new_pcb->id);
 		asociarSrcAProg(con_i, entradaPrograma);
 
 		//printf("El size del paquete %d\n", strlen(entradaPrograma->bytes) + 1);

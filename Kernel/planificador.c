@@ -74,28 +74,28 @@ void setupPlanificador(void){
 
 void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
-	log_trace(logTrace,"Mandar pcb a cpu");
+	log_trace(logTrace,"Mandar pcb a cpu [PID %d]",pcb->id);
 	//sem_wait(&codigoEnviado);
 
 	int pack_size, stat;
 	pack_size = 0;
 	tPackHeader head = { .tipo_de_proceso = KER, .tipo_de_mensaje = PCB_EXEC };
-	log_trace(logTrace, "Comenzamos a serializar el PCB");
+	log_trace(logTrace, "Comenzamos a serializar el PCB[PID %d]",pcb->id);
 
 	pcb->proxima_rafaga = (kernel->algo == FIFO)? FIFO_INST : kernel->quantum;
 
 	char *pcb_serial;
 	if ((pcb_serial = serializePCB(pcb, head, &pack_size)) == NULL){
-		log_error(logTrace,"Fallo serializacion de pcb");
+		log_error(logTrace,"Fallo serializacion de pcb[PID %d]",pcb->id);
 		puts("Fallo serializacion de pcb");
 		return;
 	}
 	//printf("pack_size: %d\n", pack_size);
-	log_trace(logTrace,"Pack_size %d",pack_size);
+//	log_trace(logTrace,"Pack_size %d",pack_size);
 	//puts("Enviamos el PCB a CPU");
-	log_trace(logTrace,"Enviamos el pcb a cpu");
+	log_trace(logTrace,"Enviamos el pcb a cpu[PID %d]",pcb->id);
 	if ((stat = send(cpu->cpu.fd_cpu, pcb_serial, pack_size, 0)) == -1){
-		log_error(logTrace,"Fallo envio de pcba  cpu");
+		log_error(logTrace,"Fallo envio de pcba  cpu[PID %d]",pcb->id);
 		perror("Fallo envio de PCB a CPU. error");
 		return;
 	}
@@ -111,15 +111,21 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 }
 
 void asociarProgramaACPU(t_RelCC *cpu){
-
-	log_trace(logTrace,"Asociar programa a cpu");
-	t_RelPF *pf = getProgByPID(cpu->cpu.pid);
+	if(getProgByPID(cpu->cpu.pid) != NULL){
+		log_trace(logTrace,"Asociar programa a cpu");
+		t_RelPF *pf = getProgByPID(cpu->cpu.pid);
 
 		cpu->con->fd_con = pf->prog->con->fd_con;
 		cpu->con->pid    = pf->prog->con->pid;
 
 		pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
 		pf->prog->cpu.pid    = cpu->cpu.pid;
+	}else{
+		log_error(logTrace, "no se asocio programa a cpu [FD CPU %d]",cpu->cpu.fd_cpu);
+		cpu->con->pid=-1;
+		cpu->con->fd_con=-1;
+	}
+
 
 }
 
@@ -217,7 +223,7 @@ void planificar(void){
 }
 
 int getPCBPositionByPid(int pid, t_list *cola_pcb){
-	log_trace(logTrace,"Get pcb position by pid");
+	log_trace(logTrace,"Get pcb position by pid [PID %d]",pid);
 	int i, size;
 	tPCB *pcb;
 
@@ -242,22 +248,24 @@ void encolarEnNew(tPCB *pcb){
 
 t_RelPF *getProgByPID(int pid){
 	//puts("Obtener Programa mediante PID");
-	log_trace(logTrace,"Obtener programa mediante pid");
-	t_RelPF *pf;
-	int i;
-	MUX_LOCK(&mux_gl_Programas);
-	for (i = 0; i < list_size(gl_Programas); ++i){
-		pf = list_get(gl_Programas, i);
-		if (pid == pf->prog->con->pid){
-			MUX_UNLOCK(&mux_gl_Programas);
-			return pf;
+
+		log_trace(logTrace,"Obtener programa mediante pid %d",pid);
+		t_RelPF *pf;
+		int i;
+		MUX_LOCK(&mux_gl_Programas);
+		for (i = 0; i < list_size(gl_Programas); ++i){
+			pf = list_get(gl_Programas, i);
+			if (pid == pf->prog->con->pid){
+				MUX_UNLOCK(&mux_gl_Programas);
+				log_trace(logTrace,"Fin obtener programa succes pid %d",pid);
+				return pf;
+			}
 		}
-	}
-	MUX_UNLOCK(&mux_gl_Programas);
+		MUX_UNLOCK(&mux_gl_Programas);
 
 
 	printf("No se encontro el programa relacionado al PID %d\n", pid);
-	log_error(logTrace,"No se encontro el programa relacionado al PID");
+	log_error(logTrace,"No se encontro el programa relacionado al PID %d",pid);
 	return NULL;
 }
 
@@ -280,21 +288,21 @@ void encolarDeNewEnReady(tPCB *pcb){
 
 
 		if ((pcb->indiceDeCodigo    = malloc(indiceCod_size)) == NULL){
-			log_error(logTrace,"Fallo malloc de bytes para pcb->indicedecodigo");
+			log_error(logTrace,"Fallo malloc de bytes para pcb->indicedecodigo[PID %d]",pcb->id);
 			printf("Fallo malloc de %d bytes para pcb->indiceDeCodigo\n", indiceCod_size);
 			return;
 		} memcpy(pcb->indiceDeCodigo, meta->instrucciones_serializado, indiceCod_size);
 
 		if (pcb->cantidad_etiquetas || pcb->cantidad_funciones){
 			if ((pcb->indiceDeEtiquetas = malloc(meta->etiquetas_size)) == NULL){
-				log_error(logTrace,"Fallo malloc de bytes para pcb indicedeetiquetas");
+				log_error(logTrace,"Fallo malloc de bytes para pcb indicedeetiquetas[PID %d]",pcb->id);
 				printf("Fallo malloc de %d bytes para pcb->indiceDeEtiquetas\n", meta->etiquetas_size);
 				return;
 			}
 			memcpy(pcb->indiceDeEtiquetas, meta->etiquetas, pcb->etiquetas_size);
 		}
 
-		avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con);
+		//avisarPIDaPrograma(pf->prog->con->pid, pf->prog->con->fd_con); //le avisamos en manejador cons, total ya va a tener PID asignado
 		iniciarYAlojarEnMemoria(pf, code_pages + kernel->stack_size);
 		crearInfoProcess(pcb->id);
 
@@ -306,13 +314,13 @@ void encolarDeNewEnReady(tPCB *pcb){
 	}
 	else
 	{
-		log_trace(logTrace,"Sacamos y eliminamos el pcb q no tienee codigo fuente asociado");
+		log_trace(logTrace,"Sacamos y eliminamos el pcb q no tienee codigo fuente asociado[PID %d]",pcb->id);
 		//puts("SACAMOS Y ELIMINAMOS EL PCB Q NO TIENE CODIGOFUENTE ASOCIADO");
 	}
 }
 
 void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
-	log_trace(logTrace,"Iniciar y alojar en memoria");
+	log_trace(logTrace,"Iniciar y alojar en memoria [PID %d]",pf->prog->con->pid);
 	int stat;
 	char *pidpag_serial;
  	int pack_size = 0;
@@ -325,21 +333,21 @@ void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
 	pp.pageCount = pages;
 
 	if ((pidpag_serial = serializePIDPaginas(&pp, &pack_size)) == NULL){
-		log_error(logTrace,"fallo serialize pid paginas");
+		log_error(logTrace,"fallo serialize pid paginas[PID %d]",pf->prog->con->pid);
 		puts("fallo serialize PID Paginas");
 		return;
 	}
 	log_trace(logTrace,"enviamos inicializacino de programa a memoria");
 	//puts("Enviamos inicializacion de programa a Memoria");
 	if ((stat = send(sock_mem, pidpag_serial, pack_size, 0)) == -1){
-		log_error(logTrace,"fallo pedido de inicializacion de prog en memoria");
+		log_error(logTrace,"fallo pedido de inicializacion de prog en memoria[PID %d]",pf->prog->con->pid);
 		puts("Fallo pedido de inicializacion de prog en Memoria...");
 		return;
 	}
 
 	tPackByteAlmac *pbal;
 	if ((pbal = malloc(sizeof *pbal)) == NULL){
-		log_error(logTrace,"fallo mallocar bytes para pbal");
+		log_error(logTrace,"fallo mallocar bytes para pbal[PID %d]",pf->prog->con->pid);
 		printf("Fallo mallocar %d bytes para pbal\n", sizeof *pbal);
 		return;
 	}
@@ -358,12 +366,12 @@ void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
 		return;
 	}
 
-	puts("Enviamos el srccode");
+	//puts("Enviamos el srccode");
 	if ((stat = send(sock_mem, packBytes, pack_size, 0)) == -1){
 		puts("Fallo envio src code a Memoria...");
-		log_error(logTrace,"fallo envio src code a memoria");
+		log_error(logTrace,"fallo envio src code a memoria[PID %d]",pf->prog->con->pid);
 	}
-	log_trace(logTrace,"se enviaron %d bytes a memoria",stat);
+	log_trace(logTrace,"se enviaron %d bytes a memoria[PID %d]",pf->prog->con->pid,stat);
 	//	printf("se enviaron %d bytes\n", stat);
 
 	free(pidpag_serial);
@@ -382,14 +390,14 @@ void avisarPIDaPrograma(int pid, int sock_prog){
 
 	pack_size = 0;
 	if ((pid_serial = serializeVal(&pack_pid, &pack_size)) == NULL){
-		log_error(logTrace,"no se serializo bien");
+		log_error(logTrace,"no se serializo bien[PID %d]",pid);
 		//puts("No se serializo bien");
 		return;
 	}
 
-	printf("Aviso al hilo_consola %d su numero de PID\n", sock_prog);
+	//printf("Aviso al hilo_consola %d su numero de PID\n", sock_prog);
 	if ((stat = send(sock_prog, pid_serial, pack_size, 0)) == -1){
-		log_error(logTrace,"fallo envio de pid a consola");
+		log_error(logTrace,"fallo envio de pid a consola[PID %d]",pid);
 		perror("Fallo envio de PID a Consola. error");
 		return;
 	}
@@ -439,7 +447,7 @@ int obtenerCPUociosa(void){
 }
 
 int fueFinalizadoPorConsola(int pid){
-	log_trace(logTrace,"%d fue finalizado x consola? ",pid);
+	log_trace(logTrace,"funcion %d fue finalizado x consola ",pid);
 	int i;
 	for(i = 0; i < list_size(finalizadosPorConsolas); i++){
 		t_finConsola *fcAux = list_get(finalizadosPorConsolas, i);
@@ -462,8 +470,8 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	switch(cpu->msj){
 	case (FIN_PROCESO):
 
-	puts("Se recibe FIN_PROCESO de CPU");
-	log_trace(logTrace,"Se recibe FIN_PROCESO de cpu");
+	printf("FIN_PROCESO %d\n",pcbCPU->id);
+	log_trace(logTrace,"Se recibe FIN_PROCESO de cpu [PID %d]",pcbCPU->id);
 	//lo sacamos de la lista de EXEC
 	MUX_LOCK(&mux_exec);
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
@@ -484,8 +492,8 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	break;
 
 	case (PCB_PREEMPT):
-		puts("Se recibe fin de quantum de cpu");
-	log_trace(logTrace,"se recibe fin de quantum de cpu");
+	printf("\nFIN DE QUANTUM[pid %d]\n",pcbCPU->id);
+	log_trace(logTrace,"FIN DE QUANTUM[pid %d]",pcbCPU->id);
 	MUX_LOCK(&mux_exec);
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
 	MUX_UNLOCK(&mux_exec);
@@ -561,10 +569,10 @@ void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 		pcb->exitCode = fcAux->ecode;
 	}
 	//MUX_UNLOCK(&mux_listaFinalizados);
-
-	printf("\n\n#####EXIT CODE DEL PROCESO %d: %d\n\n#####", pcb->id, pcb->exitCode);
+	printf("\n\n#####FIN DE EJECUCION DE %d#####\n",pcb->id);
+	printf("#####EXIT CODE DEL PROCESO %d: %d#####\n\n", pcb->id, pcb->exitCode);
 	log_trace(logTrace,"Exit code de %d: %d",pcb->id,pcb->exitCode);
-	if(pcb->exitCode != CONS_DISCONNECT){
+	if(pcb->exitCode != CONS_DISCONNECT && cpu->con->fd_con != -1){
 
 		headerFin->tipo_de_proceso = KER;
 		headerFin->tipo_de_mensaje = (pcb->exitCode!= DESCONEXION_CPU)?
@@ -615,7 +623,7 @@ void blockByPID(int pid, tPCB *pcbCPU){
 
 /* Se deshace del PCB viejo y lo apunta al nuevo */
 void mergePCBs(tPCB **old, tPCB *new){
-	log_trace(logTrace,"merge pcbs");
+	log_trace(logTrace,"merge pcbs ");
 	liberarPCB(*old);
 	*old = new;
 }
@@ -628,7 +636,7 @@ void unBlockByPID(int pid){
 
 	MUX_LOCK(&mux_block);
 	if ((p = getPCBPositionByPid(pid, Block)) == -1){
-		log_error(logTrace,"no existe el pcb solicitado en block");
+		log_error(logTrace,"no existe el pcb solicitado en block  [PID %d]",pid);
 		printf("No existe el PCB de PID %d en la cola de Block\n", pid);
 		MUX_UNLOCK(&mux_block); return;
 	}
@@ -651,7 +659,7 @@ void informarNuevoQS(){
 		if(cpu->cpu.pid==-1){
 			//esta inactiva, le aviso
 			avisarNewQSaCPU(kernel->quantum_sleep,cpu->cpu.fd_cpu);
-			printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu->cpu.fd_cpu,kernel->quantum_sleep);
+			//printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu->cpu.fd_cpu,kernel->quantum_sleep);
 
 		}
 		if(cpu->cpu.pid > -1){
@@ -675,6 +683,7 @@ void informarNuevoQSLuego(t_RelCC *cpu_i){
 			if(cpu_i->cpu.pid == -1)
 				{
 					avisarNewQSaCPU(kernel->quantum_sleep,cpu_i->cpu.fd_cpu);
+					log_trace(logTrace,"Aviso al cpu %d el nuevo qs de %d\n", cpu_i->cpu.fd_cpu,kernel->quantum_sleep);
 					printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu_i->cpu.fd_cpu,kernel->quantum_sleep);
 					list_remove(listaAvisarQS,k);
 					MUX_UNLOCK(&mux_listaAvisar);
@@ -706,7 +715,8 @@ void avisarNewQSaCPU(int qs, int sock){
 		return;
 	}
 
-	printf("Aviso al cpu %d el nuevo qs\n", sock);
+	printf("le avisamos a cpu %d el nuevo qs de %d\n",sock,qs);
+	log_trace(logTrace,"Aviso al cpu %d el nuevo qs de %d\n", sock,qs);
 	if ((stat = send(sock, qs_serial, pack_size, 0)) == -1){
 		log_error(logTrace,"fallo envio de qs a cpu");
 		perror("Fallo envio de qs a cpu. error");

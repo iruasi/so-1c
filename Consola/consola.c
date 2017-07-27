@@ -30,7 +30,7 @@
  */
 #define STR_EQ(BUF, CC) (!strcmp((BUF),(CC)))
 
-t_list *listaAtributos,*listaFinalizados;
+t_list *listaAtributos,*listaFinalizados,listaHilos;
 
 tConsola *cons_data;
 
@@ -40,7 +40,6 @@ int main(int argc, char* argv[]){
 
 
 
-	//logger = log_create("/home/utnso/logConsolaInfo.txt","CONSOLA",1,LOG_LEVEL_INFO);
 
 	logTrace = log_create("/home/utnso/logCONSOLATrace.txt","CONSOLA",0,LOG_LEVEL_TRACE);
 
