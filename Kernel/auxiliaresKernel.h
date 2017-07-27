@@ -62,12 +62,14 @@ void desconexionCpu(t_RelCC *cpu_i);
 
 bool estaEnExit(int pid);
 
-int escribirAConsola(int sock_con, tPackRW *escr);
+int escribirAConsola(int pidProg,int sock_con, tPackRW *escr);
 
 // todo: podria poner esto en otro lado? o aca estara bien...
 
 void crearInfoProcess(int pid);
 t_infoProcess *getInfoProcessByPID(int pid);
+
+int estaDesconectada(int pid);
 
 void sumarSyscall(int pid);
 void sumarPaginaHeap(int pid);

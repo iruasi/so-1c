@@ -174,7 +174,7 @@ char *serializeProcAProc(tHShakeProcAProc *h_shake, int *pack_size){
 }
 
 char *recvGenericWFlags(int sock_in, int flags){
-	printf("Se recibe el paquete serializado, usando flags %x\n", flags);
+	//printf("Se recibe el paquete serializado, usando flags %x\n", flags);
 
 	int stat, pack_size;
 	char *p_serial;
@@ -189,7 +189,7 @@ char *recvGenericWFlags(int sock_in, int flags){
 	}
 
 	pack_size -= (HEAD_SIZE + sizeof(int)); // ya se recibieron estas dos cantidades
-	printf("Paquete de size: %d\n", pack_size);
+	//printf("Paquete de size: %d\n", pack_size);
 
 	if ((p_serial = malloc(pack_size)) == NULL){
 		printf("No se pudieron mallocar %d bytes para paquete generico\n", pack_size);
@@ -399,7 +399,7 @@ char *serializarStack(tPCB *pcb, int pesoStack, int *pack_size){
 
 
 tPCB *deserializarPCB(char *pcb_serial){
-	puts("Deserializamos PCB");
+	//puts("Deserializamos PCB");
 
 	int offset = 0;
 	size_t indiceCod_size;
@@ -460,7 +460,7 @@ tPCB *deserializarPCB(char *pcb_serial){
 }
 
 void deserializarStack(tPCB *pcb, char *pcb_serial, int *offset){
-	puts("Deserializamos stack..");
+	//puts("Deserializamos stack..");
 
 	pcb->indiceDeStack = list_create();
 
@@ -593,7 +593,7 @@ char *serializeByteAlmacenamiento(tPackByteAlmac *pbal, int* pack_size){
 }
 
 tPackByteAlmac *deserializeByteAlmacenamiento(char *pbal_serial){
-	puts("deserializamos bytes almacenamiento");
+	//puts("deserializamos bytes almacenamiento");
 
 	int off;
 	tPackByteAlmac *pbal;

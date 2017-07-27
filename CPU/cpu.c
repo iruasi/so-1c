@@ -142,8 +142,20 @@ int main(int argc, char* argv[]){
 	signal(SIGUSR1, sigusr1Handler);
 	logTrace = log_create("/home/utnso/logCPUTrace.txt", "CPU", 0, LOG_LEVEL_TRACE);
 
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
 	log_trace(logTrace,"Inicia nueva ejecucion de CPU");
-
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
 
 	int stat;
 	int *retval;

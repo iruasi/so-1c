@@ -465,12 +465,11 @@ void cpu_manejador(void *infoCPU){
 			printf("Se escribe en fd %d, la info %s\n", escr->fd, (char *) escr->info);
 
 			if (escr->fd == FD_CONSOLA){ // lo mandamos a Consola y avisamos a CPU
-				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->fd_con, escr) < 0)?
+				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->pid,cpu_i->con->fd_con, escr) < 0)?
 						FALLO_INSTR : ARCHIVO_ESCRITO;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
-
 			sprintf(sfd, "%d", escr->fd);
 			tDatosTablaGlobal * path;
 			MUX_LOCK(&mux_archivosAbiertos); MUX_LOCK(&mux_tablaPorProceso);
@@ -709,7 +708,7 @@ void cons_manejador(void *conInfo){
 	tPackSrcCode *entradaPrograma;
 	tPackPID *ppid;
 	int pidAFinalizar;
-
+	con_i->con->pid=-1;
 	do {
 	switch(head.tipo_de_mensaje){
 	//printf("(CON) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
@@ -776,7 +775,7 @@ void cons_manejador(void *conInfo){
 		pthread_mutex_lock(&mux_listaFinalizados);
 		list_add(finalizadosPorConsolas, fc);
 		pthread_mutex_unlock(&mux_listaFinalizados);
-
+		//con_i->con->pid = -1;
 		break;
 
 	default:
@@ -785,32 +784,35 @@ void cons_manejador(void *conInfo){
 		break;
 
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);
+	if(con_i->con->pid != -1){
+		if(con_i->con->fd_con != -1){
+			pthread_mutex_lock(&mux_exec);
+			if(!estaEnExit(con_i->con->pid)){//el programa no esta en la lista de exit, osea sigue en ejecucion
+				//printf("La consola %d asociada al PID: %d se desconecto.\n", con_i->con->fd_con, con_i->con->pid);
 
-	if(con_i->con->fd_con != -1){
-	pthread_mutex_lock(&mux_exec);
-		if(!estaEnExit(con_i->con->pid)){//el programa no esta en la lista de exit, osea sigue en ejecucion
-			//printf("La consola %d asociada al PID: %d se desconecto.\n", con_i->con->fd_con, con_i->con->pid);
+				t_finConsola *fc = malloc(sizeof(fc));
+				fc->pid = con_i->con->pid ;
+				fc->ecode = CONS_DISCONNECT;
+				log_trace(logTrace,"CONS_DISCONNECT");
+				pthread_mutex_lock(&mux_listaFinalizados);
+				list_add(finalizadosPorConsolas,fc);
+				pthread_mutex_unlock(&mux_listaFinalizados);
+				printf("#### LA CONSOLA %d ASOCIADA AL PID %d  SE DESCONECTO. EXITCODE %d \n",con_i->con->fd_con,fc->pid,fc->ecode);
+				log_trace(logTrace,"LA CONSOLA %d ASOCIADA AL PID %d  SE DESCONECTO. EXITCODE %d",con_i->con->fd_con,fc->pid,fc->ecode);
 
-			t_finConsola *fc = malloc(sizeof(fc));
-			fc->pid = con_i->con->pid ;
-			fc->ecode = CONS_DISCONNECT;
-			log_trace(logTrace,"CON_DUSCONNECT");
-			pthread_mutex_lock(&mux_listaFinalizados);
-			list_add(finalizadosPorConsolas,fc);
-			printf("##$$## LA CONSOLA %d ASOCIADA AL PID %d  SE DESCONECTO. EXITCODE %d \n",con_i->con->fd_con,fc->pid,fc->ecode);
-			pthread_mutex_unlock(&mux_listaFinalizados);
-			int k;
-			pthread_mutex_lock(&mux_gl_Programas);
-			if(( k = getConPosByFD(con_i->con->fd_con, gl_Programas))!= -1){
-				list_remove(gl_Programas,k);
+				/*int k;
+				pthread_mutex_lock(&mux_gl_Programas);
+				if(( k = getConPosByFD(con_i->con->fd_con, gl_Programas))!= -1){
+					list_remove(gl_Programas,k);
+				}
+				pthread_mutex_unlock(&mux_gl_Programas);*/
+
 			}
-			pthread_mutex_unlock(&mux_gl_Programas);
-
+			pthread_mutex_unlock(&mux_exec);
 		}
-	pthread_mutex_unlock(&mux_exec);
 	}
 	else{
-		log_trace(logTrace,"Ciera thread de consola");
-		//printf("cierro thread de consola\n");
+		log_trace(logTrace,"Ciera thread de consola fd %d",con_i->con->fd_con);
+		printf("cierro thread de consola fd %d\n",con_i->con->fd_con);
 	}
 }

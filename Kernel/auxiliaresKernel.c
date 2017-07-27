@@ -28,9 +28,9 @@
 
 //extern sem_t haySTDIN;
 
-extern t_list *gl_Programas, *list_infoProc; // va a almacenar relaciones entre Programas y Codigo Fuente
+extern t_list *gl_Programas, *list_infoProc,*finalizadosPorConsolas; // va a almacenar relaciones entre Programas y Codigo Fuente
 
-extern pthread_mutex_t mux_exec, mux_ready, mux_gl_Programas, mux_infoProc;
+extern pthread_mutex_t mux_exec, mux_ready, mux_gl_Programas, mux_infoProc,mux_listaFinalizados;
 extern t_queue *Ready, *Exit;
 extern t_list *Exec;
 extern t_log * logTrace;
@@ -271,26 +271,48 @@ bool estaEnExit(int pid){
 	return false;
 }
 
-int escribirAConsola(int sock_con, tPackRW *escr){
+int escribirAConsola(int pidProg,int sock_con, tPackRW *escr){
 
-	char *buff;
-	int pack_size, stat;
-	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = IMPRIMIR};
+	//verifico q la consola no este desconectada!
 
-	if ((buff = serializeRW(head, escr, &pack_size)) == NULL)
-		return FALLO_SERIALIZAC;
+	if(estaDesconectada(pidProg) > -1){
 
-	memcpy(buff, &head, HEAD_SIZE);
+		char *buff;
+		int pack_size, stat;
+		tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = IMPRIMIR};
 
-	if ((stat = send(sock_con, buff, pack_size, 0)) == -1){
-		perror("Fallo envio escritura a Consola. error");
-		return FALLO_SEND;
+		if ((buff = serializeRW(head, escr, &pack_size)) == NULL)
+			return FALLO_SERIALIZAC;
+
+		memcpy(buff, &head, HEAD_SIZE);
+
+		if ((stat = send(sock_con, buff, pack_size, 0)) == -1){
+			perror("Fallo envio escritura a Consola. error");
+			return FALLO_SEND;
+		}
+		//printf("Se enviaron %d bytes a Consola\n", stat);
+		log_trace(logTrace,"se enviaron %d bytes a consola %d",stat,sock_con);
 	}
-	printf("Se enviaron %d bytes a Consola\n", stat);
-
+	else{
+		log_trace(logTrace, "la consola esta desconectada, no mandamos nada");
+	}
 	return 0;
 }
 
+
+int estaDesconectada(int pidProg){
+	int k;
+	MUX_LOCK(&mux_listaFinalizados);
+	for(k=0;k<list_size(finalizadosPorConsolas);k++){
+		t_finConsola *fcAux = list_get(finalizadosPorConsolas, k);
+		if(pidProg == fcAux->pid){
+			MUX_UNLOCK(&mux_listaFinalizados);
+			return -2; //esta desconectada
+		}
+	}
+	MUX_UNLOCK(&mux_listaFinalizados);
+	return 1; //no esta desconectada
+}
 
 void crearInfoProcess(int pid){
 
