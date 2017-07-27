@@ -39,7 +39,7 @@ extern tKernel *kernel;
 
 sem_t eventoPlani;
 pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU, mux_gradoMultiprog;
-extern pthread_mutex_t mux_gl_Programas,mux_listaAvisar;
+extern pthread_mutex_t mux_gl_Programas,mux_listaAvisar,mux_listaFinalizados;
 
 void pausarPlanif(void){
 
@@ -107,24 +107,28 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 	log_trace(logTrace,"Se agrego sock_cpu #%d a lista",cpu->cpu.fd_cpu);
 
 	free(pcb_serial);
+
 }
 
 void asociarProgramaACPU(t_RelCC *cpu){
+
 	log_trace(logTrace,"Asociar programa a cpu");
 	t_RelPF *pf = getProgByPID(cpu->cpu.pid);
 
-	cpu->con->fd_con = pf->prog->con->fd_con;
-	cpu->con->pid    = pf->prog->con->pid;
+		cpu->con->fd_con = pf->prog->con->fd_con;
+		cpu->con->pid    = pf->prog->con->pid;
 
-	pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
-	pf->prog->cpu.pid    = cpu->cpu.pid;
+		pf->prog->cpu.fd_cpu = cpu->cpu.fd_cpu;
+		pf->prog->cpu.pid    = cpu->cpu.pid;
+
 }
 
 void planificar(void){
 
 	tPCB * pcbAux;
 	t_RelCC * cpu;
-	int pos;
+	int pos,k;
+	t_finConsola * fcAux=malloc(sizeof(fcAux));
 
 	while(1)
 	{
@@ -153,10 +157,19 @@ void planificar(void){
 				cpu = (t_RelCC *) list_get(listaDeCpu, pos);
 				pcbAux = (tPCB*) queue_pop(Ready);
 				cpu->cpu.pid = pcbAux->id;
-				log_trace(logTrace,"Encolamos %d de ready a exec",pcbAux->id);
-				list_add(Exec, pcbAux);
+
 				asociarProgramaACPU(cpu);
-				mandarPCBaCPU(pcbAux, cpu);
+				if((k=fueFinalizadoPorConsola(pcbAux->id))!=-1){
+					fcAux=list_get(finalizadosPorConsolas,k);
+					pcbAux->exitCode = fcAux->ecode;
+					encolarEnExit(pcbAux,cpu);
+					log_trace(logTrace,"No encolamos en exec a %d porque ya fue finalizado por %d, lo mandamo a exit",pcbAux->id,pcbAux->exitCode);
+				}else{
+					log_trace(logTrace,"Encolamos %d de ready a exec",pcbAux->id);
+					list_add(Exec, pcbAux);
+					mandarPCBaCPU(pcbAux, cpu);
+				}
+
 			}
 			MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec); MUX_UNLOCK(&mux_listaDeCPU);
 			break;
@@ -180,10 +193,21 @@ void planificar(void){
 				cpu = (t_RelCC *) list_get(listaDeCpu, pos);
 				pcbAux = (tPCB*) queue_pop(Ready);
 				cpu->cpu.pid = pcbAux->id;
-				log_trace(logTrace,"Encolamos %d de ready a exec",pcbAux->id);
-				list_add(Exec, pcbAux);
 				asociarProgramaACPU(cpu);
-				mandarPCBaCPU(pcbAux, cpu);
+				if((k=fueFinalizadoPorConsola(pcbAux->id))!=-1){
+					fcAux=list_get(finalizadosPorConsolas,k);
+					pcbAux->exitCode = fcAux->ecode;
+					encolarEnExit(pcbAux,cpu);
+					log_trace(logTrace,"No encolamos en exec a %d porque ya fue finalizado por %d, lo mandamo a exit",pcbAux->id,pcbAux->exitCode);
+				}else{
+
+
+
+					log_trace(logTrace,"Encolamos %d de ready a exec",pcbAux->id);
+					list_add(Exec, pcbAux);
+					mandarPCBaCPU(pcbAux, cpu);
+				}
+
 			}
 			MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec); MUX_UNLOCK(&mux_listaDeCPU);
 		break;
@@ -240,7 +264,7 @@ t_RelPF *getProgByPID(int pid){
 void encolarDeNewEnReady(tPCB *pcb){
 	//printf("Se encola el PID %d en Ready\n", pcb->id);
 	log_trace(logTrace,"Se encola %d en ready",pcb->id);
-	if(getProgByPID(pcb->id) != NULL){ //por las dudas de q no encuentre el programa relacinoado;por ej pcb esperando en new y consola se desocnecta
+	if(getProgByPID(pcb->id) != NULL){ //por las dudas de q la consola se haya desconectado y/o finalizado por cons el pid
 		t_RelPF *pf = getProgByPID(pcb->id);
 
 		t_metadata_program *meta = metadata_desde_literal(pf->src->bytes);
@@ -430,9 +454,10 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	tPackHeader * headerMemoria = malloc(sizeof headerMemoria); //Uso el mismo header para avisar a la memoria y consola
 	tPackHeader * headerFin = malloc(sizeof headerFin);//lo uso para indicar a consola de la forma en q termino el proceso.
 	tPCB *pcbCPU, *pcbPlanif;
-
+	t_finConsola * fcAux = malloc(sizeof fcAux);
 	char *buffer = recvGeneric(cpu->cpu.fd_cpu);
 	pcbCPU = deserializarPCB(buffer);
+	int k;
 
 	switch(cpu->msj){
 	case (FIN_PROCESO):
@@ -467,22 +492,38 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	mergePCBs(&pcbPlanif, pcbCPU);
 
-	MUX_LOCK(&mux_exit);
-	queue_push(Ready, pcbCPU);
-	MUX_UNLOCK(&mux_exit);
+	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1){
+		log_trace(logTrace,"ya fue finalizado por consola, lo mandamos a exit pid %d",pcbCPU->id);
+		fcAux=list_get(finalizadosPorConsolas,k);
+		pcbCPU->exitCode = fcAux->ecode;
+		encolarEnExit(pcbCPU,cpu);
+	}
+	else {
 
+		MUX_LOCK(&mux_exit);
+		queue_push(Ready, pcbCPU);
+		MUX_UNLOCK(&mux_exit);
+
+	}
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
 	sem_post(&eventoPlani);
-
 	break;
 
 	case (PCB_BLOCK):
 		printf("Se bloquea el PID %d\n", cpu->cpu.pid);
-	log_trace(logTrace,"se bloquea el pid %d",cpu->cpu.pid);
-	blockByPID(cpu->cpu.pid, pcbCPU);
-		cpu->cpu.pid = -1;
 
-		//puts("Fin case PCB_BLOCK");
+		if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1){
+			fcAux=list_get(finalizadosPorConsolas,k);
+			pcbCPU->exitCode = fcAux->ecode;
+			encolarEnExit(pcbCPU,cpu);
+		}
+		else {
+
+			log_trace(logTrace,"se bloquea el pid %d",cpu->cpu.pid);
+			blockByPID(cpu->cpu.pid, pcbCPU);
+			cpu->cpu.pid = -1;
+		}
+
 		sem_post(&eventoPlani);
 		break;
 
@@ -508,11 +549,18 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 	log_trace(logTrace,"Encolamos en exit a %d ",pcb->id);
-	int q;
+	int q,k;
 	tPackHeader * headerFin = malloc(sizeof headerFin); //lo uso para indicar a consola de q termino el proceso.
-
+	t_finConsola * fcAux = malloc(sizeof fcAux);
 	t_infoProcess *ip = getInfoProcessByPID(pcb->id);
 	ip->rafagas_exec = pcb->rafagasEjecutadas;
+
+	//MUX_LOCK(&mux_listaFinalizados);
+	if((k=fueFinalizadoPorConsola(pcb->id))!=-1){
+		fcAux=list_get(finalizadosPorConsolas,k);
+		pcb->exitCode = fcAux->ecode;
+	}
+	//MUX_UNLOCK(&mux_listaFinalizados);
 
 	printf("\n\n#####EXIT CODE DEL PROCESO %d: %d\n\n#####", pcb->id, pcb->exitCode);
 	log_trace(logTrace,"Exit code de %d: %d",pcb->id,pcb->exitCode);
@@ -545,6 +593,8 @@ void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 	}
 	MUX_UNLOCK(&mux_gl_Programas);
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
+	sem_post(&eventoPlani);
+
 }
 
 void blockByPID(int pid, tPCB *pcbCPU){

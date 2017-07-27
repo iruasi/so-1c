@@ -72,8 +72,20 @@ int main(int argc, char* argv[]){
 
 	logTrace = log_create("/home/utnso/logMEMORIATrace.txt","MEMORIA",0,LOG_LEVEL_TRACE);
 
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
 	log_trace(logTrace,"Inicia nueva ejecucion de MEMORIA");
-
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
+	log_trace(logTrace,"");
 
 
 	int stat;

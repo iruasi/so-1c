@@ -169,19 +169,18 @@ void accionesFinalizacion(int pid){
 
 }
 
-void Desconectar_Consola(tConsola *cons_data){
+void Desconectar_Consola(){
 	log_trace(logTrace,"eligio desconectar la consola");
 
 	int i;
-	pthread_mutex_lock(&mux_listaAtributos);pthread_mutex_lock(&mux_listaFinalizados);
+	pthread_mutex_lock(&mux_listaAtributos);
 	for(i = 0; i < list_size(listaAtributos); i++){
 
 		tAtributosProg *aux = list_get(listaAtributos, i);
 		pthread_cancel(aux->hiloProg);
-		list_add(listaAtributos,aux);
 		list_remove(listaAtributos,i);
 	}
-	pthread_mutex_unlock(&mux_listaAtributos);pthread_mutex_unlock(&mux_listaFinalizados);
+	pthread_mutex_unlock(&mux_listaAtributos);
 
 	log_trace(logTrace,"todos los programas muertos");
 }
@@ -203,6 +202,7 @@ void *programa_handler(void *atributos){
 	tAtributosProg *args = (tAtributosProg *) atributos;
 
 	args->sock = establecerConexion(cons_data->ip_kernel, cons_data->puerto_kernel);
+
 	if (args->sock < 0){
 		errno = FALLO_CONEXION;
 		log_error(logTrace, "no se pudo establecer conexion con kernel.");
@@ -246,7 +246,6 @@ void *programa_handler(void *atributos){
 	freeAndNULL((void **) &buffer);
 
 	tPackPID *ppid;
-	int finalizar = 0;
 	log_trace(logTrace,"esperando a recibir el PID");
 	while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 

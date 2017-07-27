@@ -21,11 +21,8 @@
 #define MAXMSJ 200
 
 
-
-
 /*Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
  */
-void strncopylast(char *,char *,int );
 
 
 /* Con este macro verificamos igualdad de strings;
@@ -44,7 +41,8 @@ int main(int argc, char* argv[]){
 
 
 	//logger = log_create("/home/utnso/logConsolaInfo.txt","CONSOLA",1,LOG_LEVEL_INFO);
-	logTrace = log_create("/home/utnso/logConsolaTrace.txt","CONSOLA",0,LOG_LEVEL_TRACE);
+
+	logTrace = log_create("/home/utnso/logCONSOLATrace.txt","CONSOLA",0,LOG_LEVEL_TRACE);
 
 	log_trace(logTrace,"");
 	log_trace(logTrace,"");
@@ -120,7 +118,7 @@ int main(int argc, char* argv[]){
 		}
 		if(strncmp(opcion,"desconectar",11)==0){
 			log_trace(logTrace,"eligio opcion desconectar consola");
-			Desconectar_Consola(cons_data);
+			Desconectar_Consola();
 
 			//finalizar = 1;
 			//close(sock_kern);//todo: revisar esto
@@ -144,65 +142,6 @@ int main(int argc, char* argv[]){
 
 
 
-int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente){
-
-	int status;
-	int buffer_size;
-	char *buffer = malloc(buffer_size = sizeof(uint32_t));
-	clearBuffer(buffer,buffer_size);
-
-	uint32_t tipo_de_proceso;
-	status = recv(socketCliente, buffer, sizeof(package->tipo_de_proceso), 0);
-	memcpy(&(tipo_de_proceso), buffer, buffer_size);
-	if (!status) return 0;
-
-	uint32_t tipo_de_mensaje;
-	status = recv(socketCliente, buffer, sizeof(package->tipo_de_mensaje), 0);
-	memcpy(&(tipo_de_mensaje), buffer, buffer_size);
-	if (!status) return 0;
-
-
-	uint32_t message_size;
-	status = recv(socketCliente, buffer, sizeof(package->message_size), 0);
-	memcpy(&(message_size), buffer, buffer_size);
-	if (!status) return 0;
-
-	status = recv(socketCliente, package->message, message_size, 0);
-	if (!status) return 0;
-
-	log_trace(logTrace,"mensaje deserializacdo y recibido");
-	log_trace(logTrace,package->message);
-	//printf("%d %d %s",tipo_de_proceso,tipo_de_mensaje,package->message);
-
-	free(buffer);
-
-	return status;
-}
-
-
-
-//Agarra los ultimos char de un string (para separar la ruta en la instruccion Nuevo programa <ruta>)
-
-
-void strncopylast(char *str1,char *str2,int n)
-{   int i;
-    int l=strlen(str1);
-    if(n>l)
-    {
-       log_error(logTrace,"Can't extract more characters from a smaller string.");
-    	//printf("\nCan't extract more characters from a smaller string.\n");
-        exit(1);
-    }
-    for(i=0;i<l-n;i++)
-         str1++;
-    for(i=l-n;i<l;i++)
-    {
-        *str2=*str1;
-         str1++;
-         str2++;
-    }
-    *str2='\0';
-}
 
 
 
