@@ -95,7 +95,7 @@ int open2(const char *path, struct fuse_file_info *fi) {
 	return 0; //todo: ver como retornar el fd
 }
 
-static int read2(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+int read2(const char *path, char **buf, size_t size, off_t offset, struct fuse_file_info *fi) {
 	/*size_t len;
 	(void) fi;
 	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
@@ -113,8 +113,8 @@ static int read2(const char *path, char *buf, size_t size, off_t offset, struct 
 		perror("Error al leer el archivo...");
 		return -1;
 	}
-	fread(buf, size, 1, path);
-	printf("Datos leidos: %s\n", buf);
+	fread(*buf, size, 1, path);
+	printf("Datos leidos: %s\n", *buf);
 	return size;
 }
 

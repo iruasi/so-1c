@@ -87,13 +87,18 @@ tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
 		return proceso->pid == pid;
 	}
 
-	t_procesoXarchivo * _unProceso = list_find(tablaProcesos, (void *) encontrarPid);
-	tProcesoArchivo * _unArchivo   = list_find(_unProceso->archivosPorProceso, (void *) encontrarFD);
+	t_procesoXarchivo * _unProceso;
+	tProcesoArchivo * _unArchivo;
 
-	if(_unArchivo == NULL){
-		perror("No hay archivo");
-		log_error(logTrace,"no hay archivo en obtener proceso segun FD");
+	if ((_unProceso = list_find(tablaProcesos, (void *) encontrarPid)) == NULL){
+		log_error(logTrace, "No se pudo encontrar el pid en la Tabla de Procesos");
+		return NULL;
 	}
+	if ((_unArchivo = list_find(_unProceso->archivosPorProceso, (void *) encontrarFD)) == NULL){
+		log_error(logTrace, "No se pudo encontrar el fd en la Tabla de Archivos");
+		return NULL;
+	}
+
 	log_trace(logTrace,"fin obtener proceso segun fd");
 	return _unArchivo;
 }

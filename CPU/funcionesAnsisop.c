@@ -562,13 +562,11 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	int stat;
 	tPackHeader head;
 	tPackPID *val;
-	tPackBytes * bytes;
 	tPackAbrir * abrir = malloc(sizeof *abrir);
 
 	abrir->longitudDireccion = strlen(dir) + 1;
 	abrir->direccion = dir;
 	abrir->flags     = flags;
-
 
 	char *abrir_serial;
 	if ((abrir_serial = serializeAbrir(abrir, &pack_size)) == NULL){
@@ -605,6 +603,10 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	fd = val->val;
 	printf("El fd recibido es %d\n",fd);
 	log_trace(logTrace,"fin abrir");
+
+	free(abrir_serial);
+	free(buffer);
+	free(val);
 	return fd;
 }
 
@@ -617,6 +619,7 @@ void borrar (t_descriptor_archivo direccion){
 	val->head.tipo_de_proceso = CPU;
 	val->head.tipo_de_proceso = BORRAR;
 	val->val = direccion;
+
 	char *borrar_serial;
 	if ((borrar_serial = serializeVal(val, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
@@ -626,7 +629,7 @@ void borrar (t_descriptor_archivo direccion){
 
 	enviar(borrar_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=ARCHIVO_BORRADO};
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = ARCHIVO_BORRADO};
 	tPackHeader header;
 /*	if(validarRespuesta(sock_kern,h_esp,&header)){
 		err_exec = header.tipo_de_mensaje;
@@ -636,6 +639,9 @@ void borrar (t_descriptor_archivo direccion){
 		pcb->cantSyscalls ++;
 	}*/
 	log_trace(logTrace,"fin borrar");
+
+	free(borrar_serial);
+	free(val);
 }
 
 void cerrar (t_descriptor_archivo descriptor_archivo){
@@ -656,10 +662,10 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 
 	enviar(cerrar_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=ARCHIVO_CERRADO};
+	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = ARCHIVO_CERRADO};
 	tPackHeader header;
 
-	if(validarRespuesta(sock_kern,h_esp,&header)){
+	if(validarRespuesta(sock_kern, h_esp, &header)){
 		err_exec = header.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
@@ -667,6 +673,9 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 		pcb->cantSyscalls ++;
 	}
 	log_trace(logTrace,"fin cerrar");
+
+	free(cerrar_serial);
+	free(val);
 }
 
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
@@ -694,6 +703,8 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 		pcb->cantSyscalls ++;
 	}*/
 	log_trace(logTrace,"fin moverCursor");
+
+	free(mov_serial);
 }
 
 void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
@@ -723,27 +734,43 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 	log_trace(logTrace,"fin escribir");
 }
 
+void leer (t_descriptor_archivo descriptor_archivo, t_puntero ptr, t_valor_variable tamanio){
+	log_trace(logTrace, "Leer fd %d por %d bytes y almacenar en %d", descriptor_archivo, tamanio, ptr);
 
-void leer (t_descriptor_archivo descriptor_archivo, t_puntero informacion, t_valor_variable tamanio){
-	printf("Se pide al kernel leer el archivo %d, se guardara en %d, cantidad de bytes: %d\n", descriptor_archivo, informacion, tamanio);
-	log_trace(logTrace,"inicio leer");
+	tPackHeader head, h_esp;
 	int pack_size = 0;
-	tPackRW * read = malloc(sizeof(*read));
-	read->fd = descriptor_archivo;
-	read->info = &informacion;
-	read->tamanio = tamanio;
-	char *leer_serial;
-	if ((leer_serial = serializeLeer(read, &pack_size)) == NULL){
+
+	tPackLeer *p_leer = malloc(sizeof *p_leer);
+	p_leer->fd   = descriptor_archivo;
+	p_leer->size = tamanio;
+
+	char *buff;
+	if ((buff = serializeLeer(p_leer, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
 
-	enviar(leer_serial, pack_size);
-	log_trace(logTrace,"fin leer");
+	enviar(buff, pack_size);
+
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = ARCHIVO_LEIDO;
+	if (validarRespuesta(sock_kern, h_esp, &head) != 0){
+		err_exec = head.tipo_de_mensaje;
+		sem_post(&sem_fallo_exec);
+		pthread_exit(&err_exec);
+	}
+
+	// todo:
+	//buffer = recvGeneric(sock_kern);
+	//bla = deserializeBytes(buffer);
+	//writeToPointer(ptr, bytes, size);
+
+	log_trace(logTrace, "fin leer");
+	free(p_leer);
+	free(buff);
 }
 
-t_puntero reservar (t_valor_variable espacio){ // todo: ya casi esta
+t_puntero reservar (t_valor_variable espacio){
 	printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);
 	log_trace(logTrace,"inicio reservar");
 	char *ptr_serial;

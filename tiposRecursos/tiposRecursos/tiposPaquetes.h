@@ -29,6 +29,7 @@ typedef enum {
 	SET_GLOBAL  = 25,
 	GET_GLOBAL  = 26,
 	PCB_BLOCK   = 27,
+	NEW_QSLEEP  = 28,
 
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
@@ -138,6 +139,12 @@ typedef struct {
 typedef struct {
 
 	t_descriptor_archivo fd;
+	int size;
+} tPackLeer;
+
+typedef struct {
+
+	t_descriptor_archivo fd;
 	void *info;
 	t_valor_variable tamanio;
 } __attribute__((packed))tPackRW; //Leer y escribir tienen los mismos campos, uso las mismas estructuras
@@ -160,5 +167,15 @@ typedef struct{
 	int tamanio;
 	t_banderas flag;
 }__attribute__((packed))tPackRecibirRW;//Paquete para recibir la serealizacion de lectura y escritura de kernel
+
+
+typedef struct{
+	int dirSize;
+	char * direccion;
+	t_puntero cursor;
+	int size;
+	t_banderas flag;
+}__attribute__((packed))tPackRecvRW;//Paquete para recibir la serealizacion de lectura y escritura de kernel
+
 
 #endif /* TIPOSPAQUETES_H_ */

@@ -106,16 +106,20 @@ tPackAbrir * deserializeAbrir(char *abrir_serial);
 char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size);
 
 char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size);
-
 tPackRW *deserializeEscribir(char *escr_serial);
 
 char *serializeRW(tPackHeader head, tPackRW *read_write, int *pack_size);
-
-char *serializeLeer(tPackRW *abrir, int *pack_size);
 tPackRW * deserializeRW(char * rw_serial);
-char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size);
 
+char *serializeLeer(tPackLeer *read, int *pack_size);
+tPackLeer *deserializeLeer(char *leer_serial);
+
+char *serializeLeerFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, int *pack_size);
+tPackRecvRW *deserializeLeerFS2(char *leer_serial);
+
+char *serializeValorYVariable(tPackHeader head, t_valor_variable valor, t_nombre_compartida variable, int *pack_size);
 tPackValComp *deserializeValorYVariable(char *valor_serial);
+
 
 /* Retorna el peso en bytes de todas las listas y variables sumadas del stack
  */
@@ -126,7 +130,7 @@ tPackFS * deserializeFileDescriptor(char * aux_serial);
 tPackAbrir * deserializeAbrir(char *abrir_serial);
 
 //serializeLeerFS, guarda el paquete que hay que mandarle al fs para leer
-char * serializeLeerFS(t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size);
+char * serializeLeerFS(tPackHeader head, t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size);
 void informarResultado(int sock, tPackHeader head);
 
 

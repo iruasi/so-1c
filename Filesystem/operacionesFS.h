@@ -113,7 +113,7 @@ int open2(const char *path, struct fuse_file_info *fi);
  * 		la cantidad de bytes leidos o -ENOENT si ocurrio un error. ( Este comportamiento es igual
  * 		para la funcion write )
  */
-static int read2(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi);
+int read2(const char *path, char **buf, size_t size, off_t offset, struct fuse_file_info *fi);
 
 static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi);
 
