@@ -1,0 +1,1 @@
+cd tp-2017-1c-Flanders-chip-y-asociados/CPU/ ; gcc -g3 -Wall cpu.c funcionesAnsisop.c cpuConfigurators.c -lfuncionesPaquetes -lfuncionesCompartidas -lcommons -lparser-ansisop -lpthread -lm -o ~/cpu.out ; cd

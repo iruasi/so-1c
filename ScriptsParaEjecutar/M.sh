@@ -1,0 +1,1 @@
+cd tp-2017-1c-Flanders-chip-y-asociados/Memoria/ ; gcc -g3 -Wall memoria.c memoriaConfigurators.c manejadoresMem.c manejadoresCache.c flujosMemoria.c auxiliaresMemoria.c apiMemoria.c consolaMemoria.c -lfuncionesPaquetes -lfuncionesCompartidas -lcommons -lpthread -lm -o ~/mem.out ; cd

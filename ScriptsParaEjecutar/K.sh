@@ -1,0 +1,1 @@
+cd tp-2017-1c-Flanders-chip-y-asociados/Kernel/ ; gcc -g3 -Wall consolaKernel.c kernel.c kernelConfigurators.c capaMemoria.c auxiliaresKernel.c planificador.c defsKernel.c funcionesSyscalls.c manejadores.c -lfuncionesCompartidas -lfuncionesPaquetes -lcommons -lm -lparser-ansisop -lpthread -o ~/ker.out ; cd
