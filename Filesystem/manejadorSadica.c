@@ -30,10 +30,12 @@ int crearArchivo(char* ruta){
 	string_append(&path, "Archivos/"); string_append(&path, ruta);
 
 	if ((fd = open(path, O_RDWR | O_CREAT)) == -1){
+		log_error(logTrace,"no se pudo crear el archivo");
 		perror("No se pudo crear el archivo. error");
 		return FALLO_GRAL;
 	}
-	printf("Se creo el archivo %s\n", path);
+	log_trace(logTrace,"se creo el archivo %s",path);
+	//printf("Se creo el archivo %s\n", path);
 
 //	if (!asignarBloques(1)){ // todo: le asingamos al menos 1 bloque
 //		free(path);
@@ -43,7 +45,8 @@ int crearArchivo(char* ruta){
 }
 
 int crearBloques(void){ //todo: que cree segun la cantidad de bloques pedida
-	puts("Creando bloques..");
+	//puts("Creando bloques..");
+	log_trace(logTrace,"creando bloques");
 	int off=0;
 	int i;
 	for(i=0; i<=meta->cantidad_bloques; i++){
@@ -66,7 +69,8 @@ int crearBloques(void){ //todo: que cree segun la cantidad de bloques pedida
 }
 
 void crearBitMap(void){
-	puts("Creando bitmap...");
+	log_trace(logTrace,"creando bitmap");
+	//puts("Creando bitmap...");
 	return;
 //	int len_mntpnt = strlen(fileSystem->punto_montaje);
 //	int len_dirbmp = strlen(carpetaBitMap);
@@ -78,14 +82,15 @@ void crearBitMap(void){
 }
 
 int inicializarMetadata(void){
-	puts("Inicializando metadata...");
-
+	//puts("Inicializando metadata...");
+	log_trace(logTrace,"inicializando metadata");
 	rutaMetadata = string_duplicate(fileSystem->punto_montaje);
 	string_append(&rutaMetadata, DIR_METADATA);
 	binMetadata_path = string_duplicate(rutaMetadata);
 	string_append(&binMetadata_path, BIN_METADATA);
 
 	if ((metadataArch = fopen(binMetadata_path, "rb")) == NULL){
+		log_error(logTrace,"no s epudo abrir el archivo");
 		perror("No se pudo abrir el archivo. error");
 		return FALLO_GRAL;
 	}
@@ -96,15 +101,15 @@ int inicializarMetadata(void){
 	meta->cantidad_bloques = config_get_int_value(meta_bin, "CANTIDAD_BLOQUES");
 	meta->tamanio_bloques  = config_get_int_value(meta_bin, "TAMANIO_BLOQUES");
 	string_append(&meta->magic_number, config_get_string_value(meta_bin, "MAGIC_NUMBER"));
-
-	printf("Se levanto correctamente el archivo %s\n", binMetadata_path);
+	log_trace(logTrace,"se levanto correctamente el archivo %s",binMetadata_path);
+	//printf("Se levanto correctamente el archivo %s\n", binMetadata_path);
 	config_destroy(meta_bin);
 	return 0;
 }
 
 int inicializarBitmap(void){
-	puts("Inicializando bitmap...");
-
+	//puts("Inicializando bitmap...");
+	log_trace(logTrace,"inicializando bitmap");
 	int fd;
 	binBitmap_path = string_duplicate(rutaMetadata);
 	string_append(&binBitmap_path, BIN_BITMAP);
@@ -113,8 +118,8 @@ int inicializarBitmap(void){
 		perror("No se pudo crear el archivo. error");
 		return FALLO_GRAL;
 	}
-	printf("Se creo el archivo %s\n", binBitmap_path);
-
+	//printf("Se creo el archivo %s\n", binBitmap_path);
+	log_trace(logTrace,"se creo el archivo %s",binBitmap_path);
 	bitArray = mapearBitArray(fd);
 	return 0;
 }
@@ -123,6 +128,7 @@ t_bitarray* mapearBitArray(int fd){
 
 	struct stat bmpstat;
 	if (fstat(fd, &bmpstat) < 0){
+		log_error(logTrace,"fallo seteo del stat del bitmap");
 		perror("Fallo seteo de stat del bitmap. error");
 		return NULL;
 	}
@@ -135,35 +141,37 @@ void crearDirMontaje(void){
 
 	if (mkdir(fileSystem->punto_montaje, 0766) == -1){
 		perror("No se pudo crear el directorio. error");
-		printf("Path intentado: %s\n", fileSystem->punto_montaje);
+		log_error(logTrace,"no se pudo crear el dire;path intentado: %s",fileSystem->punto_montaje);
+		//printf("Path intentado: %s\n", fileSystem->punto_montaje);
 	}
 }
 
 void crearDirectoriosBase(void){
-	puts("Se recrea el arbol principal de directorios");
-
+	//puts("Se recrea el arbol principal de directorios");
+	log_trace(logTrace,"se recrea el arbol principal de directorios");
 	crearDir(DIR_METADATA);
 	crearDir(DIR_ARCHIVOS);
 	crearDir(DIR_BLOQUES);
 }
 
 void crearDir(char *dir){
-	printf("Se intenta crear el directorio %s\n", dir);
-
+	//printf("Se intenta crear el directorio %s\n", dir);
+	log_trace(logTrace,"se intenta crear el directorio");
 	char* rutaDir = string_duplicate(fileSystem->punto_montaje);
 	string_append(&rutaDir, dir);
 
 	if (mkdir(rutaDir, 0766) != 0){ //para que el usuario pueda escribir
 		if (errno != EEXIST){
+			log_error(logTrace,"no se pudo crear directorio");
 			perror("No se pudo crear directorio. error:");
 			return;
 		}
-
-		printf("Ya existia la ruta %s\n", rutaDir);
+		log_trace(logTrace,"ya existia la ruta");
+		//printf("Ya existia la ruta %s\n", rutaDir);
 		return;
 	}
-
-	printf("Directorio %s creado\n", rutaDir);
+	log_trace(logTrace,"direcotrio %s creado",rutaDir);
+	//printf("Directorio %s creado\n", rutaDir);
 	free(rutaDir);
 }
 
@@ -188,8 +196,10 @@ void marcarBloquesOcupados(char* bloques[]){
 	while(i < sizeof(bloques)/sizeof(bloques[0])){
 
 		bitarray_set_bit(bitArray, atoi(bloques[i]));
-		if (!msync(bitArray, sizeof(t_bitarray), MS_SYNC))
+		if (!msync(bitArray, sizeof(t_bitarray), MS_SYNC)){
+			log_error(logTrace,"fallo syn del bitarray");
 			perror("Fallo sync del bitArray. error");
+		}
 		i++;
 	}
 }
@@ -208,6 +218,7 @@ void escucharKernel(){
 	//todo: agregar header a los packs, o hacer dos sends/recvs entre ker y fs
 
 	if((stat=recv(sock_kern, bufHead, 2*sizeof(int), 0))< 0){
+		log_trace(logTrace,"error al recibir msj de kernel");
 		perror("Error al recibir mensaje de kernel...");
 		return;
 	}
@@ -241,6 +252,7 @@ void escucharKernel(){
 		//resultado = write2(getPathFromFD(rw->fd), rw->info, rw->tamanio, rw->offset, fi);
 		break;
 	default:
+		log_error(logTrace,"operacion no reconocida");
 		perror("Operacion no reconocida...");
 		break;
 	}

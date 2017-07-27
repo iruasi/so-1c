@@ -19,7 +19,7 @@ extern tMetadata *meta;
 
 static int getattr(const char *path, struct stat *stbuf) {
 	int res = 0;
-
+	log_trace(logTrace,"funcion getattr");
 	memset(stbuf, 0, sizeof(struct stat));
 
 	//Si path es igual a "/" nos estan pidiendo los atributos del punto de montaje
@@ -39,6 +39,7 @@ static int getattr(const char *path, struct stat *stbuf) {
 
 static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
 	(void) offset;
+	log_trace(logTrace,"funcion readdir");
 	(void) fi;
 
 	if (strcmp(path, "/") != 0)
@@ -49,14 +50,15 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t of
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 	filler(buf, DEFAULT_FILE_NAME, NULL, 0);
-	printf("Leyendo los archivos de %s\n", path);
-
+	//printf("Leyendo los archivos de %s\n", path);
+	log_trace(logTrace,"leyendo los archivos de %s ",path);
 	return 0;
 }
 
 int open2(const char *path, struct fuse_file_info *fi) {
 	int bloque=-1;
 	int i=0;
+	log_trace(logTrace,"funcion open2");
 	tArchivos* arch = malloc(sizeof(tArchivos));
 	/*
 	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
@@ -65,7 +67,8 @@ int open2(const char *path, struct fuse_file_info *fi) {
 	if ((fi->flags & 3) != O_RDONLY)
 		return -EACCES;
 	*/
-	puts ("Se quiere abrir un archivo");
+	//puts ("Se quiere abrir un archivo");
+	log_trace(logTrace,"se quiere abrir un archivo");
 	/*
 	 * todo: habria que poner un mutex aca? por si se quieren crear
 	 * dos archivos al mismo tiempo..
@@ -83,9 +86,11 @@ int open2(const char *path, struct fuse_file_info *fi) {
 		memcpy(arch->ruta, path, sizeof(path));
 		arch->fd = fileno(path);
 		list_add(lista_archivos, arch);
-		puts("Se creo el archivo!\n");
+		log_trace(logTrace,"se creo el archivo");
+		//puts("Se creo el archivo!\n");
 	}
 	else{
+		log_error(logTrace,"no hay espacio para crear el archivo");
 		perror("No hay espacio para crear el archivo..");
 		free(arch);
 		return -1;
@@ -108,13 +113,16 @@ int read2(const char *path, char **buf, size_t size, off_t offset, struct fuse_f
 	} else
 		size = 0;
 		*/
-	printf("Se quiere leer el archivo %s, size: %d, offset: %d\n", path, size, offset);
+	log_trace(logTrace,"se quiere leer el archivo %s size:%d offset:%d",path,size,offset);
+	//printf("Se quiere leer el archivo %s, size: %d, offset: %d\n", path, size, offset);
 	if(validarArchivo(path)==-1){
+		log_error(logTrace,"error al leer el archivo");
 		perror("Error al leer el archivo...");
 		return -1;
 	}
 	fread(*buf, size, 1, path);
-	printf("Datos leidos: %s\n", *buf);
+	//printf("Datos leidos: %s\n", *buf);
+	log_trace(logTrace,"datos leidos %s",buf);
 	return size;
 }
 
@@ -123,8 +131,10 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 	int bloquesLibres=0,
 			i=0;
 	t_list* bloques;
-	printf("Se quiere escribir en %s los datos de %s el tamanio %d", path, buf, size);
+	log_trace(logTrace,"se quiere escribir en %s los datos de %s el tamanio %d",path,buf,size);
+	//printf("Se quiere escribir en %s los datos de %s el tamanio %d", path, buf, size);
 	if(validarArchivo(path)==-1){
+		log_error(logTrace,"error al escribir archivo");
 		perror("Error al escribir archivo");
 		return -1;
 	}
@@ -135,6 +145,7 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 		}
 	}
 	if(bloquesLibres<cantidadBloques){
+		log_error(logTrace,"no hay bloques suficientes para escribir los datos");
 		perror("No hay bloques suficientes para escribir los datos");
 		return -1; // en caso de error, retorna -1 y finaliza.
 	}
@@ -143,15 +154,18 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 		list_remove(bloques, 0);
 	}
 	fwrite(buf, size, offset, (void*)path);
-	puts("Se escribieron los datos en el archivo!\n");
+	//puts("Se escribieron los datos en el archivo!\n");
+	log_trace(logTrace,"se escribieron los datos en el archivo");
 	list_destroy(bloques);
 	return size;
 }
 
 int unlink2 (const char *path){
 	//int rem;
-	printf("Se quiere borrar el archivo el archivo %s\n", path);
+	log_trace(logTrace,"se quiere borrar el archivo %s",path);
+	//printf("Se quiere borrar el archivo el archivo %s\n", path);
 	if(validarArchivo(path)==-1){
+		log_error(logTrace,"error al borrar archivo");
 		perror("Error al borrar archivo");
 		return -1;
 	}
@@ -174,13 +188,16 @@ int unlink2 (const char *path){
  * quizas sea "interna" previa a leer o escribir datos.
  */
 int validarArchivo(char* path){
-	printf("Se quiere validar la existencia del archivo %s\n", path);
+	//printf("Se quiere validar la existencia del archivo %s\n", path);
+	log_trace(logTrace,"se quiere validar la existencia del archivo %s",path);
 	FILE* arch;
 	if((arch = fopen(path, "rb")) == NULL){
+		log_error(logTrace,"el archivo no existe");
 		perror("El archivo no existe...\n");
 		return -1;
 	}
-	puts ("El archivo existe!\n");
+	log_trace(logTrace,"el archivo existe");
+	//puts ("El archivo existe!\n");
 	return 0;
 }
 

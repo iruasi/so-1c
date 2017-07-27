@@ -9,7 +9,8 @@
 #include <tiposRecursos/tiposPaquetes.h>
 
 tFileSystem* getConfigFS(char* ruta){
-	printf("Ruta del archivo de configuracion: %s\n", ruta);
+	//printf("Ruta del archivo de configuracion: %s\n", ruta);
+	log_trace(logTrace,"ruta del archivo de config %s",ruta);
 	tFileSystem *fileSystem = malloc(sizeof(tFileSystem));
 
 	fileSystem->puerto_entrada = malloc(MAX_PORT_LEN);
