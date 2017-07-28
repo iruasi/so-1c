@@ -91,7 +91,7 @@ void populateInvertidas(void){
 }
 
 char *leerBytes(int pid, int page, int offset, int size){
-	log_trace(logTrace,"funcion leerbytes");
+	log_trace(logTrace,"funcion leerbytes [PID %d] page %d offset %d size %d",pid,page,offset,size);
 	char *cont = NULL;
 
 	char *buffer;
@@ -116,7 +116,7 @@ char *leerBytes(int pid, int page, int offset, int size){
 }
 
 char *getMemContent(int pid, int page){
-	log_trace(logTrace,"funcion get mem content");
+	log_trace(logTrace,"funcion get mem content[PID %d],page %d",pid,page);
 	int frame;
 	if ((frame = buscarEnMemoria(pid, page)) < 0){
 		log_error(logTrace,"Frame no encontrado (pid %d , pag %d)", pid, page);
@@ -128,7 +128,7 @@ char *getMemContent(int pid, int page){
 
 int buscarEnMemoria(int pid, int page){
 	sleep(retardo_mem);
-	log_trace(logTrace,"funcion buscar en memoria");
+	log_trace(logTrace,"funcion buscar en memoria[PID %d],page %d",pid,page);
 
 	tEntradaInv *entry;
 	int cic, off, fr; // frame y offset para recorrer la tabla de invertidas
@@ -147,7 +147,7 @@ int buscarEnMemoria(int pid, int page){
 }
 
 int frameHash(int pid, int page){
-	log_trace(logTrace,"funcion frame hash");
+	log_trace(logTrace,"funcion frame hash [PID %d],page %d",pid,page);
 	char str1[20];
 	char str2[20];
 	sprintf(str1, "%d", pid);
@@ -170,7 +170,7 @@ void dumpMemStructs(void){
 }
 
 void dumpMemContent(int pid){
-	log_trace(logTrace,"funcion dump mem content");
+	log_trace(logTrace,"funcion dump mem content[PID %d]",pid);
 	if (pid < 0){
 		int i, len, *pids;
 		pids = obtenerPIDsKernel(&len);

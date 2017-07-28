@@ -10,7 +10,7 @@
 #include "apiMemoria.h"
 extern t_log *logTrace;
 int manejarSolicitudBytes(int sock_in){
-	log_trace(logTrace,"funcion manejar solicitud byttes");
+	log_trace(logTrace,"funcion manejar solicitud byttes sock %d",sock_in);
 	int ret_val = 0; // setamos 0 como el valor inicial de retorno
 	int stat;
 	int solic_size = 0;  // size del buffer de bytes a send'ear al sock_in
@@ -62,7 +62,7 @@ retorno:
 }
 
 int manejarAlmacenamientoBytes(int sock_in){
-	log_trace(logTrace,"funcion manejar almacenamiento bytes");
+	log_trace(logTrace,"funcion manejar almacenamiento bytes sock%d",sock_in);
 	int stat;
 	char *buffer;
 	tPackByteAlmac *pbyte_al;
