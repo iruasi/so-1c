@@ -30,7 +30,7 @@ typedef enum {
 	GET_GLOBAL  = 26,
 	PCB_BLOCK   = 27,
 	NEW_QSLEEP  = 28,
-
+	SIG1        = 29,
 	S_WAIT      = 30,
 	S_SIGNAL    = 31,
 	LIBERAR     = 32,

@@ -492,7 +492,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	//puts("Fin case FIN_PROCESO");
 	break;
-	case(-665):
+	/*case(-665):
 			sleep(2);
 			log_trace(logTrace,"FIN DE QUANTUM[pid %d] &",pcbCPU->id);
 			MUX_LOCK(&mux_exec);
@@ -509,8 +509,8 @@ void cpu_handler_planificador(t_RelCC *cpu){
 			informarNuevoQSLuego(cpu);
 			sem_post(&eventoPlani);
 
-		break;
-	case (PCB_PREEMPT):
+		break;*/
+	case (PCB_PREEMPT):case(SIG1):
 	//printf("\nFIN DE QUANTUM[pid %d]\n",pcbCPU->id);
 	log_trace(logTrace,"FIN DE QUANTUM[pid %d]",pcbCPU->id);
 	MUX_LOCK(&mux_exec);
@@ -519,7 +519,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	mergePCBs(&pcbPlanif, pcbCPU);
 
-	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1 ){
+	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1 && cpu->msj != SIG1 ){
 		log_trace(logTrace,"ya fue finalizado por consola, lo mandamos a exit a pid %d",pcbCPU->id);
 		fcAux=list_get(finalizadosPorConsolas,k);
 		pcbCPU->exitCode = fcAux->ecode;

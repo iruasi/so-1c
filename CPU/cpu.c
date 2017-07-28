@@ -313,7 +313,7 @@ int *ejecutarPrograma(void){sleep(1);
 
 	} else if(finalizate == true && fin_quantum == true){
 		log_trace(logTrace,"FQ & SIG1");
-		*retval = header.tipo_de_mensaje = - 665; //SIG1_H
+		*retval = header.tipo_de_mensaje = SIG1 ; //SIG1_H
 	}
 	else if (fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
 		puts("Fin de quantum...");
