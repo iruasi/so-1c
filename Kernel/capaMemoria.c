@@ -85,22 +85,12 @@ t_puntero reservarBytes(char* heap_page, int sizeReserva){
 }
 
 t_puntero reservar(int pid, int size){
-<<<<<<< HEAD
-	log_trace(logTrace,"inicio reservar bytes para pid");
-=======
-	//printf("Se reservaran %d bytes para el PID %d\n", size, pid);
 	log_trace(logTrace,"inicio reservar %d bytes bytes para [PID %d]",size,pid);
->>>>>>> 04b2e4a0cac0886982c8ff60c080c9ebdc245461
 	int stat;
 	t_puntero ptr;
 
 	if (!VALID_ALLOC(size)){
-		printf("El size %d no es un tamanio valido para almacenar en Memoria\n", size);
-<<<<<<< HEAD
-		log_trace(logTrace, "El size %d no es un tamanio valido para almacenar en memoria",size);
-=======
-		log_trace(logTrace,"el size %d no es un tamanio valido para almacenar en memoria [PID %d]",size,pid);
->>>>>>> 04b2e4a0cac0886982c8ff60c080c9ebdc245461
+		log_trace(logTrace, "El size %d no es valido para almacenar en Memoria [PID %d]", size, pid);
 		return 0; // Un puntero a Heap nunca podria ser 0
 	}
 

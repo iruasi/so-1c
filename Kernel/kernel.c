@@ -91,13 +91,7 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 	}
 	//printf("Se enviaron: %d bytes a FILESYSTEM\n", stat);
 	log_trace(logTrace,"se enviaron %d bytes a FS",stat);
-<<<<<<< HEAD
 
-=======
-	ks->fd_max = MAX(sock_fs, ks->fd_max);
-	puts("Me conecte a filesystem");
-	log_trace(logTrace,"me conecte a fS");
->>>>>>> 04b2e4a0cac0886982c8ff60c080c9ebdc245461
 	// Creamos sockets para hacer listen() de CPUs
 	if ((ks->sock_lis_cpu = makeListenSock(kernel->puerto_cpu)) < 0){
 		log_error(logTrace,"no se pudo crear socket para escuchar sock_lis_cpu");
