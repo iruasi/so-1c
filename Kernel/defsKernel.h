@@ -92,7 +92,8 @@ typedef struct{
 
 typedef struct{
 	t_banderas flag;
-	t_descriptor_archivo fd;
+	t_descriptor_archivo fdGlobal;
+	t_descriptor_archivo fdLocal;
 	t_puntero posicionCursor;
 }tProcesoArchivo;
 

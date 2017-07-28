@@ -89,7 +89,6 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 	}
 	//printf("Se enviaron: %d bytes a FILESYSTEM\n", stat);
 	log_trace(logTrace,"se enviaron %d bytes a FS",stat);
-	ks->fd_max = MAX(sock_fs, ks->fd_max);
 
 	// Creamos sockets para hacer listen() de CPUs
 	if ((ks->sock_lis_cpu = makeListenSock(kernel->puerto_cpu)) < 0){
@@ -133,7 +132,6 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 	ks->sock_watch = inotify_add_watch(ks->sock_inotify, pathDirectorio, IN_MODIFY);
 	ks->fd_max = MAX(ks->fd_max, ks->sock_inotify);
 
-	FD_SET(sock_fs,          &ks->master);
 	FD_SET(ks->sock_lis_cpu, &ks->master);
 	FD_SET(ks->sock_lis_con, &ks->master);
 	FD_SET(ks->sock_inotify, &ks->master);
@@ -149,22 +147,7 @@ int main(int argc, char* argv[]){
 	}
 
 	logTrace = log_create("/home/utnso/logKERNELTrace.txt","KERNEL",0,LOG_LEVEL_TRACE);
-
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"Inicia nueva ejecucion de KERNEL");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-	log_trace(logTrace,"");
-
+	log_trace(logTrace,"\n\n\n\n\n Inicia nueva ejecucion de KERNEL \n\n\n\n\n");
 
 //	if (sem_init(&haySTDIN, 0, 0) == -1){
 //		perror("No se pudo inicializar semaforo. error");
@@ -297,13 +280,6 @@ int main(int argc, char* argv[]){
 					//printf("Se desconecto el socket %d\nLo sacamos del set listen...\n", fd);
 					log_trace(logTrace,"se dsconecto %d",fd);
 					clearAndClose(&fd, &ks->master);
-					break;
-
-				} else if (fd == sock_fs){
-
-
-					//printf("llego algo desde fs!\n\tTipo de mensaje: %d\n", header_tmp.tipo_de_mensaje);
-					log_trace(logTrace,"llego algo de fs . tipo de msj %d",header_tmp.tipo_de_mensaje);
 					break;
 
 				} else if (fd == 0) //socket del stdin

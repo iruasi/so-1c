@@ -131,23 +131,19 @@ int *ker_manejador(void){
 	int stat, pack_size;
 	int *retval = malloc(sizeof(int));
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = 9852};//9852, iniciar escuchaKernel
-	tPackHeader header;
 	char *buffer, *info;
-	tPackBytes * abrir, *bytes;
-	tPackBytes * borrar;
+	tPackBytes * abrir, *bytes, *borrar;
 	tPackRecvRW *rw;
-	tPackRecibirRW * leer;
-	tPackRecibirRW * escribir;
+	tPackRecibirRW * leer, *escribir;
 	struct fuse_file_info *fi = malloc(sizeof *fi);
 	int operacion;
-	header.tipo_de_proceso = FS;
 
 	do {
 	switch(head.tipo_de_mensaje){
 
 	case VALIDAR_ARCHIVO:
 		log_trace(logTrace,"Se pide validacion de archivo");
-		//puts("Se pide validacion de archivo");
+
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
 
@@ -170,29 +166,24 @@ int *ker_manejador(void){
 		head.tipo_de_proceso = FS;
 		head.tipo_de_mensaje = (crearArchivo(abrir->bytes) < 0)?
 				INVALIDAR_RESPUESTA : CREAR_ARCHIVO;
-		informarResultado(sock_kern,header);
+		informarResultado(sock_kern, head);
 
 		//puts("Fin case CREAR_ARCHIVO");
 		break;
 
 	case BORRAR:
-		//puts("Se peticiona el borrado de un archivo");
-		log_trace(logTrace,"se peticiona el borrado de un archivo");
+		log_trace(logTrace, "Se peticiona borrar un archivo");
+
 		buffer = recvGeneric(sock_kern);
-		borrar = deserializeBytes(buffer);
-		if((operacion = unlink2(borrar->bytes)) == 0){
-			//puts("El archivo fue borrado con exito");
-			log_trace(logTrace,"el archivo fue borrado con exito");
-			header.tipo_de_mensaje = ARCHIVO_BORRADO;
-			informarResultado(sock_kern,header);
-		}else{
-			log_error(logTrace,"el archivo no pudo ser borrado");
-			puts("El archivo no pudo ser borrado");
-			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
-			informarResultado(sock_kern,header);
-		}
-		//puts("Fin case BORRAR");
-		freeAndNULL((void **)&buffer);
+		bytes  = deserializeBytes(buffer);
+
+		head.tipo_de_mensaje = (unlink2(borrar->bytes) != 0)?
+				INVALIDAR_RESPUESTA : ARCHIVO_BORRADO;
+		informarResultado(sock_kern,head);
+
+		free(bytes->bytes);
+		freeAndNULL((void **) &bytes);
+		freeAndNULL((void **) &buffer);
 		break;
 
 	case LEER:
@@ -230,22 +221,16 @@ int *ker_manejador(void){
 		break;
 
 	case ESCRIBIR:
-		//puts("Se peticiona la escritura de un archivo");
-		log_trace(logTrace,"se peticiona la escritura de un archivo");
+		log_trace(logTrace,"Se escribe un archivo");
+
 		buffer = recvGeneric(sock_kern);
-		escribir = deserializeLeerFS(buffer);
-		if(true){//(operacion = write2(escribir->direccion)) == 0
-			//puts("El archivo fue escrito con exito");
-			log_trace(logTrace,"el archivo fue escrito con exito");
-			header.tipo_de_mensaje = ARCHIVO_ESCRITO;
-			informarResultado(sock_kern,header);
-		}else{
-			log_error(logTrace,"el archivo no pudo ser borrado");
-			puts("El archivo no pudo ser borrado");
-			header.tipo_de_mensaje = INVALIDAR_RESPUESTA;
-			informarResultado(sock_kern,header);
-		}
-		//puts("Fin case ESCRIBIR");
+		rw = deserializeLeerFS2(buffer);
+
+		// aca operacion con retorno
+		head.tipo_de_proceso = FS; head.tipo_de_mensaje = ARCHIVO_ESCRITO;
+		informarResultado(sock_kern, head);
+
+		freeAndNULL((void **) &rw);
 		freeAndNULL((void **)&buffer);
 		break;
 

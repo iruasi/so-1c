@@ -177,5 +177,10 @@ typedef struct{
 	t_banderas flag;
 }__attribute__((packed))tPackRecvRW;//Paquete para recibir la serealizacion de lectura y escritura de kernel
 
+typedef struct{
+	t_descriptor_archivo fd;
+	t_valor_variable posicion;
+}__attribute__((packed))tPackCursor;
+
 
 #endif /* TIPOSPAQUETES_H_ */

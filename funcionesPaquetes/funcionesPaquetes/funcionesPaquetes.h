@@ -104,6 +104,7 @@ char *serializeAbrir(tPackAbrir * abrir, int *pack_size);
 tPackAbrir * deserializeAbrir(char *abrir_serial);
 
 char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_variable posicion, int *pack_size);
+tPackCursor *deserializeMoverCursor(char *cursor_serial);
 
 char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size);
 tPackRW *deserializeEscribir(char *escr_serial);

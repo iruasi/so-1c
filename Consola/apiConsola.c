@@ -31,23 +31,12 @@ extern t_list *listaAtributos;
 extern t_log *logTrace;
 extern tConsola *cons_data;
 
-pthread_mutex_t mux_listaAtributos,mux_listaFinalizados;
-
-
-void accionesFinalizacion(int pid);
-
+pthread_mutex_t mux_listaAtributos, mux_listaFinalizados;
 
 void inicializarSemaforos(void){
 	pthread_mutex_init(&mux_listaAtributos,NULL);
 	pthread_mutex_init(&mux_listaFinalizados,NULL);
-
-
 }
-
-void eliminarSemaforos(void){
-	//sem_destroy(&semLista);
-}
-
 
 int Iniciar_Programa(tAtributosProg *atributos){
 	FILE *file = fopen(atributos->path, "rb");
@@ -257,7 +246,7 @@ void *programa_handler(void *atributos){
 	tPackPID *ppid;
 	log_trace(logTrace,"esperando a recibir el PID");
 	while(finalizar != 1){
-		puts("a");
+		puts("Test espera activa!"); // todo: remover cuando ya no ocurra muchas veces seguidas
 		while((stat = recv(args->sock, &(head_tmp), HEAD_SIZE, 0)) > 0){
 
 			if (head_tmp.tipo_de_mensaje == IMPRIMIR){
@@ -317,7 +306,7 @@ void *programa_handler(void *atributos){
 
 				accionesFinalizacion(args->pidProg);
 
-				finalizar=1;
+				finalizar = 1;
 				//close(args->sock); //todo:revisar esto
 
 
@@ -329,12 +318,12 @@ void *programa_handler(void *atributos){
 				printf("\n\n\n #####Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n####",args->pidProg);
 				log_trace(logTrace,"Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)",args->pidProg);
 				accionesFinalizacion(args->pidProg);
-				finalizar=1;
+				finalizar = 1;
 				//close(args->sock);
 			}
-
-
 		}
+
+		if (stat <= 0) break;
 	}
 
 

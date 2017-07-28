@@ -592,17 +592,18 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	return fd;
 }
 
-void borrar (t_descriptor_archivo direccion){
-	printf("Se pide al kernel borrar el archivo %d\n", direccion);
-	log_trace(logTrace,"inicio borrar");
+void borrar (t_descriptor_archivo fd){
+	log_trace(logTrace,"Borrar archivo %s", fd);
 
+	tPackHeader header, h_esp;
+	char *borrar_serial;
 	int pack_size = 0;
+
 	tPackVal * val = malloc(sizeof(*val));
 	val->head.tipo_de_proceso = CPU;
 	val->head.tipo_de_proceso = BORRAR;
-	val->val = direccion;
+	val->val = fd;
 
-	char *borrar_serial;
 	if ((borrar_serial = serializeVal(val, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
@@ -611,15 +612,14 @@ void borrar (t_descriptor_archivo direccion){
 
 	enviar(borrar_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = ARCHIVO_BORRADO};
-	tPackHeader header;
-/*	if(validarRespuesta(sock_kern,h_esp,&header)){
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = ARCHIVO_BORRADO;
+	if(validarRespuesta(sock_kern, h_esp, &header)){
 		err_exec = header.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}else{
 		pcb->cantSyscalls ++;
-	}*/
+	}
 	log_trace(logTrace,"fin borrar");
 
 	free(borrar_serial);
@@ -627,14 +627,16 @@ void borrar (t_descriptor_archivo direccion){
 }
 
 void cerrar (t_descriptor_archivo descriptor_archivo){
-	printf("Se pide al kernel cerrar el archivo %d\n", descriptor_archivo);
-	log_trace(logTrace,"inicio cerrar");
+	log_trace(logTrace,"Cerrar archivo fd: %d", descriptor_archivo);
+
+	tPackHeader header, h_esp;
 
 	int pack_size = 0;
 	tPackVal * val = malloc(sizeof(*val));
 	val->head.tipo_de_proceso = CPU;
 	val->head.tipo_de_mensaje = CERRAR;
 	val->val = descriptor_archivo;
+
 	char *cerrar_serial;
 	if ((cerrar_serial = serializeVal(val,&pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
@@ -644,9 +646,7 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 
 	enviar(cerrar_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = ARCHIVO_CERRADO};
-	tPackHeader header;
-
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = ARCHIVO_CERRADO;
 	if(validarRespuesta(sock_kern, h_esp, &header)){
 		err_exec = header.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
@@ -676,26 +676,31 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 
 	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje=CURSOR_MOVIDO};
 	tPackHeader header;
-
-	/*if(validarRespuesta(sock_kern,h_esp,&header)){
+	if(validarRespuesta(sock_kern,h_esp,&header)){
 		err_exec = header.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}else{
 		pcb->cantSyscalls ++;
-	}*/
+	}
 	log_trace(logTrace,"fin moverCursor");
 
 	free(mov_serial);
 }
 
-void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
-	printf("Se pide escribir el archivo %d con la info %s, bytes: %d\n", descriptor_archivo, (char*) informacion, tamanio);
-	log_trace(logTrace,"inicio escribir");
-	int pack_size = 0;
+void escribir (t_descriptor_archivo fd, void* informacion, t_valor_variable tamanio){
+	log_trace(logTrace, "Se pide escribir al %d con la info %s, bytes: %d\n", fd, (char*) informacion, tamanio);
 
+	int pack_size = 0;
 	char *esc_serial;
-	if ((esc_serial = serializeEscribir(descriptor_archivo, informacion, tamanio, &pack_size)) == NULL){
+	tPackHeader h_esp, head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ESCRIBIR};
+
+	tPackRW *escr = malloc(sizeof *escr);
+	escr->fd = fd;
+	escr->info = informacion;
+	escr->tamanio = tamanio;
+
+	if ((esc_serial = serializeRW(head, escr, &pack_size)) == NULL){
 		err_exec = FALLO_SERIALIZAC;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
@@ -703,15 +708,13 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 
 	enviar(esc_serial, pack_size);
 
-	tPackHeader h_esp = {.tipo_de_proceso = KER,.tipo_de_mensaje = ARCHIVO_ESCRITO};//ARCHIVO_ESCRITO
-	tPackHeader header;
-
-	if(validarRespuesta(sock_kern,h_esp,&header)){
-		err_exec = header.tipo_de_mensaje;
+	h_esp.tipo_de_proceso = KER; h_esp.tipo_de_mensaje = ARCHIVO_ESCRITO;
+	if(validarRespuesta(sock_kern,h_esp,&head)){
+		err_exec = head.tipo_de_mensaje;
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}else{
-		pcb->cantSyscalls ++;
+		pcb->cantSyscalls++;
 	}
 	log_trace(logTrace,"fin escribir");
 }

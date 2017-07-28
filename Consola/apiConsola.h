@@ -25,8 +25,6 @@ typedef struct {
 } tAtributosProg;
 
 
-
-
 int Iniciar_Programa(tAtributosProg *pack);
 
 
@@ -41,6 +39,9 @@ void Limpiar_Mensajes();
 
 void *programa_handler(void *argsX);
 
+
+void accionesFinalizacion(int pid);
+void inicializarSemaforos(void);
 
 int agregarAListaDeProgramas(int process_id);
 

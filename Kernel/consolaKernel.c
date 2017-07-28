@@ -118,97 +118,97 @@ void consolaKernel(void){
 		}
 	}
 }
-//TODO: Hay q sincronizar las colas?? Solo las estoy mirando, no tendria pq poner un semaforo, no?
-		void mostrarColaDe(char* cola){
 
-			if(!planificacionBloqueada){
-				puts("Muestro estado de las colas con la planificacion no bloqueada");
-				log_trace(logTrace,"mostrar la(s) cola(s) con la planificaicon no bloqueada");
+void mostrarColaDe(char* cola){
 
-				if (strncmp(cola,"todos",5)==0){
-					puts("Mostrar estado de todas las colas:");
-					log_trace(logTrace,"mostrar todas las colas");
+	if(!planificacionBloqueada){
+		puts("Muestro estado de las colas con la planificacion no bloqueada");
+		log_trace(logTrace,"mostrar la(s) cola(s) con la planificaicon no bloqueada");
 
-					LOCK_PLANIF;
-					mostrarColaNew();
-					mostrarColaReady();
-					mostrarColaExec();
-					mostrarColaExit();
-					mostrarColaBlock();
-					UNLOCK_PLANIF;
-				}
-				if (strncmp(cola,"new",3)==0){
-					log_trace(logTrace,"mostrar cola new");
+		if (strncmp(cola,"todos",5)==0){
+			puts("Mostrar estado de todas las colas:");
+			log_trace(logTrace,"mostrar todas las colas");
 
-					puts("Mostrar estado de cola NEW");
-					MUX_LOCK(&mux_new);
-					mostrarColaNew(); MUX_UNLOCK(&mux_new);
-				}
-				if (strncmp(cola,"ready",5)==0){
-					log_trace(logTrace,"mostrar cola ready");
-					puts("Mostrar estado de cola REDADY");
-					MUX_LOCK(&mux_ready);
-					mostrarColaReady(); MUX_UNLOCK(&mux_ready);
-				}
-				if (strncmp(cola,"exec",4)==0){
-					log_trace(logTrace,"mostrar cola exec");
-					puts("Mostrar estado de cola EXEC");
-					MUX_LOCK(&mux_exec);
-					mostrarColaExec(); MUX_UNLOCK(&mux_exec);
-				}
-				if (strncmp(cola,"exit",4)==0){
-					log_trace(logTrace,"mostrar cola exit");
-					puts("Mostrar estado de cola EXIT");
-					MUX_LOCK(&mux_exit);
-					mostrarColaExit(); MUX_UNLOCK(&mux_exit);
-				}
-				if (strncmp(cola,"block",5)==0){
-					log_trace(logTrace,"mostrar cola block");
-					puts("Mostrar estado de cola BLOCK");
-					MUX_LOCK(&mux_block);
-					mostrarColaBlock(); MUX_UNLOCK(&mux_block);
-				}
-			}else{
-				puts("Muestro estado de las colas con planificacion bloqueada");
-				log_trace(logTrace,"mostrar la(s) cola(s) con la planificacion bloqueada");
-				if (strncmp(cola,"todos",5)==0){
-					puts("Mostrar estado de todas las colas:");
-					log_trace(logTrace,"mostrar todas las colas");
-					mostrarColaNew();
-					mostrarColaReady();
-					mostrarColaExec();
-					mostrarColaExit();
-					mostrarColaBlock();
-
-				}
-				if (strncmp(cola,"new",3)==0){
-					log_trace(logTrace,"mostrar cola new");
-					puts("Mostrar estado de cola NEW");
-					mostrarColaNew();
-				}
-				if (strncmp(cola,"ready",5)==0){
-					log_trace(logTrace,"mostrar cola ready");
-					puts("Mostrar estado de cola REDADY");
-					mostrarColaReady();
-				}
-				if (strncmp(cola,"exec",4)==0){
-					log_trace(logTrace,"mostrar cola exec");
-					puts("Mostrar estado de cola EXEC");
-					mostrarColaExec();
-				}
-				if (strncmp(cola,"exit",4)==0){
-					log_trace(logTrace,"exit");
-					puts("Mostrar estado de cola EXIT");
-					mostrarColaExit();
-				}
-				if (strncmp(cola,"block",5)==0){
-					log_trace(logTrace,"mostrar cola block");
-					puts("Mostrar estado de cola BLOCK");
-					mostrarColaBlock();
-				}
-
-			}
+			LOCK_PLANIF;
+			mostrarColaNew();
+			mostrarColaReady();
+			mostrarColaExec();
+			mostrarColaExit();
+			mostrarColaBlock();
+			UNLOCK_PLANIF;
 		}
+		if (strncmp(cola,"new",3)==0){
+			log_trace(logTrace,"mostrar cola new");
+
+			puts("Mostrar estado de cola NEW");
+			MUX_LOCK(&mux_new);
+			mostrarColaNew(); MUX_UNLOCK(&mux_new);
+		}
+		if (strncmp(cola,"ready",5)==0){
+			log_trace(logTrace,"mostrar cola ready");
+			puts("Mostrar estado de cola REDADY");
+			MUX_LOCK(&mux_ready);
+			mostrarColaReady(); MUX_UNLOCK(&mux_ready);
+		}
+		if (strncmp(cola,"exec",4)==0){
+			log_trace(logTrace,"mostrar cola exec");
+			puts("Mostrar estado de cola EXEC");
+			MUX_LOCK(&mux_exec);
+			mostrarColaExec(); MUX_UNLOCK(&mux_exec);
+		}
+		if (strncmp(cola,"exit",4)==0){
+			log_trace(logTrace,"mostrar cola exit");
+			puts("Mostrar estado de cola EXIT");
+			MUX_LOCK(&mux_exit);
+			mostrarColaExit(); MUX_UNLOCK(&mux_exit);
+		}
+		if (strncmp(cola,"block",5)==0){
+			log_trace(logTrace,"mostrar cola block");
+			puts("Mostrar estado de cola BLOCK");
+			MUX_LOCK(&mux_block);
+			mostrarColaBlock(); MUX_UNLOCK(&mux_block);
+		}
+
+	}else{
+		puts("Muestro estado de las colas con planificacion bloqueada");
+		log_trace(logTrace,"mostrar la(s) cola(s) con la planificacion bloqueada");
+		if (strncmp(cola,"todos",5)==0){
+			puts("Mostrar estado de todas las colas:");
+			log_trace(logTrace,"mostrar todas las colas");
+			mostrarColaNew();
+			mostrarColaReady();
+			mostrarColaExec();
+			mostrarColaExit();
+			mostrarColaBlock();
+
+		}
+		if (strncmp(cola,"new",3)==0){
+			log_trace(logTrace,"mostrar cola new");
+			puts("Mostrar estado de cola NEW");
+			mostrarColaNew();
+		}
+		if (strncmp(cola,"ready",5)==0){
+			log_trace(logTrace,"mostrar cola ready");
+			puts("Mostrar estado de cola REDADY");
+			mostrarColaReady();
+		}
+		if (strncmp(cola,"exec",4)==0){
+			log_trace(logTrace,"mostrar cola exec");
+			puts("Mostrar estado de cola EXEC");
+			mostrarColaExec();
+		}
+		if (strncmp(cola,"exit",4)==0){
+			log_trace(logTrace,"exit");
+			puts("Mostrar estado de cola EXIT");
+			mostrarColaExit();
+		}
+		if (strncmp(cola,"block",5)==0){
+			log_trace(logTrace,"mostrar cola block");
+			puts("Mostrar estado de cola BLOCK");
+			mostrarColaBlock();
+		}
+	}
+}
 
 
 void mostrarColaNew(){
@@ -298,90 +298,15 @@ void mostrarColaBlock(){
 
 
 void mostrarInfoDe(int pidElegido){
-	log_trace(logTrace,"inicio mostrar info de %d ",pidElegido);
-	int p;
-		printf("############PROCESO %d############\n",pidElegido);
+	log_trace(logTrace,"inicio mostrar info de %d", pidElegido);
 
-		tPCB * pcbAuxiliar;
-
-		// todo: algo hace segfault
-		mostrarCantHeapUtilizadasDe(pidElegido);
-		mostrarCantSyscallsUtilizadasDe(pidElegido);
-		mostrarCantRafagasEjecutadasDe(pidElegido);
-		mostrarTablaDeArchivosDe(pidElegido);
-		mostrarTablaGlobal();
-		return;
-
-		MUX_LOCK(&mux_new);
-		if ((p = getQueuePositionByPid(pidElegido, New)) != -1){
-			pcbAuxiliar = queue_get(New,p);
-			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-			mostrarTablaDeArchivosDe(pcbAuxiliar);
-			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-			MUX_UNLOCK(&mux_new);
-			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
-
-			return;
-		}MUX_UNLOCK(&mux_new);
-
-		MUX_LOCK(&mux_ready);
-		if ((p = getQueuePositionByPid(pidElegido, Ready)) != -1){
-			pcbAuxiliar = queue_get(Ready,p);
-			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-			mostrarTablaDeArchivosDe(pcbAuxiliar);
-			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-			MUX_UNLOCK(&mux_ready);
-			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
-
-			return;
-		}MUX_UNLOCK(&mux_ready);
-
-		MUX_LOCK(&mux_exec);
-		if ((p = getPCBPositionByPid(pidElegido, Exec)) != -1){
-			pcbAuxiliar = list_get(Exec,p);
-			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-			mostrarTablaDeArchivosDe(pcbAuxiliar);
-			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-			MUX_UNLOCK(&mux_exec);
-			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
-
-			return;
-		}
-		MUX_UNLOCK(&mux_exec);
-
-		MUX_LOCK(&mux_block);
-		if ((p = getPCBPositionByPid(pidElegido, Block)) != -1){
-			pcbAuxiliar = list_get(Block,p);
-			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-			mostrarTablaDeArchivosDe(pcbAuxiliar);
-			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-			MUX_UNLOCK(&mux_block);
-			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
-
-			return;
-		}MUX_UNLOCK(&mux_block);
-
-		MUX_LOCK(&mux_exit);
-		if ((p = getQueuePositionByPid(pidElegido, Exit)) != -1){
-			pcbAuxiliar = queue_get(Exit,p);
-			mostrarCantRafagasEjecutadasDe(pcbAuxiliar);
-			mostrarTablaDeArchivosDe(pcbAuxiliar);
-			mostrarCantHeapUtilizadasDe(pcbAuxiliar); //tmb muestra 4.a y 4.b cant de acciones allocar y liberar
-			mostrarCantSyscallsUtilizadasDe(pcbAuxiliar);
-			MUX_UNLOCK(&mux_exit);
-			log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
-
-			return;
-		}MUX_UNLOCK(&mux_exit);
-
-		puts("no existe ese PID");
-		log_trace(logTrace,"fin mostrar info de %d ",pidElegido);
-
-		return;
+	printf("############PROCESO %d############\n", pidElegido);
+	mostrarCantHeapUtilizadasDe(pidElegido);
+	mostrarCantSyscallsUtilizadasDe(pidElegido);
+	mostrarCantRafagasEjecutadasDe(pidElegido);
+	mostrarTablaDeArchivosDe(pidElegido);
+	mostrarTablaGlobal();
+	return;
 }
 
 void mostrarCantRafagasEjecutadasDe(int pid){
@@ -439,7 +364,7 @@ void mostrarTablaDeArchivosDe(int pid){
 		archProceso = list_get(pa->archivosPorProceso, i);
 		armarStringPermisos(permisos, archProceso->flag.creacion, archProceso->flag.escritura, archProceso->flag.lectura);
 
-		printf("Permisos: %s -- fdGlobalAsociado: %d -- cursor: %d", permisos, archProceso->fd, archProceso->posicionCursor);
+		printf("Permisos: %s -- fdGlobalAsociado: %d -- cursor: %d", permisos, archProceso->fdGlobal, archProceso->posicionCursor);
 	}
 	log_trace(logTrace,"fin mostrar tabla de archivos");
 }

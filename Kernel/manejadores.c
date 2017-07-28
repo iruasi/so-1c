@@ -32,9 +32,12 @@ t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas, *tab
 pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc,mux_listaAvisar;
 extern pthread_mutex_t mux_exec, mux_tablaPorProceso, mux_archivosAbiertos;
 extern sem_t eventoPlani, sem_heapDict, sem_end_exec, sem_bytes;
+extern int globalFD;
 
 void setupGlobales_manejadores(void){
 	log_trace(logTrace,"setup globales_manejadores");
+
+	globalFD = 3; // 0, 1, 2 reservados stdio
 
 	tablaGlobal   = dictionary_create();
 	tablaProcesos = list_create();
@@ -63,12 +66,14 @@ void cpu_manejador(void *infoCPU){
 	bool found;
 	char *buffer, *var, sfd[MAXPID_DIG];
 	char *file_serial;
-	int stat, pack_size, p;
+	int stat, pack_size, pos, fd;
 	tPackBytes *sem_bytes, *bytes;
-	tPackVal *alloc, *fd_rta;
+	tPackVal *alloc, *fd_rta, *oper_fd;
+	tPackRW *pack_io;
 	fd_rta = malloc(sizeof(*fd_rta));
 	t_puntero ptr;
-	tDatosTablaGlobal * datosGlobal;
+	tPackCursor *cursor;
+	tDatosTablaGlobal *datosGlobal;
 	tProcesoArchivo * procArchivo;
 	tPackHeader h_esp;
 
@@ -281,7 +286,7 @@ void cpu_manejador(void *infoCPU){
 		MUX_UNLOCK(&mux_infoProc);
 		break;
 
-	case ABRIR:
+	case ABRIR: //todo: mutexear utilizacion de Tabla Global y TablaPorProceso
 			log_trace(logTrace,"CPU quiere abrir un archivo");
 
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
@@ -295,41 +300,18 @@ void cpu_manejador(void *infoCPU){
 				break;
 			}
 
-			// Si no existe el archivo, tratamos de registrarlo..
-			if (stat == INVALIDAR_RESPUESTA){ // hay que validar permiso de creacion y registrar al Archivo
+			if (stat == INVALIDAR_RESPUESTA){ // hay que validar permiso de creacion y registrar el Archivo
 				if (!abrir->flags.creacion){
 					head.tipo_de_mensaje = NOCREAT_PERM;
 					informarResultado(cpu_i->cpu.fd_cpu, head);
 					break;
-				}
-			}
 
-			head.tipo_de_mensaje = CREAR_ARCHIVO;
-			buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-			if ((send(sock_fs, buffer, pack_size, 0)) == -1){
-				perror("Fallo send de crear archivo a Filesystem. error");
-				log_error(logTrace, "No se pudo enviar creacion de archivo a Filesystem");
-				head.tipo_de_mensaje = FALLO_SEND;
-				informarResultado(cpu_i->cpu.fd_cpu, head);
-				break;
+				} else
+					fd = crearArchivo(abrir, cpu_i->cpu.fd_cpu, sock_fs, cpu_i->cpu.pid);
 			}
-
-			h_esp.tipo_de_proceso = FS; h_esp.tipo_de_mensaje = CREAR_ARCHIVO;
-			if (validarRespuesta(sock_fs, h_esp, &head) != 0){
-				log_error(logTrace, "Filesystem no pudo crear el archivo");
-				head.tipo_de_proceso = KER;
-				informarResultado(cpu_i->cpu.fd_cpu, head);
-				break;
-			}
-
-			// Ahora si, el archivo ya esta creado. Lo asignamos a las tablas..
-			datosGlobal = malloc(sizeof *datosGlobal);
-			datosGlobal->direccion = malloc(abrir->longitudDireccion);
-			agregarArchivoTablaGlobal(datosGlobal, abrir);
-			agregarArchivoATablaProcesos(datosGlobal, abrir->flags, cpu_i->con->pid);
 
 			fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
-			fd_rta->val = datosGlobal->fd;
+			fd_rta->val = fd;
 			file_serial = serializeVal(fd_rta, &pack_size);
 			if((stat = send(cpu_i->cpu.fd_cpu, file_serial, pack_size, 0)) == -1){
 				log_error(logTrace,"Error al enviar el paquete a la cpu");
@@ -348,133 +330,154 @@ void cpu_manejador(void *infoCPU){
 
 		case BORRAR:
 			log_trace(logTrace,"Case Borrar");
+
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-			tPackPID * borrar_fd =  deserializeVal(buffer);
-			tDatosTablaGlobal * unaTabla;
+			oper_fd = deserializeVal(buffer);
+			freeAndNULL((void **) &buffer);
 
-			unaTabla = encontrarTablaPorFD(borrar_fd->val,cpu_i->con->pid);
-			if(unaTabla->cantidadOpen <= 0){
-				log_error(logTrace,"El arc hivo no se encuentra abierto");
-				perror("El archivo no se encuentra abierto");
-				break;
-			}else if(unaTabla->cantidadOpen > 1){
-				log_error(logTrace,"El archivo solciitado esa abierto mas de  1 vez al mismo tiempo");
-				perror("El archivo solicitado esta abierto más de 1 vez al mismo tiempo");
-				break;
-			}
+			datosGlobal = encontrarEnTablaGlobalPorFD(oper_fd->val,cpu_i->con->pid, 'r');
+			sprintf(sfd, "%d", datosGlobal->fd);
 
-			tPackHeader header = {.tipo_de_proceso = FS, .tipo_de_mensaje = BORRAR};
-			char * borrar_serial = serializeBytes(header,borrar_fd->val,sizeof(int),&pack_size);
-
-			if((stat = send(sock_fs,borrar_serial,pack_size,0)) == -1){
-				log_error(logTrace,"Error al mandar peticion de borrado de archivo al fs");
-				perror("error al mandar petición de borrado de archivo al filesystem");
+			head.tipo_de_proceso = KER;
+			if (datosGlobal->cantidadOpen > 1){
+				log_error(logTrace, "Se trato de borrar un archivo abierto mas de una vez");
+				head.tipo_de_mensaje = FALLO_GRAL;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				dictionary_put(tablaGlobal, sfd, datosGlobal);
 				break;
 			}
 
-			if((stat = recv(sock_fs, &head, sizeof head, 0)) == -1){
-				log_error(logTrace,"Error al recibir el paquete al fs");
-				perror("error al recibir el paquete al filesystem");
+			head.tipo_de_mensaje = BORRAR;
+			buffer = serializeBytes(head, datosGlobal->direccion, strlen(datosGlobal->direccion) + 1, &pack_size);
+
+			free(datosGlobal->direccion);
+			freeAndNULL((void **) &datosGlobal);
+
+			if (send(sock_fs, buffer, pack_size, 0) == -1){
+				perror("Fallo send de direccion a Filesystem. error");
+				log_error(logTrace, "Fallo send de direccion a Filesystem");
+				head.tipo_de_mensaje = FALLO_SEND;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
-			if(head.tipo_de_mensaje == 1){//TODO: CAMBIAR ESTE 1 POR EL PROTOCOLO CORRESPONDIENTE
-				buffer = recvGeneric(sock_fs);
-				if((stat = send(cpu_i->cpu.fd_cpu,buffer,pack_size,0)) == -1){
-					log_error(logTrace,"error al enviar el paquete al fs");
-					perror("error al enviar el paquete al filesystem");
-					break;
-				}
-			}
+
+			h_esp.tipo_de_proceso = FS; h_esp.tipo_de_mensaje = ARCHIVO_BORRADO;
+			validarRespuesta(sock_fs, h_esp, &head);
+
+			head.tipo_de_proceso = KER;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
 
 			freeAndNULL((void ** )&buffer);
 			break;
+
 		case CERRAR:
-			log_trace(logTrace,"Case CERRAR");
+			log_trace(logTrace, "Case CERRAR");
+
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-			tPackPID * cerrar_fd =  deserializeVal(buffer);
-			tDatosTablaGlobal * archivoCerrado = encontrarTablaPorFD(cerrar_fd->val,cpu_i->con->pid);
+			oper_fd =  deserializeVal(buffer);
 
-			archivoCerrado -> cantidadOpen--;
+			datosGlobal = encontrarEnTablaGlobalPorFD(oper_fd->val, cpu_i->con->pid, 'r');
+			if (datosGlobal->cantidadOpen == 1){ // es el ultimo abierto, lo eliminamos
+				free(datosGlobal->direccion);
+				freeAndNULL((void **) &datosGlobal);
+			}
+			sprintf(sfd, "%d", datosGlobal->fd);
+			dictionary_put(tablaGlobal, sfd, datosGlobal);
 
-			printf("Se cerró el archivo de fd #%d y de direccion %s",cerrar_fd->val,(char *) &(archivoCerrado-> direccion));
-			log_trace(logTrace,"se cerro el archivo solicitado");
-			tPackHeader header2 = {.tipo_de_proceso = KER, .tipo_de_mensaje = ARCHIVO_CERRADO}; //ARCHIVO_CERRADO = 120
+			cerrarArchivoDeProceso(cpu_i->cpu.pid, oper_fd->val);
+
+			log_trace(logTrace, "Se cerro el fd #%d de direccion %s", oper_fd->val, datosGlobal->direccion);
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ARCHIVO_CERRADO;
 			pack_size = 0;
-			//char * cerrar_serial = serializeHeader(header2,&pack_size);
-			informarResultado(cpu_i->cpu.fd_cpu,header2);
+			informarResultado(cpu_i->cpu.fd_cpu, head);
 
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
 
-			freeAndNULL((void ** )&buffer);
+			freeAndNULL((void **) &buffer);
+			freeAndNULL((void **) &oper_fd);
 			break;
 
 		case MOVERCURSOR:
-			log_trace(logTrace,"case mover cursor");
+			log_trace(logTrace,"Case Mover Cursor");
+
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-			typedef struct{
-				t_descriptor_archivo fd;
-				t_valor_variable posicion;
-			}__attribute__((packed))tPackCursor;
+			cursor = deserializeMoverCursor(buffer);
 
-			tPackCursor * deserializeCursor(char * cursor_serial){
-
-				tPackCursor * cursor = malloc(sizeof(*cursor));
-				int off = 0;
-
-				memcpy(&cursor->fd,cursor_serial+off,sizeof(int));
-				off += sizeof(int);
-				memcpy(&cursor->posicion,cursor_serial + off ,sizeof(int));
-				off += sizeof(int);
-
-				return cursor;
-			}
-
-			tPackCursor * cursor = deserializeCursor(buffer);
-			tProcesoArchivo * _unArchivo = obtenerProcesoSegunFD(cursor->fd,cpu_i->cpu.pid);
-			_unArchivo->posicionCursor = cursor->posicion;
+			procArchivo = obtenerProcesoSegunFDLocal(cursor->fd, cpu_i->cpu.pid, 'g');
+			procArchivo->posicionCursor = cursor->posicion;
 			pack_size = 0;
-			tPackHeader header3 = {.tipo_de_proceso = KER, .tipo_de_mensaje = 130}; // 130 = CURSOR_MOVIDO
-			char * cursor_serial = serializeBytes(header3,_unArchivo->posicionCursor,sizeof(_unArchivo->posicionCursor),&pack_size);
 
-			if((stat = send(cpu_i->cpu.fd_cpu,cursor_serial,pack_size,0))<0){
-				log_error(logTrace,"error al enviar el cambio de cursor a la cpu");
-				perror("error al enviar el cambio de cursor a la cpu");
-			}
+			head.tipo_de_proceso = KER; head.tipo_de_mensaje = CURSOR_MOVIDO;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
+
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
 
+			freeAndNULL((void **) &cursor);
 			break;
+
 		case ESCRIBIR:
+			log_trace(logTrace, "Escribir a un fd");
 
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
-			tPackRW *escr = deserializeEscribir(buffer);
+			pack_io = deserializeEscribir(buffer);
 
 			head.tipo_de_proceso = KER;
-			log_trace(logTrace,"se recibio el fd %d",escr->fd);
-			//printf("Se escribe en fd %d, la info %s\n", escr->fd, (char *) escr->info);
+			log_trace(logTrace,"Se recibio el fd %d", pack_io->fd);
 
-			if (escr->fd == FD_CONSOLA){ // lo mandamos a Consola y avisamos a CPU
-				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->pid,cpu_i->con->fd_con, escr) < 0)?
+			if (pack_io->fd == FD_CONSOLA){ // lo mandamos a Consola y avisamos a CPU
+				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->pid,cpu_i->con->fd_con, pack_io) < 0)?
 						FALLO_INSTR : ARCHIVO_ESCRITO;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
-			sprintf(sfd, "%d", escr->fd);
-			tDatosTablaGlobal * path;
+
+			if ((procArchivo = obtenerProcesoSegunFDLocal(pack_io->fd, cpu_i->cpu.pid, 'g')) == NULL){
+				head.tipo_de_mensaje = FALLO_GRAL;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				break;
+			}
+			if ((datosGlobal = encontrarEnTablaGlobalPorFD(pack_io->fd, cpu_i->cpu.pid, 'g')) == NULL){
+				head.tipo_de_mensaje = FALLO_GRAL;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				break;
+			}
+
+			head.tipo_de_mensaje = ESCRIBIR;
+			buffer = serializeLeerFS2(head, datosGlobal->direccion, procArchivo->posicionCursor, pack_io->tamanio, &pack_size);
+			if (buffer == NULL){
+				head.tipo_de_mensaje = FALLO_SERIALIZAC;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				break;
+			}
+
+			if (send(sock_fs, buffer, pack_size, 0) == -1){
+				perror("Fallo send pedido escritura a Filesystem. error");
+				log_error(logTrace, "Fallo send pedido escritura a Filesystem");
+				head.tipo_de_mensaje = FALLO_SEND;
+				informarResultado(cpu_i->cpu.fd_cpu, head);
+				break;
+			}
+
+			h_esp.tipo_de_proceso = FS; h_esp.tipo_de_mensaje = ARCHIVO_ESCRITO;
+			head.tipo_de_mensaje = (validarRespuesta(sock_fs, h_esp, &head) != 0)?
+					FALLO_ESCRITURA : ARCHIVO_ESCRITO;
+
 			MUX_LOCK(&mux_archivosAbiertos); MUX_LOCK(&mux_tablaPorProceso);
 			if(dictionary_has_key(tablaGlobal,sfd)){
 				path = dictionary_get(tablaGlobal, sfd);
-				procArchivo = obtenerProcesoSegunFD(escr->fd, cpu_i->con->pid);
-				log_trace(logTrace,"El archivo de fd #%d del proceso #%d fue obtenido con exito de la tabla globa",escr->fd,cpu_i->con->pid);
+				procArchivo = obtenerProcesoSegunFDLocal(pack_io->fd, cpu_i->con->pid, 'g');
+				log_trace(logTrace,"El archivo fd #%d del PID #%d se obtuvo de la Tabla Global",pack_io->fd,cpu_i->con->pid);
 			}else{
 				log_error(logTrace,"La tabla global de archivos no posee el fd solicitado");
-				free(escr->info); free(escr);
+				free(pack_io->info); free(pack_io);
 				freeAndNULL((void **) &buffer);
 				MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
 				break;
@@ -488,7 +491,7 @@ void cpu_manejador(void *infoCPU){
 			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
 
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ESCRIBIR;
-			file_serial = serializeLeerFS(head, path->direccion, escr->info, escr->tamanio, procArchivo->flag, &pack_size);
+			file_serial = serializeLeerFS(head, path->direccion, pack_io->info, pack_io->tamanio, procArchivo->flag, &pack_size);
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
 				log_error(logTrace,"error al enviar el paquete al fs");
 				perror("error al enviar el paquete al filesystem");
@@ -512,7 +515,7 @@ void cpu_manejador(void *infoCPU){
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
 
-			free(escr->info); free(escr);
+			free(pack_io->info); free(pack_io);
 			freeAndNULL((void **) &buffer);
 			break;
 
@@ -525,7 +528,7 @@ void cpu_manejador(void *infoCPU){
 			sprintf(sfd, "%d", leer->fd);
 			path = dictionary_get(tablaGlobal, sfd);
 			log_trace(logTrace, "el valor del fd en leer es %d", leer->fd);
-			if ((procArchivo = obtenerProcesoSegunFD(leer->fd,cpu_i->con->pid)) == NULL){
+			if ((procArchivo = obtenerProcesoSegunFDLocal(leer->fd,cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 			}
@@ -577,12 +580,10 @@ void cpu_manejador(void *infoCPU){
 	break;
 
 	case HSHAKE:
-		//puts("Se recibe handshake de CPU");
 		log_trace(logTrace,"se recibe handshake de cpu");
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO;
 		if ((stat = contestar2ProcAProc(head, kernel->quantum_sleep, kernel->stack_size, cpu_i->cpu.fd_cpu)) < 0){
-			log_error(logTrace,"no se pudo informar el qs y stack size a cpu");
-			puts("No se pudo informar el quantum_sleep y stack_size a CPU.");
+			log_error(logTrace, "No se pudo informar el quantum sleep ni stack size a cpu");
 			return;
 		}
 
@@ -619,8 +620,8 @@ void cpu_manejador(void *infoCPU){
 	}
 
 	pthread_mutex_lock(&mux_listaDeCPU);
-	if ((p = getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu)) != -1){
-		list_remove(listaDeCpu,p);
+	if ((pos = getCPUPosByFD(cpu_i->cpu.fd_cpu, listaDeCpu)) != -1){
+		list_remove(listaDeCpu, pos);
 	}
 	pthread_mutex_unlock(&mux_listaDeCPU);
 

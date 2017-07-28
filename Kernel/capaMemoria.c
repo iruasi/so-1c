@@ -50,10 +50,9 @@ bool esReservable(int size_req, tHeapMeta *hmd){
 }
 
 void crearNuevoHMD(tHeapMeta *dir_mem, int size){
-	log_trace(logTrace,"inicio crear nuevo hmd");
+	log_trace(logTrace,"Crear nuevo hmd");
 	dir_mem->size = size - SIZEOF_HMD;
 	dir_mem->isFree = true;
-	log_trace(logTrace,"fin crear nuevo hmd");
 }
 
 /* retorna posicion relativa la pagina de heap, NO ES ABSOLUTA
@@ -86,14 +85,13 @@ t_puntero reservarBytes(char* heap_page, int sizeReserva){
 }
 
 t_puntero reservar(int pid, int size){
-	//printf("Se reservaran %d bytes para el PID %d\n", size, pid);
 	log_trace(logTrace,"inicio reservar bytes para pid");
 	int stat;
 	t_puntero ptr;
 
 	if (!VALID_ALLOC(size)){
 		printf("El size %d no es un tamanio valido para almacenar en Memoria\n", size);
-		log_trace(logTrace,"el size %d no es un tamanio valido para almacenar en memoria",size);
+		log_trace(logTrace, "El size %d no es un tamanio valido para almacenar en memoria",size);
 		return 0; // Un puntero a Heap nunca podria ser 0
 	}
 
@@ -224,14 +222,12 @@ t_puntero reservarEnHeap(int pid, int size){
 /* Retorna el bloque contiguo al dado por parametro, si es que hay uno...
  */
 tHeapMeta *nextBlock(tHeapMeta *hmd, int *dist){
-	log_trace(logTrace,"inicio nextBlock");
 	if (ES_ULTIMO_HMD(hmd, *dist)){
 		*dist = 0;
 		return hmd;
 	}
 
 	*dist -= hmd->size + SIZEOF_HMD;
-	log_trace(logTrace,"fin nextBlock");
 	return (tHeapMeta* ) ((char *) hmd + hmd->size + SIZEOF_HMD);
 }
 
@@ -240,18 +236,16 @@ tHeapMeta *nextBlock(tHeapMeta *hmd, int *dist){
  * Retorna el bloque encontrado.
  */
 tHeapMeta *nextFreeBlock(tHeapMeta *hmd, int *dist){
-	log_trace(logTrace,"inicio nextFreeBlock");
 	tHeapMeta *hmd_next = nextBlock(hmd, dist);
 	while (!hmd_next->isFree)
 		hmd_next = nextBlock(hmd_next, dist);
 
-	log_trace(logTrace,"fin nextFreeBlock");
 	return hmd_next;
 }
 
 
 int getMaxFreeBlock(char *heap){
-	log_trace(logTrace,"inicio getMaxFreeBlock");
+	log_trace(logTrace,"getMaxFreeBlock");
 	tHeapMeta *hmd = (tHeapMeta *) heap;
 	int dist = MAX_ALLOC_SIZE + SIZEOF_HMD;
 	int max  = 0;
@@ -263,7 +257,6 @@ int getMaxFreeBlock(char *heap){
 		max = MAX(max, hmd->size);
 		hmd = nextFreeBlock(hmd, &dist);
 	}
-	log_trace(logTrace,"fin getMaxFreeBlock");
 	return max;
 }
 

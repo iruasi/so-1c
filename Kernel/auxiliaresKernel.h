@@ -35,13 +35,23 @@ void asociarSrcAProg(t_RelCC *con_i, tPackSrcCode *src);
  */
 int passSrcCodeFromRecv(tPackHeader *head, int fd_sender, int fd_mem, int *src_size);
 
-void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos,tPackAbrir * abrir);
+/*
+ * OPERACIONES SOBRE TALBA GLOBAL Y TABLA POR PROCESO, DE ARCHIVOS
+ */
+tProcesoArchivo *crearArchivoDeProceso(int pid, tPackAbrir *abrir, tDatosTablaGlobal *dato);
+tDatosTablaGlobal *agregarArchivoTablaGlobal(tPackAbrir *file);
 void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid);
+tProcesoArchivo *obtenerProcesoSegunFDLocal(t_descriptor_archivo fd , int pid, char modo);
+tProcesoArchivo * obtenerProcesoSegunFDGlobal(t_descriptor_archivo fd , int pid, char modo);
+tDatosTablaGlobal * encontrarEnTablaGlobalPorFD(t_descriptor_archivo fd_local, int pid, char modo);
+tDatosTablaGlobal * encontrarEnTablaGlobalporPath(char *path);
+int crearArchivo(tPackAbrir *file, int sock_cpu, int sock_fs, int pid);
+int validarArchivo(tPackAbrir *abrir, int sock_fs);
+int cerrarArchivoDeProceso(int pid, int fd_local);
 
-tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid);
-
-tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid);
-
+/*
+ * OTRAS OPERACIONES
+ */
 
 /* Crea un PCB que aun no tiene la info importante
  * que se obtiene a partir del meta y codigo fuente.
@@ -64,8 +74,6 @@ bool estaEnExit(int pid);
 
 int escribirAConsola(int pidProg,int sock_con, tPackRW *escr);
 
-// todo: podria poner esto en otro lado? o aca estara bien...
-
 void crearInfoProcess(int pid);
 t_infoProcess *getInfoProcessByPID(int pid);
 
@@ -76,6 +84,5 @@ void sumarPaginaHeap(int pid);
 void sumarSizeYAlloc(int pid, int size);
 void sumarFreeYDealloc(int pid, int size);
 
-int validarArchivo(tPackAbrir *abrir, int sock_fs);
-
 #endif // AUXILIARESKERNEL_H_
+

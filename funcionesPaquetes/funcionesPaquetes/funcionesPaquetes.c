@@ -776,6 +776,20 @@ char *serializeMoverCursor(t_descriptor_archivo descriptor_archivo, t_valor_vari
 	return mov_serial;
 }
 
+tPackCursor *deserializeMoverCursor(char *cursor_serial){
+
+	tPackCursor * cursor = malloc(sizeof *cursor);
+
+	int off = 0;
+	memcpy(&cursor->fd, cursor_serial + off, sizeof(int));
+	off += sizeof(int);
+	memcpy(&cursor->posicion, cursor_serial + off , sizeof(int));
+	off += sizeof(int);
+
+	return cursor;
+}
+
+
 char *serializeEscribir(t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio, int *pack_size){
 
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = ESCRIBIR};

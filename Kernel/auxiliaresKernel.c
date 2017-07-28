@@ -42,46 +42,94 @@ extern t_list *tablaProcesos;
 
 pthread_mutex_t mux_tablaPorProceso, mux_archivosAbiertos;
 
-void agregarArchivoTablaGlobal(tDatosTablaGlobal * datos, tPackAbrir * abrir){
+tDatosTablaGlobal *crearArchivoEnTablaGlobal(tPackAbrir *abrir){
+	log_trace(logTrace, "Crear registro de archivo en Tabla Global");
+
 	char fd_str[MAXPID_DIG];
-	log_trace(logTrace,"inicio agregar archivo a tabla global");
+	tDatosTablaGlobal *datos = malloc(sizeof *datos);
+	datos->direccion = malloc(abrir->longitudDireccion);
 
+	datos->cantidadOpen = 1;
+	datos->fd = globalFD;
+	globalFD++;
 	memcpy(datos->direccion, abrir->direccion, abrir->longitudDireccion);
-	datos->cantidadOpen = 0;
-	datos->fd = globalFD; globalFD++;
+
 	sprintf(fd_str, "%d", datos->fd);
+	dictionary_put(tablaGlobal, fd_str, datos);
 
-	if(!dictionary_has_key(tablaGlobal, fd_str)){
-		log_trace(logTrace,"la tabla no contiene el archivo, la agregamos");
-		dictionary_put(tablaGlobal, fd_str, datos);
+	return datos;
+}
 
-		log_trace(logTrace,"los datos fueron agregados a la tabla global");
+tDatosTablaGlobal *encontrarEnTablaGlobalporPath(char *path){
+
+	tDatosTablaGlobal *dato;
+	char fds[MAXPID_DIG];
+	int i;
+
+	for (i = 0; i < dictionary_size(tablaGlobal); ++i){
+		sprintf(fds, "%d", i);
+		if (!dictionary_has_key(tablaGlobal, fds))
+			continue;
+
+		dato = dictionary_get(tablaGlobal, fds);
+		if (strcmp(path, dato->direccion) == 0){
+			return dato;
+		}
+	}
+	return NULL;
+}
+
+tDatosTablaGlobal *agregarArchivoTablaGlobal(tPackAbrir * file){
+	log_trace(logTrace, "Agregar archivo a Tabla Global");
+
+	tDatosTablaGlobal *dato;
+
+	if ((dato = encontrarEnTablaGlobalporPath(file->direccion)) != NULL){
+		dato = crearArchivoEnTablaGlobal(file);
 
 	} else
-		log_trace(logTrace,"el archivo ya se encuentra en la tabla global");
+		dato->cantidadOpen++;
 
-	log_trace(logTrace,"fin agregar archivo a tabla global");
+	return dato;
 }
-void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos,t_banderas flags, int pid){
+
+tProcesoArchivo *crearArchivoDeProceso(int pid, tPackAbrir *abrir, tDatosTablaGlobal *dato){
+	log_trace(logTrace, "Crear archivo del proceso");
+
+	tProcesoArchivo *arch = malloc(sizeof *arch);
+	arch->fdGlobal = dato->fd;
+	arch->posicionCursor = 0;
+	memcpy(&arch->flag, &abrir->flags, sizeof(t_banderas));
+
+	t_procesoXarchivo *pid_arch = malloc(sizeof *pid_arch);
+	pid_arch->pid = pid;
+	pid_arch->archivosPorProceso = list_create();
+	list_add(pid_arch->archivosPorProceso, arch);
+
+	return arch;
+}
+
+void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos, t_banderas flags, int pid){
 	tProcesoArchivo * pa = malloc(sizeof *pa);
 	log_trace(logTrace,"inicio agregar archivo a tabla procesos");
 	t_procesoXarchivo * pxa = malloc(sizeof(*pxa));
 
-	pa->fd = datos->fd;
+	pa->fdGlobal = datos->fd;
 	pa->flag = flags;
 	pa->posicionCursor = 0;
 
 	pxa -> pid = pid;
 	pxa->archivosPorProceso = list_create();
-	list_add(pxa->archivosPorProceso,pa);//El index es 3 + el pid, porque 0,1 y 2 están reservados
+	list_add(pxa->archivosPorProceso, pa); // El index es 3 + el pid, porque 0,1 y 2 están reservados
 	list_add(tablaProcesos,pxa);
 	log_trace(logTrace,"fin agregar archivo a tabla procesos");
 }
 
-tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
-	log_trace(logTrace,"inicio obtener proceso segun fd");
+tProcesoArchivo *obtenerProcesoSegunFDLocal(t_descriptor_archivo fd , int pid, char modo){
+	log_trace(logTrace,"Obtener proceso segun fd");
+
 	bool encontrarFD(tProcesoArchivo * archivo){
-		return archivo->fd == fd;
+		return archivo->fdLocal == fd;
 	}
 	bool encontrarPid(t_procesoXarchivo * proceso){
 		return proceso->pid == pid;
@@ -94,20 +142,62 @@ tProcesoArchivo * obtenerProcesoSegunFD(t_descriptor_archivo fd , int pid){
 		log_error(logTrace, "No se pudo encontrar el pid en la Tabla de Procesos");
 		return NULL;
 	}
-	if ((_unArchivo = list_find(_unProceso->archivosPorProceso, (void *) encontrarFD)) == NULL){
-		log_error(logTrace, "No se pudo encontrar el fd en la Tabla de Archivos");
-		return NULL;
-	}
 
-	log_trace(logTrace,"fin obtener proceso segun fd");
+	if (modo == 'g'){ // list_find
+		if ((_unArchivo = list_find(_unProceso->archivosPorProceso, (void *) encontrarFD)) == NULL){
+			log_error(logTrace, "No se pudo encontrar el fd en la Tabla de Archivos");
+			return NULL;
+		}
+
+	} else { // list_remove
+		_unArchivo = list_remove_by_condition(_unProceso->archivosPorProceso, (void *) encontrarFD);
+		if (_unArchivo == NULL){
+			log_error(logTrace, "No se pudo encontrar el fd en la Tabla de Archivos");
+			return NULL;
+		}
+	}
 	return _unArchivo;
 }
 
-tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
-	log_trace(logTrace,"inicio encontrar tbla por fd");
-	tDatosTablaGlobal * unaTabla;
+tProcesoArchivo * obtenerProcesoSegunFDGlobal(t_descriptor_archivo fd , int pid, char modo){
+	log_trace(logTrace,"Obtener proceso segun fd");
+
+	bool encontrarFD(tProcesoArchivo * archivo){
+		return archivo->fdGlobal == fd;
+	}
+	bool encontrarPid(t_procesoXarchivo * proceso){
+		return proceso->pid == pid;
+	}
+
+	t_procesoXarchivo * _unProceso;
+	tProcesoArchivo * _unArchivo;
+
+	if ((_unProceso = list_find(tablaProcesos, (void *) encontrarPid)) == NULL){
+		log_error(logTrace, "No se pudo encontrar el pid en la Tabla de Procesos");
+		return NULL;
+	}
+
+	if (modo == 'g'){ // list_find
+		if ((_unArchivo = list_find(_unProceso->archivosPorProceso, (void *) encontrarFD)) == NULL){
+			log_error(logTrace, "No se pudo encontrar el fd en la Tabla de Archivos");
+			return NULL;
+		}
+
+	} else { // list_remove
+		_unArchivo = list_remove_by_condition(_unProceso->archivosPorProceso, (void *) encontrarFD);
+		if (_unArchivo == NULL){
+			log_error(logTrace, "No se pudo encontrar el fd en la Tabla de Archivos");
+			return NULL;
+		}
+	}
+	return _unArchivo;
+}
+
+tDatosTablaGlobal * encontrarEnTablaGlobalPorFD(t_descriptor_archivo fd_local, int pid, char modo){
+	log_trace(logTrace, "Encontrar Datos en Tabla Global por fd");
+
 	bool encontrarFD(tProcesoArchivo *archivo){
-		return archivo->fd == fd;
+		return archivo->fdLocal == fd_local;
 	}
 	bool encontrarProceso(t_procesoXarchivo * unProceso){
 		return unProceso->pid == pid;
@@ -117,10 +207,85 @@ tDatosTablaGlobal * encontrarTablaPorFD(t_descriptor_archivo fd, int pid){
 	tProcesoArchivo * _archivo   = list_find(_proceso->archivosPorProceso, (void *) encontrarFD);
 
 	char fd_s[MAXPID_DIG];
-	sprintf(fd_s,"%d",fd);
-	if(_archivo->fd == fd && dictionary_has_key(tablaGlobal,fd_s)) unaTabla = (tDatosTablaGlobal *) dictionary_get(tablaGlobal, fd_s);
-	log_trace(logTrace,"fin encontrar tabla por fd");
-	return unaTabla;
+	sprintf(fd_s, "%d", _archivo->fdGlobal);
+	if(dictionary_has_key(tablaGlobal, fd_s))
+		if (modo == 'g')
+			return dictionary_get(tablaGlobal, fd_s);
+		else
+			return dictionary_remove(tablaGlobal, fd_s);
+
+	log_error(logTrace, "No se encontro archivo en Tabla Global");
+	return NULL;
+}
+
+/* Comanda a Filesystem a que cree el archivo. Luego procede a administrarlo...
+ * Trata de agregarlo a la Tabla Global, y luego agrega en Archivos por Proceso
+ */
+int crearArchivo(tPackAbrir *file, int sock_cpu, int sock_fs, int pid){
+
+	char *buffer;
+	int pack_size;
+	tPackHeader head, h_esp;
+	tDatosTablaGlobal *dato;
+
+	head.tipo_de_mensaje = CREAR_ARCHIVO;
+	buffer = serializeBytes(head, file->direccion, file->longitudDireccion, &pack_size);
+	if ((send(sock_fs, buffer, pack_size, 0)) == -1){
+		perror("Fallo send de crear archivo a Filesystem. error");
+		log_error(logTrace, "No se pudo enviar creacion de archivo a Filesystem");
+		head.tipo_de_mensaje = FALLO_SEND;
+		informarResultado(sock_cpu, head);
+		return FALLO_SEND;
+	}
+
+	h_esp.tipo_de_proceso = FS; h_esp.tipo_de_mensaje = CREAR_ARCHIVO;
+	if (validarRespuesta(sock_fs, h_esp, &head) != 0){
+		log_error(logTrace, "Filesystem no pudo crear el archivo");
+		head.tipo_de_proceso = KER;
+		informarResultado(sock_cpu, head);
+		return FALLO_GRAL;
+	}
+
+	dato = agregarArchivoTablaGlobal(file);
+	crearArchivoDeProceso(pid, file, dato);
+	return dato->fd;
+}
+
+int validarArchivo(tPackAbrir *abrir, int sock_fs){
+
+	char *buffer;
+	int pack_size;
+	tPackHeader head  = {.tipo_de_proceso = KER, .tipo_de_mensaje = VALIDAR_ARCHIVO};
+
+	head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
+	buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
+	if (send(sock_fs, buffer, pack_size, 0) < 0){
+		perror("No se pudo validar el archivo. error");
+		return FALLO_SEND;
+	}
+
+	tPackHeader h_esp = {.tipo_de_proceso = FS,  .tipo_de_mensaje = VALIDAR_RESPUESTA};
+	if (validarRespuesta(sock_fs, h_esp, &head) != 0){
+		log_trace(logTrace, "Validacion del archivo %s resulto invalida", abrir->direccion);
+		return head.tipo_de_mensaje;
+	}
+
+	return 0;
+}
+
+/* Remueve de la lista de ArchivosPorProceso al elemento
+ * correspondiente al file descriptor fd_local del PID dado
+ */
+int cerrarArchivoDeProceso(int pid, int fd_local){
+
+	tProcesoArchivo *file;
+	if ((file = obtenerProcesoSegunFDLocal(fd_local, pid, 'r')) == NULL){
+		log_error(logTrace, "No se pudo obtener fd %d del PID %d", fd_local, pid);
+		return FALLO_GRAL;
+	}
+
+	free(file);
+	return 0;
 }
 
 tPCB *crearPCBInicial(void){
@@ -383,26 +548,4 @@ void sumarFreeYDealloc(int pid, int size){
 
 	ip->ih.cant_frees++;
 	ip->ih.bytes_freed += size;
-}
-
-int validarArchivo(tPackAbrir *abrir, int sock_fs){
-
-	char *buffer;
-	int pack_size;
-	tPackHeader head  = {.tipo_de_proceso = KER, .tipo_de_mensaje = VALIDAR_ARCHIVO};
-
-	head.tipo_de_proceso = KER; head.tipo_de_mensaje = VALIDAR_ARCHIVO;
-	buffer = serializeBytes(head, abrir->direccion, abrir->longitudDireccion, &pack_size);
-	if (send(sock_fs, buffer, pack_size, 0) < 0){
-		perror("No se pudo validar el archivo. error");
-		return FALLO_SEND;
-	}
-
-	tPackHeader h_esp = {.tipo_de_proceso = FS,  .tipo_de_mensaje = VALIDAR_RESPUESTA};
-	if (validarRespuesta(sock_fs, h_esp, &head) != 0){
-		log_trace(logTrace, "Validacion del archivo %s resulto invalida", abrir->direccion);
-		return head.tipo_de_mensaje;
-	}
-
-	return 0;
 }
