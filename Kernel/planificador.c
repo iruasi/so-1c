@@ -39,7 +39,7 @@ extern tKernel *kernel;
 
 sem_t eventoPlani;
 pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU, mux_gradoMultiprog;
-extern pthread_mutex_t mux_gl_Programas,mux_listaAvisar,mux_listaFinalizados;
+extern pthread_mutex_t mux_gl_Programas,mux_listaAvisar;
 
 void pausarPlanif(void){
 
@@ -103,7 +103,7 @@ void mandarPCBaCPU(tPCB *pcb, t_RelCC * cpu){
 
 	//printf("Se agrego sock_cpu #%d a lista \n",cpu->cpu.fd_cpu);
 
-	log_trace(logTrace,"Se enviaron %d bytes a cpu",pack_size);
+	log_trace(logTrace,"Se enviaron %d bytes a cpu para enviar el pcb %d a cpu",pack_size,pcb->id);
 	log_trace(logTrace,"Se agrego sock_cpu #%d a lista",cpu->cpu.fd_cpu);
 
 	free(pcb_serial);
@@ -320,7 +320,7 @@ void encolarDeNewEnReady(tPCB *pcb){
 }
 
 void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
-	log_trace(logTrace,"Iniciar y alojar en memoria [PID %d]",pf->prog->con->pid);
+	log_trace(logTrace,"Iniciar y alojar en memoria pages %d,pidprog%d",pages,pf->prog->con->pid);
 	int stat;
 	char *pidpag_serial;
  	int pack_size = 0;
@@ -371,7 +371,7 @@ void iniciarYAlojarEnMemoria(t_RelPF *pf, int pages){
 		puts("Fallo envio src code a Memoria...");
 		log_error(logTrace,"fallo envio src code a memoria[PID %d]",pf->prog->con->pid);
 	}
-	log_trace(logTrace,"se enviaron %d bytes a memoria[PID %d]",pf->prog->con->pid,stat);
+	log_trace(logTrace,"se enviaron %d bytes a memoria[PIDprog %d]",stat,pf->prog->con->pid);
 	//	printf("se enviaron %d bytes\n", stat);
 
 	free(pidpag_serial);
@@ -502,7 +502,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 	mergePCBs(&pcbPlanif, pcbCPU);
 
 	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1){
-		log_trace(logTrace,"ya fue finalizado por consola, lo mandamos a exit pid %d",pcbCPU->id);
+		log_trace(logTrace,"ya fue finalizado por consola, lo mandamos a exit a pid %d",pcbCPU->id);
 		fcAux=list_get(finalizadosPorConsolas,k);
 		pcbCPU->exitCode = fcAux->ecode;
 		encolarEnExit(pcbCPU,cpu);
@@ -525,12 +525,14 @@ void cpu_handler_planificador(t_RelCC *cpu){
 		pcbPlanif = list_remove(Exec, getPCBPositionByPid(cpu->cpu.pid, Exec));
 		MUX_UNLOCK(&mux_exec);
 
+		log_trace(logTrace,"sacamos de EXEC a %d para ver si lo mandamos a BLOCK o a EXIT",cpu->cpu.pid);
 		mergePCBs(&pcbPlanif, pcbCPU);
 
 		if((k = fueFinalizadoPorConsola(pcbCPU->id))!=-1){
 			fcAux = list_get(finalizadosPorConsolas,k);
 			pcbCPU->exitCode = fcAux->ecode;
 			encolarEnExit(pcbCPU,cpu);
+
 		}
 		else {
 
@@ -544,7 +546,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	case (ABORTO_PROCESO):
 		printf("CPU %d aborto el PID %d\n", cpu->cpu.fd_cpu, cpu->cpu.pid);
-	log_trace(logTrace,"cpu aborto el pid %d",cpu->cpu.pid);
+		log_trace(logTrace,"cpu aborto el pid %d",cpu->cpu.pid);
 		MUX_LOCK(&mux_exec);
 		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
 		MUX_UNLOCK(&mux_exec);
@@ -578,7 +580,7 @@ void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 	//MUX_UNLOCK(&mux_listaFinalizados);
 	printf("\n\n#####FIN DE EJECUCION DE %d#####\n",pcb->id);
 	printf("#####EXIT CODE DEL PROCESO %d: %d#####\n\n", pcb->id, pcb->exitCode);
-	log_trace(logTrace,"Exit code de %d: %d",pcb->id,pcb->exitCode);
+	log_trace(logTrace,"##Exit code de %d: %d##",pcb->id,pcb->exitCode);
 	if(pcb->exitCode != CONS_DISCONNECT && cpu->con->fd_con != -1){
 
 		headerFin->tipo_de_proceso = KER;
@@ -614,7 +616,7 @@ void encolarEnExit(tPCB *pcb, t_RelCC *cpu){
 
 void blockByPID(int pid, tPCB *pcb){
 	//printf("Pasamos PID %d desde Exec a Block\n", pid);
-	log_trace(logTrace,"Se pasa a %d de exec a block",pid);
+	log_trace(logTrace,"Se pasa a PID%d de exec a block",pid);
 
 	MUX_LOCK(&mux_block);
 	list_add(Block, pcb);
@@ -630,7 +632,7 @@ void mergePCBs(tPCB **old, tPCB *new){
 
 void unBlockByPID(int pid){
 	//puts("Pasamos proceso (que deberia estar en Block) a Ready");
-	log_trace(logTrace,"pasamos a %d de block a ready",pid);
+	log_trace(logTrace,"pasamos a PID%d de block a ready",pid);
 	int p;
 	tPCB* pcb;
 

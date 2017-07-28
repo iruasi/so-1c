@@ -27,7 +27,7 @@ void setupGlobales_syscalls(void){
 }
 
 int getSemPosByID(const char *sem){
-	log_trace(logTrace,"get sem pos by id");
+	log_trace(logTrace,"get sem pos by id sem %s",sem);
 	int i;
 	for (i = 0; i < kernel->sem_quant; ++i)
 		if (strcmp(kernel->sem_ids[i], sem) == 0)
@@ -38,14 +38,15 @@ int getSemPosByID(const char *sem){
 }
 
 int waitSyscall(const char *sem, int pid){
-	log_trace(logTrace,"wait syscall");
+	log_trace(logTrace,"wait syscall [PID %d] sem %s",pid,sem);
 	int p;
 	if ((p = getSemPosByID(sem)) == -1)
 		return VAR_NOT_FOUND;
 
 	kernel->sem_vals[p]--;
 	if (kernel->sem_vals[p] < 0){
-		puts("Ejecucion espera semaforo");
+		//puts("Ejecucion espera semaforo");
+		log_trace(logTrace,"Ejecucion espera semaforo %s [PID %d]",sem,pid);
 		enqueuePIDtoSem((char *) sem, pid);
 		return PCB_BLOCK;
 		// todo: blockByPID(pid) en planificador...
@@ -54,7 +55,7 @@ int waitSyscall(const char *sem, int pid){
 }
 
 int signalSyscall(const char *sem){
-	log_trace(logTrace,"signal syscall");
+	log_trace(logTrace,"signal syscall sem %s",sem);
 	int p, *pid;
 	if ((p = getSemPosByID(sem)) == -1)
 		return VAR_NOT_FOUND;
@@ -65,7 +66,7 @@ int signalSyscall(const char *sem){
 			return 0;
 		unBlockByPID(*pid);
 		free(pid);
-		puts("Ejecucion continua por semaforo");
+		log_trace(logTrace,"Ejecucion continua por semaforo sem %s",sem );
 	}
 
 	return 0;
@@ -91,7 +92,7 @@ int setGlobalSyscall(tPackValComp *val_comp){
 
 t_valor_variable getGlobalSyscall(t_nombre_variable *var, bool* found){
 
-	log_trace(logTrace,"get global syscall");
+	log_trace(logTrace,"get global syscall global %s",var);
 	int i;
 	int nlen = strlen(var) + 2; // espacio para el ! y el '\0'
 	char *aux = NULL;
@@ -112,7 +113,7 @@ t_valor_variable getGlobalSyscall(t_nombre_variable *var, bool* found){
 }
 
 void enqueuePIDtoSem(char *sem, int pid){
-	log_trace(logTrace,"enqueue pid to sem");
+	log_trace(logTrace,"enqueue pid to sem [PID %d] sem %s",pid,sem);
 	t_queue *pids_blk;
 	int *pid_b = malloc(sizeof(int));
 	*pid_b = pid; // creamos una copia del PID
@@ -133,10 +134,10 @@ void enqueuePIDtoSem(char *sem, int pid){
 
 int *unqueuePIDfromSem(char *sem){
 
-	log_trace(logTrace,"unqueue pid from sem");
+	log_trace(logTrace,"unqueue pid from sem %s",sem);
 	MUX_LOCK(&mux_sems_queue);
 	if (!dictionary_has_key(dict_sems_queue, sem)){
-		log_trace(logTrace,"el semaforo no tiene registrado ningun pid");
+		log_trace(logTrace,"el semaforo %s no tiene registrado ningun pid",sem);
 		//printf("El semaforo %s no tiene registrado ningun PID\n", sem);
 		MUX_UNLOCK(&mux_sems_queue);
 		return NULL;
@@ -144,7 +145,7 @@ int *unqueuePIDfromSem(char *sem){
 
 	t_queue *pids_blk = dictionary_get(dict_sems_queue, sem);
 	if (queue_is_empty(pids_blk)){
-		log_trace(logTrace,"no hay pids esperando al sem");
+		log_trace(logTrace,"no hay pids esperando al sem %s",sem);
 		//printf("No hay PIDs esperando a %s\n", sem);
 		MUX_UNLOCK(&mux_sems_queue);
 		return NULL;
