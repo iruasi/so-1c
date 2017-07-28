@@ -484,6 +484,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	//ponemos la cpu como libre
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
+	informarNuevoQSLuego(cpu);
 	//puts("eventoPlani (cpudisponible)");
 	log_trace(logTrace,"ahora la cpu esta disponible");
 	sem_post(&eventoPlani);
@@ -515,6 +516,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	}
 	cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
+	informarNuevoQSLuego(cpu);
 	sem_post(&eventoPlani);
 	break;
 
@@ -540,7 +542,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 			blockByPID(cpu->cpu.pid, pcbCPU);
 			cpu->cpu.pid = -1;
 		}
-
+		informarNuevoQSLuego(cpu);
 		sem_post(&eventoPlani);
 		break;
 
@@ -556,6 +558,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 		encolarEnExit(pcbPlanif, cpu);
 
 		//puts("Fin case ABORTO_PROCESO");
+		informarNuevoQSLuego(cpu);
 		sem_post(&eventoPlani);
 		break;
 
@@ -679,14 +682,14 @@ void informarNuevoQSLuego(t_RelCC *cpu_i){
 	int fdAuxCpu;
 	MUX_LOCK(&mux_listaAvisar);
 	for(k=0;k<list_size(listaAvisarQS);k++){
-		fdAuxCpu = list_get(listaAvisarQS, k);
+		fdAuxCpu =  list_get(listaAvisarQS, k);
 		if(cpu_i->cpu.fd_cpu == fdAuxCpu)
 		{
 			if(cpu_i->cpu.pid == -1)
 				{
 					avisarNewQSaCPU(kernel->quantum_sleep,cpu_i->cpu.fd_cpu);
 					log_trace(logTrace,"Aviso al cpu %d el nuevo qs de %d\n", cpu_i->cpu.fd_cpu,kernel->quantum_sleep);
-					printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu_i->cpu.fd_cpu,kernel->quantum_sleep);
+					//printf("le avisamos a cpu %d el nuevo qs de %d\n",cpu_i->cpu.fd_cpu,kernel->quantum_sleep);
 					list_remove(listaAvisarQS,k);
 					MUX_UNLOCK(&mux_listaAvisar);
 					return;
@@ -706,8 +709,8 @@ void avisarNewQSaCPU(int qs, int sock){
 	tPackPID pack_qs;
 
 	pack_qs.head.tipo_de_proceso = KER;
-	//pack_pid.head.tipo_de_mensaje = NEWQS;
-	pack_qs.head.tipo_de_mensaje = 87;
+	pack_qs.head.tipo_de_mensaje = NEW_QSLEEP;
+	//pack_qs.head.tipo_de_mensaje = 87;
 	pack_qs.val = qs;
 
 	pack_size = 0;

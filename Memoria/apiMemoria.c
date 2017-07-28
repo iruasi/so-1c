@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <semaphore.h>
+
 
 #include <tiposRecursos/tiposErrores.h>
 #include <tiposRecursos/tiposPaquetes.h>
@@ -20,6 +22,7 @@ extern tCacheEntrada *CACHE_lines;
 extern int pid_free, free_page;
 extern t_log * logTrace;
 // OPERACIONES DE LA MEMORIA
+
 
 void retardo(int ms){
 	retardo_mem = ms / 1000.0;
