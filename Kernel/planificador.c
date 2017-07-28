@@ -492,9 +492,26 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	//puts("Fin case FIN_PROCESO");
 	break;
+	case(-665):
+			sleep(2);
+			log_trace(logTrace,"FIN DE QUANTUM[pid %d] &",pcbCPU->id);
+			MUX_LOCK(&mux_exec);
+			pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
+			MUX_UNLOCK(&mux_exec);
 
+			mergePCBs(&pcbPlanif, pcbCPU);
+
+			MUX_LOCK(&mux_exit);
+			queue_push(Ready, pcbCPU);
+			MUX_UNLOCK(&mux_exit);
+
+			cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
+			informarNuevoQSLuego(cpu);
+			sem_post(&eventoPlani);
+
+		break;
 	case (PCB_PREEMPT):
-	printf("\nFIN DE QUANTUM[pid %d]\n",pcbCPU->id);
+	//printf("\nFIN DE QUANTUM[pid %d]\n",pcbCPU->id);
 	log_trace(logTrace,"FIN DE QUANTUM[pid %d]",pcbCPU->id);
 	MUX_LOCK(&mux_exec);
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
@@ -502,7 +519,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	mergePCBs(&pcbPlanif, pcbCPU);
 
-	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1){
+	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1 ){
 		log_trace(logTrace,"ya fue finalizado por consola, lo mandamos a exit a pid %d",pcbCPU->id);
 		fcAux=list_get(finalizadosPorConsolas,k);
 		pcbCPU->exitCode = fcAux->ecode;
