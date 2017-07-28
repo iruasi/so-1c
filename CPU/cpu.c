@@ -194,7 +194,7 @@ int main(int argc, char* argv[]){
 		else if (head.tipo_de_mensaje == PCB_EXEC){
 
 			ejecutando=true;
-			if((pcb_serial = recvGeneric(sock_kern)) == NULL){
+			if((pcb_serial = recvGenericWFlags(sock_kern,MSG_WAITALL)) == NULL){
 				return FALLO_RECV;
 			}
 
@@ -311,7 +311,11 @@ int *ejecutarPrograma(void){sleep(1);
 		log_trace(logTrace,"El pcb se bloquea PCB_BLOCK");
 		*retval = header.tipo_de_mensaje = PCB_BLOCK;
 
-	} else if (fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
+	} else if(finalizate == true && fin_quantum == true){
+		log_trace(logTrace,"FQ & SIG1");
+		*retval = header.tipo_de_mensaje = SIG1 ; //SIG1_H
+	}
+	else if (fin_quantum == true){ // se dealoja el PCB, faltandole ejecutar instrucciones
 		puts("Fin de quantum...");
 		log_trace(logTrace,"Desaloja por fin de quantum PCB_PREEMPT");
 		*retval = header.tipo_de_mensaje = PCB_PREEMPT;
@@ -336,7 +340,7 @@ int *ejecutarPrograma(void){sleep(1);
 	log_trace(logTrace,"Se enviaron %d bytes a kernel del pcb [PID %d]",stat,pcb->id);
 
 	pthread_mutex_lock(&mux_ejecutando);
-	ejecutando = false;
+	//ejecutando = false;
 	pthread_mutex_unlock(&mux_ejecutando);
 	free(linea);
 

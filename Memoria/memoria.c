@@ -41,7 +41,8 @@ int  *CACHE_accs;           // vector de accesos hechos a CACHE
 int sock_kernel;
 t_log * logTrace;
 pthread_mutex_t mux_mem_access;
-
+sem_t semPidList;
+sem_t fin_recv;
 struct infoKer{
 	int *sock_ker;
 	bool kernExists;
@@ -63,7 +64,8 @@ int main(int argc, char* argv[]){
 	pthread_mutex_init(&mux_mem_access, NULL);
 	memoria = getConfigMemoria(argv[1]);
 	mostrarConfiguracion(memoria);
-
+	sem_init(&semPidList, 0, 0);
+	sem_init(&fin_recv, 0, 0);
 	if ((stat = setupMemoria()) != 0)
 		return ABORTO_MEMORIA;
 
@@ -275,7 +277,13 @@ void* kernel_handler(void *infoKer){
 			freeAndNULL((void **) &buffer);
 			//puts("Fin case ASIGN_PAG.");
 			break;
-
+		case PID_LIST:
+			log_trace(logTrace,"ENTRE PID LIS DE KERNEL_MANEJADOR");
+			sem_post(&semPidList);
+			log_trace(logTrace,"PASE SEM POST DE semPidLis");
+			sem_wait(&fin_recv);
+			log_trace(logTrace,"PASE SEM WAIT fin_recv");
+		break;
 		case FIN_PROG:
 			log_trace(logTrace,"case fin_prog");
 			if ((buffer = recvGeneric(*ik->sock_ker)) == NULL)

@@ -377,9 +377,10 @@ int *formarPtrPIDs(int *len){
 	}
 
 	for (i = r; i < q; ++i){
-		pcb = list_get(Exec, i);
+		pcb = (tPCB *) list_get(Exec, i);
 		memcpy(&pids[i], &pcb->id, sizeof(int));
 	}
+	puts("Ya se cargaron las listas ");
 	MUX_UNLOCK(&mux_ready); MUX_UNLOCK(&mux_exec);
 
 	*len = r + q;

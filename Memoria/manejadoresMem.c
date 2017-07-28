@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include <unistd.h>
+#include <semaphore.h>
 
 #include <commons/log.h>
 
@@ -30,6 +31,8 @@ extern int *CACHE_accs;     // vector de accesos a CACHE
 tCacheEntrada *CACHE_lines; // vector de lineas a CACHE
 extern t_log * logTrace;
 extern int sock_kernel;
+extern sem_t semPidList;
+extern sem_t fin_recv;
 
 // FUNCIONES Y PROCEDIMIENTOS DE MANEJO DE MEMORIA
 
@@ -204,17 +207,21 @@ int *obtenerPIDsKernel(int *len){ // todo: debuggear
 
 	tPackHeader head  = {.tipo_de_proceso = MEM, .tipo_de_mensaje = PID_LIST};
 	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = PID_LIST};
+	tPackHeader header;
+
+	log_trace(logTrace,"Se asignaron los headers");
 	informarResultado(sock_kernel, head);
+	log_trace(logTrace,"pase informar resultado");
+	sem_wait(&semPidList);
 
-	if (validarRespuesta(sock_kernel, head, &h_esp) != 0)
-		return NULL;
-
+	log_trace(logTrace,"Pase validar respuesta");
 	if ((buffer = recvGeneric(sock_kernel)) == NULL)
 		return NULL;
-
+	log_trace(logTrace,"Pase recvGeneric");
+	sem_post(&fin_recv);
 	if ((pb = deserializeBytes(buffer)) == NULL)
 		return NULL;
-
+	log_trace(logTrace,"Pase deserializeBytes");
 	*len = pb->bytelen;
 	pids = malloc(*len);
 	memcpy(pids, pb->bytes, *len);

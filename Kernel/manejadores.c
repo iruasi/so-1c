@@ -524,11 +524,11 @@ void cpu_manejador(void *infoCPU){
 			break;
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE):
-			case(PCB_PREEMPT): case(PCB_BLOCK)://COLA EXIT o BLOCK
+			case(PCB_PREEMPT): case(PCB_BLOCK): case(SIG1)://COLA EXIT o BLOCK
 			log_trace(logTrace,"case para enviar a cola exit o block[CPU %d]",cpu_i->cpu.pid);
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
-		informarNuevoQSLuego(cpu_i);
+
 	break;
 
 	case HSHAKE:
@@ -567,7 +567,8 @@ void cpu_manejador(void *infoCPU){
 
 	puts("CPU se desconecto, la sacamos de la listaDeCpu..");
 	log_trace(logTrace,"Cpu se desconecto, sale de la lista de CPU[CPU %d]",cpu_i->cpu.pid);
-	if(cpu_i->con->pid > -1){ //esta cpu tenia asignado un proceso. //con->pid o cpu->pid ?!? todo;
+
+	if(cpu_i->con->pid > -1 && head.tipo_de_mensaje != SIG1){ //esta cpu tenia asignado un proceso. //con->pid o cpu->pid ?!? todo;
 
 		desconexionCpu(cpu_i);//en esta funcion ponemos el pcb mas actual en exit y avisamos a consola el fin..
 	}
