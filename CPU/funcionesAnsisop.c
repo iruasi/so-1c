@@ -48,6 +48,7 @@ void setupCPUFuncionesKernel(void){
 }
 
 t_puntero punteroAContexto(t_list *stack_ind, int ctxt){
+	log_trace(logTrace,"funcion puntero a contexto");
 	int i, abs_size;
 	indiceStack *stack;
 
@@ -59,7 +60,7 @@ t_puntero punteroAContexto(t_list *stack_ind, int ctxt){
 }
 
 void obtenerUltimoEnContexto(t_list *stack, int *pag, int *off, int *size){
-
+	log_trace(logTrace,"funcion obtener ultimo en contexto");
 	*pag = *off = *size = 0;
 	indiceStack* ultimoStack = list_get(stack, pcb->contextoActual);
 
@@ -97,6 +98,7 @@ void obtenerUltimoEnContexto(t_list *stack, int *pag, int *off, int *size){
 }
 
 void obtenerVariable(t_nombre_variable variable, posicionMemoria* pm, indiceStack* stack){
+	log_trace(logTrace,"funcion obtener variable");
 	int i;
 	posicionMemoriaId* var;
 	for(i=0; i < list_size(stack->vars); i++){
@@ -113,8 +115,8 @@ void obtenerVariable(t_nombre_variable variable, posicionMemoria* pm, indiceStac
 
 //FUNCIONES DE ANSISOP
 t_puntero definirVariable(t_nombre_variable variable) {
-	printf("definir la variable %c\n", variable);
-	log_trace(logTrace,"inicio definirVariable");
+	//printf("definir la variable %c\n", variable);
+	log_trace(logTrace,"inicio definirVariable %c",variable);
 	indiceStack* ult_stack;
 	int pag, off, size, stack_ptr;
 	obtenerUltimoEnContexto(pcb->indiceDeStack, &pag, &off, &size);
@@ -134,8 +136,10 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		pthread_exit(&err_exec);
 	}
 
-	printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
-	printf("Contexto: %d\n", pcb->contextoActual);
+	//printf("La variable '%c' se define en (p,o,s) %d, %d, %d\n", variable, var->pos.pag, var->pos.offset, var->pos.size);
+	//printf("Contexto: %d\n", pcb->contextoActual);
+	log_trace(logTrace,"La variable '%c' se define en (p,o,s) %d, %d, %d [PID %d]", variable, var->pos.pag, var->pos.offset, var->pos.size,pcb->id);
+	log_trace(logTrace,"Contexto %d [PID %d]",pcb->contextoActual,pcb->id);
 	if (list_size(pcb->indiceDeStack) == 0){
 		ult_stack = crearStackVacio();
 		list_add(ult_stack->vars, var);
@@ -145,13 +149,13 @@ t_puntero definirVariable(t_nombre_variable variable) {
 		ult_stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
 		list_add(ult_stack->vars, var);
 	}
-	log_trace(logTrace,"fin definir variable");
+	log_trace(logTrace,"fin definir variable [PID %d]",pcb->id);
 	return stack_ptr + pcb->paginasDeCodigo * pag_size;
 }
 
 t_puntero obtenerPosicionVariable(t_nombre_variable variable){
-	printf("Obtener posicion de %c\n", variable);
-	log_trace(logTrace,"inicio ObtenerPosicionVariable");
+	//printf("Obtener posicion de %c\n", variable);
+	log_trace(logTrace,"inicio ObtenerPosicionVariable de %c [PID%d]",variable,pcb->id);
 	int i, stack_ptr;
 	indiceStack* stack = list_get(pcb->indiceDeStack, pcb->contextoActual);
 	posicionMemoria pm;
@@ -174,13 +178,13 @@ t_puntero obtenerPosicionVariable(t_nombre_variable variable){
 	}
 
 	stack_ptr = punteroAContexto(pcb->indiceDeStack, pcb->contextoActual);
-	log_trace(logTrace,"fin obtenerPosicionVariable");
+	log_trace(logTrace,"fin obtenerPosicionVariable [PID%d]",pcb->id);
 	return stack_ptr + pm.pag * pag_size + pm.offset;
 }
 
 void finalizar(void){
-	printf("Finalizar\n");
-	log_trace(logTrace,"inicio funcion Finalizar");
+	//printf("Finalizar\n");
+	log_trace(logTrace,"inicio funcion Finalizar [PID %d]",pcb->id);
 	if(pcb->contextoActual==0){
 		termino = true;
 		return;
@@ -201,12 +205,12 @@ void finalizar(void){
 	pcb->contextoActual--;
 	indiceStack* nuevoContexto=list_get(pcb->indiceDeStack,pcb->contextoActual);
 	pcb->pc=nuevoContexto->retPos;
-	log_trace(logTrace,"fin funcion finalizar");
+	log_trace(logTrace,"fin funcion finalizar[PID %d]",pcb->id);
 }
 
 t_valor_variable dereferenciar(t_puntero puntero) {
-	printf("Dereferenciar al puntero de posicion %d\n", puntero);
-	log_trace(logTrace,"inicio dereferenciar");
+	//printf("Dereferenciar al puntero de posicion %d\n", puntero);
+	log_trace(logTrace,"inicio dereferenciar al puntero de posicion %d [PID %d]",puntero,pcb->id);
 	t_valor_variable var;
 	tPackByteReq pbr;
 	tPackBytes* bytes;
@@ -253,14 +257,14 @@ t_valor_variable dereferenciar(t_puntero puntero) {
 	}
 
 	memcpy(&var, bytes->bytes, sizeof(var));
-	printf("Dereferenciar %d y su valor es: %d\n", puntero, var);
-	log_trace(logTrace,"fin funcion deferenciar");
+	//printf("Dereferenciar %d y su valor es: %d\n", puntero, var);
+	log_trace(logTrace,"fin funcion deferenciar %d y su valor es %d [PID %d]",puntero,var,pcb->id);
 	return var;
 }
 
 void asignar(t_puntero puntero, t_valor_variable variable) {
-	printf("Asignando en %d el valor %d\n", puntero, variable);
-	log_trace(logTrace,"inicio asignar");
+	//printf("Asignando en %d el valor %d\n", puntero, variable);
+	log_trace(logTrace,"inicio asignar en %d el valor %d [PID %d]",puntero,variable,pcb->id);
 	tPackByteAlmac pbal;
 	char *byteal_serial;
 	int pack_size, stat;
@@ -286,14 +290,14 @@ void asignar(t_puntero puntero, t_valor_variable variable) {
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	log_trace(logTrace,"fin asignar");
+	log_trace(logTrace,"fin asignar [PID %d]",pcb->id);
 	free(byteal_serial);
 }
 
 t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_variable valor){
 // `variable' llega con un '\0' al final
-	printf("Asignando en %s el valor %d\n", variable, valor);
-	log_trace(logTrace,"inicio asignar valor compartida");
+	//printf("Asignando en %s el valor %d\n", variable, valor);
+	log_trace(logTrace,"inicio asignar valor compartida en %s el valor %d [PID %d]",variable,valor,pcb->id);
 	char *valor_serial;
 	int pack_size, stat;
 	tPackHeader h_obt;
@@ -320,14 +324,14 @@ t_valor_variable asignarValorCompartida(t_nombre_compartida variable, t_valor_va
 	}
 
 	free(valor_serial);
-	log_trace(logTrace,"fin asignar valor compartida");
+	log_trace(logTrace,"fin asignar valor compartida [PID %d]",pcb->id);
 	return valor;
 }
 
 void irAlLabel (t_nombre_etiqueta etiqueta){
 	char* label = eliminarWhitespace(etiqueta);
-	printf("Se va al label %s\n", label);
-	log_trace(logTrace,"inicio ir al label");
+	//printf("Se va al label %s\n", label);
+	log_trace(logTrace,"inicio ir al label %s [PID %d]",label,pcb->id);
 	if ((pcb->pc = metadata_buscar_etiqueta(label, pcb->indiceDeEtiquetas, pcb->etiquetas_size)) == -1){
 		printf("No se encontro la etiqueta %s en el indiceDeEtiquetas", label);
 		err_exec = FALLO_INSTR;
@@ -335,13 +339,13 @@ void irAlLabel (t_nombre_etiqueta etiqueta){
 		pthread_exit(&err_exec);
 	}
 	pcb->pc--; // es porque ejecutarInstruccion() incrementa el pc. Si, esto es efectivamente un asco
-	log_trace(logTrace,"fin ir al label");
+	log_trace(logTrace,"fin ir al label [PID %d]",pcb->id);
 	free(label);
 }
 
 void llamarSinRetorno (t_nombre_etiqueta etiqueta){
-	printf("Llamar sin retorno a %s\n", etiqueta);
-	log_trace(logTrace,"inicio llamarSinRetorno");
+	//printf("Llamar sin retorno a %s\n", etiqueta);
+	log_trace(logTrace,"inicio llamarSinRetorno a %s [PID %d]",etiqueta,pcb->id);
 	puts("Esta funcion no se usa en este TP. Retornamos FALLO_INSTR!");
 	err_exec = FALLO_INSTR;
 	sem_post(&sem_fallo_exec);
@@ -350,8 +354,8 @@ void llamarSinRetorno (t_nombre_etiqueta etiqueta){
 }
 
 void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
-	printf("Se llama la funcion %s y se retornara en %d\n", etiqueta, donde_retornar);
-	log_trace(logTrace,"inicio llamarConRetorno");
+	//printf("Se llama la funcion %s y se retornara en %d\n", etiqueta, donde_retornar);
+	log_trace(logTrace,"se llama la funcion %s y se retornara en %d [PID %d]",etiqueta,donde_retornar,pcb->id);
 	int pag, off, size;
 
 	indiceStack *nuevoStack = crearStackVacio();
@@ -366,11 +370,11 @@ void llamarConRetorno (t_nombre_etiqueta etiqueta, t_puntero donde_retornar){
 	pcb->contextoActual++;
 
 	irAlLabel(etiqueta);
-	log_trace(logTrace,"fin llamarConRetorno");
+	log_trace(logTrace,"fin llamarConRetorno[PID %d]",pcb->id);
 }
 
 void retornar (t_valor_variable retorno){ // todo: revisar correctitud
-	log_trace(logTrace,"inicio retornoar");
+	log_trace(logTrace,"inicio retornoar [PID %d]",pcb->id);
 	int contextoActual= pcb->contextoActual;
 	indiceStack* stackActual = list_get(pcb->indiceDeStack,contextoActual);
 
@@ -390,13 +394,13 @@ void retornar (t_valor_variable retorno){ // todo: revisar correctitud
 
 	free(stackActual);
 	list_remove(pcb->indiceDeStack, pcb->contextoActual);
-	log_trace(logTrace,"fin retornar");
+	log_trace(logTrace,"fin retornar [PID %d]",pcb->id);
 	pcb->contextoActual--;
 }
 
 t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
-	printf("Se obtiene el valor de la variable compartida %s\n", variable);
-	log_trace(logTrace,"inicio obtenerValorCompartida");
+	//printf("Se obtiene el valor de la variable compartida %s\n", variable);
+	log_trace(logTrace,"inicio obtenerValorCompartida %s [PID %d]",variable,pcb->id);
 	t_valor_variable valor;
 	tPackValComp *val_var;
 	int pack_size, var_len;
@@ -439,7 +443,7 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 	free(var_serial);
 	free(val_var);
 	free(var);
-	log_trace(logTrace,"fin obtenerValorCompartida");
+	log_trace(logTrace,"fin obtenerValorCompartida [PID %d]",pcb->id);
 	return valor;
 }
 
@@ -448,8 +452,8 @@ t_valor_variable obtenerValorCompartida (t_nombre_compartida variable){
 //FUNCIONES ANSISOP QUE LE PIDE AL KERNEL
 void wait (t_nombre_semaforo identificador_semaforo){
 	char * sem = eliminarWhitespace(identificador_semaforo);
-	printf("Se pide al Kernel un wait para el semaforo %s\n", sem);
-	log_trace(logTrace,"incio wait a kernel");
+	//printf("Se pide al Kernel un wait para el semaforo %s\n", sem);
+	log_trace(logTrace,"se pide al kernel un wait para el semaforo %s [PID %d]",sem,pcb->id);
 	tPackHeader head   = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_WAIT};
 	tPackHeader h_esp  = {.tipo_de_proceso = KER};
 	int pack_size = 0;
@@ -474,14 +478,14 @@ void wait (t_nombre_semaforo identificador_semaforo){
 		} else // Kernel pide desalojar el PCB para bloquearlo
 			bloqueado = true;
 	}
-	log_trace(logTrace,"fin wait a kernel");
+	log_trace(logTrace,"fin wait a kernel [PID %d]",pcb->id);
 	free(wait_serial);
 	free(sem);
 }
 
 void signal_so (t_nombre_semaforo identificador_semaforo){
-	printf("Se pide al kernel un signal para el semaforo %s\n", identificador_semaforo);
-	log_trace(logTrace,"inicio signal_so");
+	//printf("Se pide al kernel un signal para el semaforo %s\n", identificador_semaforo);
+	log_trace(logTrace,"inicio signal_so para el sem %s [PID %d]",identificador_semaforo,pcb->id);
 	tPackHeader head  = {.tipo_de_proceso = CPU, .tipo_de_mensaje = S_SIGNAL};
 	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = S_SIGNAL};
 	int pack_size = 0;
@@ -502,14 +506,14 @@ void signal_so (t_nombre_semaforo identificador_semaforo){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	log_trace(logTrace,"fin signal_so");
+	log_trace(logTrace,"fin signal_so [PID %d]",pcb->id);
 	free(sig_serial);
 	free(sem);
 }
 
 void liberar (t_puntero puntero){
-	printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
-	log_trace(logTrace,"inicio liberar a kernel");
+	//printf("Se pide al kernel liberar memoria. Inicio: %d\n", puntero);
+	log_trace(logTrace,"inicio liberar a kernel incio %d [PID %d]",puntero,pcb->id);
 	tPackHeader head;
 	tPackHeader h_esp = {.tipo_de_proceso = KER, .tipo_de_mensaje = LIBERAR};
 
@@ -533,13 +537,13 @@ void liberar (t_puntero puntero){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	log_trace(logTrace,"fin liberar a kernel");
+	log_trace(logTrace,"fin liberar a kernel [PID %d]",pcb->id);
 
 }
 
 t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 	char *dir = eliminarWhitespace(direccion);
-	log_trace(logTrace, "Se pide al kernel abrir el archivo %s\n", dir);
+	log_trace(logTrace, "Se pide al kernel abrir el archivo %s\n [PID %d]", dir,pcb->id);
 
 	int pack_size = 0;
 	char *buffer, *abrir_serial;
@@ -584,7 +588,7 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 
 	//fd = *((int *) bytes->bytes);
 	fd = val->val;
-	log_trace(logTrace, "Se recibio el fd %d \nFin abrir", fd);
+	log_trace(logTrace, "Se recibio el fd %d \nFin abrir [PID %d]", fd,pcb->id);
 
 	free(abrir_serial);
 	free(buffer);
@@ -593,8 +597,8 @@ t_descriptor_archivo abrir(t_direccion_archivo direccion,t_banderas flags){
 }
 
 void borrar (t_descriptor_archivo direccion){
-	printf("Se pide al kernel borrar el archivo %d\n", direccion);
-	log_trace(logTrace,"inicio borrar");
+	//printf("Se pide al kernel borrar el archivo %d\n", direccion);
+	log_trace(logTrace,"inicio borrar el archivo %d [PID %d]",direccion,pcb->id);
 
 	int pack_size = 0;
 	tPackVal * val = malloc(sizeof(*val));
@@ -620,15 +624,15 @@ void borrar (t_descriptor_archivo direccion){
 	}else{
 		pcb->cantSyscalls ++;
 	}*/
-	log_trace(logTrace,"fin borrar");
+	log_trace(logTrace,"fin borrar [PID %d]",pcb->id);
 
 	free(borrar_serial);
 	free(val);
 }
 
 void cerrar (t_descriptor_archivo descriptor_archivo){
-	printf("Se pide al kernel cerrar el archivo %d\n", descriptor_archivo);
-	log_trace(logTrace,"inicio cerrar");
+	//printf("Se pide al kernel cerrar el archivo %d\n", descriptor_archivo);
+	log_trace(logTrace,"inicio cerrar el archivo %d ",descriptor_archivo,pcb->id);
 
 	int pack_size = 0;
 	tPackVal * val = malloc(sizeof(*val));
@@ -654,15 +658,15 @@ void cerrar (t_descriptor_archivo descriptor_archivo){
 	}else{
 		pcb->cantSyscalls ++;
 	}
-	log_trace(logTrace,"fin cerrar");
+	log_trace(logTrace,"fin cerrar [PID %d]",pcb->id);
 
 	free(cerrar_serial);
 	free(val);
 }
 
 void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posicion){
-	printf("Se pide al kernel mover el archivo %d a la posicion %d\n", descriptor_archivo, posicion);
-	log_trace(logTrace,"inicio moverCursor");
+	//printf("Se pide al kernel mover el archivo %d a la posicion %d\n", descriptor_archivo, posicion);
+	log_trace(logTrace,"inicio moverCursor el archivo %d a la posicion %d [PID %d]",descriptor_archivo,posicion,pcb->id);
 	int pack_size = 0;
 
 	char *mov_serial;
@@ -684,14 +688,14 @@ void moverCursor (t_descriptor_archivo descriptor_archivo, t_valor_variable posi
 	}else{
 		pcb->cantSyscalls ++;
 	}*/
-	log_trace(logTrace,"fin moverCursor");
+	log_trace(logTrace,"fin moverCursor [PID %d]",pcb->id);
 
 	free(mov_serial);
 }
 
 void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_valor_variable tamanio){
-	printf("Se pide escribir el archivo %d con la info %s, bytes: %d\n", descriptor_archivo, (char*) informacion, tamanio);
-	log_trace(logTrace,"inicio escribir");
+	//printf("Se pide escribir el archivo %d con la info %s, bytes: %d\n", descriptor_archivo, (char*) informacion, tamanio);
+	log_trace(logTrace,"inicio escribir el archivo %d con la info %s bytes %d [PID %d]",descriptor_archivo,(char *)informacion,tamanio,pcb->id);
 	int pack_size = 0;
 
 	char *esc_serial;
@@ -713,11 +717,11 @@ void escribir (t_descriptor_archivo descriptor_archivo, void* informacion, t_val
 	}else{
 		pcb->cantSyscalls ++;
 	}
-	log_trace(logTrace,"fin escribir");
+	log_trace(logTrace,"fin escribir [PID %d]",pcb->id);
 }
 
 void leer (t_descriptor_archivo descriptor_archivo, t_puntero ptr, t_valor_variable tamanio){
-	log_trace(logTrace, "Leer fd %d por %d bytes y almacenar en %d", descriptor_archivo, tamanio, ptr);
+	log_trace(logTrace, "Leer fd %d por %d bytes y almacenar en %d [PID %d]", descriptor_archivo, tamanio, ptr,pcb->id);
 
 	tPackHeader head, h_esp;
 	int pack_size = 0;
@@ -747,14 +751,14 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero ptr, t_valor_varia
 	//bla = deserializeBytes(buffer);
 	//writeToPointer(ptr, bytes, size);
 
-	log_trace(logTrace, "fin leer");
+	log_trace(logTrace, "fin leer [PID %d]",pcb->id);
 	free(p_leer);
 	free(buff);
 }
 
 t_puntero reservar (t_valor_variable espacio){
-	printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);
-	log_trace(logTrace,"inicio reservar");
+	//printf("Se pide al kernel reservar %d espacio de memoria\n", espacio);
+	log_trace(logTrace,"inicio reservar %d espacio de memoria [PID %d]",espacio,pcb->id);
 	char *ptr_serial;
 	tPackVal *val;
 	tPackHeader head, h_esp;
@@ -792,12 +796,12 @@ t_puntero reservar (t_valor_variable espacio){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	log_trace(logTrace,"fin reservar");
+	log_trace(logTrace,"fin reservar [PID %d]",pcb->id);
 	return val->val;
 }
 
 void enviar(char *op_kern_serial, int pack_size){
-	log_trace(logTrace,"inicio envair");
+	log_trace(logTrace,"inicio envair [PID %d]",pcb->id);
 	int stat;
 	if ((stat = send(sock_kern, op_kern_serial, pack_size, 0)) == -1){
 		perror("No se pudo enviar la operacion privilegiada a Kernel. error");
@@ -805,6 +809,6 @@ void enviar(char *op_kern_serial, int pack_size){
 		sem_post(&sem_fallo_exec);
 		pthread_exit(&err_exec);
 	}
-	printf("Se enviaron %d bytes a Kernel\n", stat);
-	log_trace(logTrace,"fin enviar");
+	//printf("Se enviaron %d bytes a Kernel\n", stat);
+	log_trace(logTrace,"fin enviar(se enviaron %d bytes a kernel) [PID %d]",stat,pcb->id);
 }
