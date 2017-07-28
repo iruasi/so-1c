@@ -531,7 +531,7 @@ void cpu_manejador(void *infoCPU){
 			log_trace(logTrace,"case para enviar a cola exit o block[CPU %d]",cpu_i->cpu.pid);
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
-		informarNuevoQSLuego(cpu_i);
+
 	break;
 
 	case HSHAKE:
