@@ -34,7 +34,7 @@ typedef struct{
 
 tArchivos* getInfoDeArchivo(char* path);
 void escribirInfoEnArchivo(char* path, tArchivos* info);
-
+char *crearStringListaBloques(char **bloques);
 
 
 void crearDirMontaje(void);

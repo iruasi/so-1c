@@ -835,7 +835,7 @@ tPackRW *deserializeEscribir(char *escr_serial){
 
 char *serializeRW(tPackHeader head, tPackRW *read_write, int *pack_size){
 
-	char *rw_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof *read_write);
+	char *rw_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof *read_write + read_write->tamanio);
 
 	*pack_size = 0;
 	memcpy(rw_serial + *pack_size, &head, HEAD_SIZE);

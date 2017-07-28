@@ -1,6 +1,5 @@
 #include <stddef.h>
 #include <stdlib.h>
-//#include <fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -11,107 +10,18 @@
 #include <commons/collections/list.h>
 #include <commons/config.h>
 
+#include "fileSystemConfigurators.h"
 #include "operacionesFS.h"
 #include "manejadorSadica.h"
 
 extern t_bitarray *bitArray;
 extern tMetadata *meta;
-
+extern tFileSystem* fileSystem;
 extern t_log *logTrace;
 
-//static int getattr(const char *path, struct stat *stbuf) {
-//	int res = 0;
-//	log_trace(logTrace,"funcion getattr");
-//	memset(stbuf, 0, sizeof(struct stat));
-//
-//	//Si path es igual a "/" nos estan pidiendo los atributos del punto de montaje
-//
-//	if (strcmp(path, "/") == 0) {
-//		stbuf->st_mode = S_IFDIR | 0755;
-//		stbuf->st_nlink = 2;
-//	} else if (strcmp(path, DEFAULT_FILE_PATH) == 0) {
-//		stbuf->st_mode = S_IFREG | 0444;
-//		stbuf->st_nlink = 1;
-//		stbuf->st_size = strlen(DEFAULT_FILE_CONTENT);
-//	} else {
-//		res = -ENOENT;
-//	}
-//	return res;
-//}
-//
-//static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
-//	(void) offset;
-//	log_trace(logTrace,"funcion readdir");
-//	(void) fi;
-//
-//	if (strcmp(path, "/") != 0)
-//		return -ENOENT;
-//
-//	// "." y ".." son entradas validas, la primera es una referencia al directorio donde estamos parados
-//	// y la segunda indica el directorio padre
-//	filler(buf, ".", NULL, 0);
-//	filler(buf, "..", NULL, 0);
-//	filler(buf, DEFAULT_FILE_NAME, NULL, 0);
-//	//printf("Leyendo los archivos de %s\n", path);
-//	log_trace(logTrace,"leyendo los archivos de %s ",path);
-//	return 0;
-//}
-
-int open2(char *path) {
-	int bloque=-1;
-	int i=0;
-	log_trace(logTrace,"funcion open2");
-	tArchivos* arch = malloc(sizeof(tArchivos));
-	/*
-	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
-		return -ENOENT;
-
-	if ((fi->flags & 3) != O_RDONLY)
-		return -EACCES;
-	*/
-	//puts ("Se quiere abrir un archivo");
-	log_trace(logTrace,"se quiere abrir un archivo");
-
-	while(i<meta->cantidad_bloques && bloque==-1){
-		if(!bitarray_test_bit(bitArray, i)){
-			bitarray_set_bit(bitArray, i);
-			bloque=i;
-		}
-	}
-	if(bloque >= 0){
-		fopen(path, "w"); //todo: ver como manejar las banderas
-		//todo: el modo creacion seria ese?
-		sprintf(arch->bloques[0], bloque);
-		memcpy(arch->ruta, path, sizeof(path));
-		arch->fd = fileno(path);
-		list_add(lista_archivos, arch);
-		log_trace(logTrace,"se creo el archivo");
-		//puts("Se creo el archivo!\n");
-	}
-	else{
-		log_error(logTrace,"no hay espacio para crear el archivo");
-		perror("No hay espacio para crear el archivo..");
-		free(arch);
-		return -1;
-	}
-
-
-	return fileno(path);
-}
 
 int read2(char *path, char **buf, size_t size, off_t offset) {
-	/*size_t len;
-	(void) fi;
-	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
-		return -ENOENT;
-	len = strlen(DEFAULT_FILE_CONTENT);
-	if (offset < len) {
-		if (offset + size > len)
-			size = len - offset;
-		memcpy(buf, DEFAULT_FILE_CONTENT + offset, size);
-	} else
-		size = 0;
-		*/
+
 	log_trace(logTrace,"se quiere leer el archivo %s size:%d offset:%d",path,size,offset);
 	//printf("Se quiere leer el archivo %s, size: %d, offset: %d\n", path, size, offset);
 	if(validarArchivo(path)==-1){
@@ -119,6 +29,7 @@ int read2(char *path, char **buf, size_t size, off_t offset) {
 		perror("Error al leer el archivo...");
 		return -1;
 	}
+	fseek(path, offset, SEEK_SET);
 	fread(*buf, size, 1, path);
 	//printf("Datos leidos: %s\n", *buf);
 	log_trace(logTrace,"datos leidos %s",buf);
@@ -126,41 +37,130 @@ int read2(char *path, char **buf, size_t size, off_t offset) {
 }
 
 int write2(char * path, char * buf, size_t size, off_t offset){
-	int cantidadBloques = (int) ceil((float) size/meta->tamanio_bloques);
-	int bloquesLibres=0,
-			i=0;
-	t_list* bloques;
-	log_trace(logTrace,"se quiere escribir en %s los datos de %s el tamanio %d",path,buf,size);
-	//printf("Se quiere escribir en %s los datos de %s el tamanio %d", path, buf, size);
-	if(validarArchivo(path)==-1){
-		log_error(logTrace,"error al escribir archivo");
-		perror("Error al escribir archivo");
-		return -1;
+	log_trace(logTrace, "Escribir %d bytes en %s", size, path);
+
+	int blocks_req;
+	char **bloques;
+	tArchivos* file = getInfoDeArchivo(path);
+
+	blocks_req = ceil((float) (offset + size - file->size) / meta->tamanio_bloques);
+
+	if ((bloques = obtenerBloquesDisponibles(blocks_req)) == NULL){
+		log_error(logTrace, "no alcanzan los bloques libres. No pudo escribir");
+		return FALLO_ESCRITURA;
 	}
-	while(bloquesLibres<cantidadBloques && i<meta->cantidad_bloques){
-		if(!bitarray_test_bit(bitArray, i)){
-			list_add(bloques, i);
-			++bloquesLibres;
-		}
+	marcarBloquesOcupados(bloques);
+	agregarBloquesSobreBloques(&file->bloques, bloques);
+
+	FILE* f;
+	if ((f = fopen(path, "wb")) == NULL){
+		log_error(logTrace, "Fallo fopen de %s", path);
+		return FALLO_ESCRITURA;
 	}
-	if(bloquesLibres<cantidadBloques){
-		log_error(logTrace,"no hay bloques suficientes para escribir los datos");
-		perror("No hay bloques suficientes para escribir los datos");
-		return -1; // en caso de error, retorna -1 y finaliza.
+	if ((fseek(f, offset, SEEK_SET)) == -1){
+		perror("Fallo fseek a File. error");
+		log_error(logTrace, "Fallo fseek %d sobre %s", offset, path);
+		return FALLO_ESCRITURA;
 	}
-	while(!list_is_empty(bloques)){
-		bitarray_set_bit(bitArray, list_get(bloques, 0));
-		list_remove(bloques, 0);
+	if (fwrite(buf, size, 1, f) < 1){
+		perror("Fallo fwrite. error");
+		log_error(logTrace, "Fallo fwrite de %d bytes sobre %s", size, path);
+		return FALLO_ESCRITURA;
 	}
-	fwrite(buf, size, offset, (void*)path);
-	//puts("Se escribieron los datos en el archivo!\n");
+
+	escribirInfoEnArchivo(path, file);
 	log_trace(logTrace,"se escribieron los datos en el archivo");
-	list_destroy(bloques);
+	free(file->bloques);
+	free(file);
 	return size;
 }
 
+void iniciarBloques(int cant, char* path){
+
+	char **bloquesArch;
+	uint32_t i;
+
+	if((bloquesArch = obtenerBloquesDisponibles(cant)) == NULL){
+		log_error(logTrace, "No se pudieron obtener bloques disponibles");
+		return;
+	}
+
+	//log_trace(logTrace, "Se marcan los bloques ocupados");
+	for(i=0; i < sizeof(bloquesArch)/sizeof(bloquesArch[0]); i++)
+		bitarray_set_bit(bitArray, atoi(bloquesArch[i]));
+
+	tArchivos* info = malloc(sizeof (tArchivos));
+	info->bloques = bloquesArch;
+	info->size = 0;
+
+	escribirInfoEnArchivo(path, info);
+	free(info->bloques);
+	free(info);
+}
+
+char **obtenerBloquesDisponibles(int cant){
+	log_trace(logTrace, "Obtener bloques disponibles");
+
+	int i, pos_blk;
+	int resto = cant;
+	int libres = obtenerCantidadBloquesLibres();
+	char snum[MAX_DIG];
+
+	if(libres < cant){
+		log_error(logTrace,"no hay bloques suficientes para escribir los datos");
+		perror("No hay bloques suficientes para escribir los datos");
+		return NULL;
+	}
+	char **bloques = malloc(cant * sizeof(char*));
+	for(i=0; i<cant; i++)
+		bloques[i] = malloc(MAX_DIG + 1);
+
+	i = pos_blk = 0;
+	while(i < meta->cantidad_bloques && resto > 0){
+		if(!bitarray_test_bit(bitArray, i)){
+			sprintf(snum, "%d", i);
+			strcpy(bloques[pos_blk], snum);
+			--resto; ++pos_blk;
+		}
+		 ++i;
+	}
+	return bloques;
+}
+
+/* bloques llega con el formato ["1", "2", "3"] */
+void agregarBloquesSobreBloques(char ***bloques, char **blq_add){
+
+	int i, j;
+	int len     = sizeof(bloques) / sizeof(bloques[0]);
+	int len_add = sizeof(blq_add) / sizeof(blq_add[0]);
+
+	realloc(*bloques, (len + len_add) * sizeof(char*));
+	for(j = 0, i = len_add; i < (len + len_add); i++, j++){
+		*bloques[i] = malloc(MAX_DIG + 1);
+		memcpy(bloques[i], blq_add[j], MAX_DIG + 1);
+	}
+}
+
+void marcarBloquesOcupados(char **bloques){
+
+	int i;
+	int len = sizeof(bloques) / sizeof(bloques[0]);
+	for (i = 0; i < len; ++i)
+		bitarray_set_bit(bitArray, atoi(bloques[i]));
+}
+
+int obtenerCantidadBloquesLibres(void){
+	log_trace(logTrace, "Obtener cantidad de bloques libres");
+
+	int i,libres;
+	for(i=libres=0; i< meta->cantidad_bloques; i++){
+		if(!bitarray_test_bit(bitArray, i))
+			libres++;
+	}
+	return libres;
+}
+
 int unlink2 (char *path){
-	//int rem;
 	log_trace(logTrace,"se quiere borrar el archivo %s",path);
 	//printf("Se quiere borrar el archivo el archivo %s\n", path);
 	if(validarArchivo(path)==-1){
@@ -188,13 +188,13 @@ int unlink2 (char *path){
 	return 0;
 }
 
-/*
- * Validar no se bien que funcion fuse es, pero la pide el enunciado,
- * quizas sea "interna" previa a leer o escribir datos.
- */
 int validarArchivo(char* path){
 	//printf("Se quiere validar la existencia del archivo %s\n", path);
 	log_trace(logTrace,"se quiere validar la existencia del archivo %s",path);
+
+	char *rutaArch = string_duplicate(fileSystem->punto_montaje);
+	string_append(&rutaArch, DIR_ARCHIVOS); string_append(&rutaArch, path);
+
 	FILE* arch;
 	if((arch = fopen(path, "rb")) == NULL){
 		log_error(logTrace,"el archivo no existe");
@@ -205,15 +205,3 @@ int validarArchivo(char* path){
 	//puts ("El archivo existe!\n");
 	return 0;
 }
-
-//void setupFuseOperations(void){
-//	oper.getattr = getattr;
-////	oper.readdir = readdir;
-//	oper.open    = open2;
-//	oper.read    = read2;
-//	oper.write   = write2;
-//	oper.unlink  = unlink2;
-//}
-
-
-

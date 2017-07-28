@@ -32,12 +32,9 @@ t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas, *tab
 pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc,mux_listaAvisar;
 extern pthread_mutex_t mux_exec, mux_tablaPorProceso, mux_archivosAbiertos;
 extern sem_t eventoPlani, sem_heapDict, sem_end_exec, sem_bytes;
-extern int globalFD;
 
 void setupGlobales_manejadores(void){
 	log_trace(logTrace,"setup globales_manejadores");
-
-	globalFD = 3; // 0, 1, 2 reservados stdio
 
 	tablaGlobal   = dictionary_create();
 	tablaProcesos = list_create();
@@ -435,12 +432,12 @@ void cpu_manejador(void *infoCPU){
 				break;
 			}
 
-			if ((procArchivo = obtenerProcesoSegunFDLocal(pack_io->fd, cpu_i->cpu.pid, 'g')) == NULL){
+			if ((procArchivo = obtenerProcesoSegunFDLocal(pack_io->fd, cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
-			if ((datosGlobal = encontrarEnTablaGlobalPorFD(pack_io->fd, cpu_i->cpu.pid, 'g')) == NULL){
+			if ((datosGlobal = encontrarEnTablaGlobalPorFD(pack_io->fd, cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
@@ -456,7 +453,7 @@ void cpu_manejador(void *infoCPU){
 
 			if (send(sock_fs, buffer, pack_size, 0) == -1){
 				perror("Fallo send pedido escritura a Filesystem. error");
-				log_error(logTrace, "Fallo send pedido escritura a Filesystem[CPU %d]", cpu_i->cpu.pid);
+				log_error(logTrace, "Fallo send pedido escritura a Filesystem[CPU %d]", cpu_i->con->pid);
 				head.tipo_de_mensaje = FALLO_SEND;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
@@ -467,7 +464,7 @@ void cpu_manejador(void *infoCPU){
 					FALLO_ESCRITURA : ARCHIVO_ESCRITO;
 
 			MUX_LOCK(&mux_infoProc);
-			sumarSyscall(cpu_i->cpu.pid);
+			sumarSyscall(cpu_i->con->pid);
 			MUX_UNLOCK(&mux_infoProc);
 
 			free(pack_io->info); free(pack_io);
@@ -475,14 +472,14 @@ void cpu_manejador(void *infoCPU){
 			break;
 
 		case LEER: // todo: arreglar ||||||||||||||||||||||||||||||| este es el unico CASE que falta refaccionar
-			log_trace(logTrace,"case leer[CPU %d]",cpu_i->cpu.pid);
+			log_trace(logTrace,"case leer[CPU %d]",cpu_i->con->pid);
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackLeer *leer = deserializeLeer(buffer);
 			freeAndNULL((void **) &buffer);
 
 			sprintf(sfd, "%d", leer->fd);
 			datosGlobal = dictionary_get(tablaGlobal, sfd);
-			log_trace(logTrace, "el valor del fd en leer es %d [CPU %d]", leer->fd, cpu_i->cpu.pid);
+			log_trace(logTrace, "el valor del fd en leer es %d [CPU %d]", leer->fd, cpu_i->con->pid);
 			if ((procArchivo = obtenerProcesoSegunFDLocal(leer->fd,cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -491,7 +488,7 @@ void cpu_manejador(void *infoCPU){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = LEER;
 			file_serial = serializeLeerFS2(head, datosGlobal->direccion, procArchivo->posicionCursor, leer->size, &pack_size); //todo: segfault
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
-				log_error(logTrace, "error al enviar el paquete a Filesystem[CPU %d]",cpu_i->cpu.pid);
+				log_error(logTrace, "error al enviar el paquete a Filesystem[CPU %d]",cpu_i->con->pid);
 				perror("error al enviar el paquete al filesystem");
 				break;
 			}
@@ -501,7 +498,7 @@ void cpu_manejador(void *infoCPU){
 			h_esp.tipo_de_mensaje = ARCHIVO_LEIDO;
 			if(validarRespuesta(sock_fs, h_esp, &head) != 0){
 				head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
-				log_error(logTrace, "No se pudieron leer los datos solicitados[CPU %d]",cpu_i->cpu.pid);
+				log_error(logTrace, "No se pudieron leer los datos solicitados[CPU %d]",cpu_i->con->pid);
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
@@ -513,13 +510,13 @@ void cpu_manejador(void *infoCPU){
 			file_serial = serializeBytes(head, bytes->bytes, bytes->bytelen, &pack_size);
 
 			if (send(cpu_i->cpu.fd_cpu, file_serial, pack_size, 0) == -1){
-				log_error(logTrace, "No se pudo enviar paquete leido a CPU[CPU %d]",cpu_i->cpu.pid);
+				log_error(logTrace, "No se pudo enviar paquete leido a CPU[CPU %d]",cpu_i->con->pid);
 				perror("Fallo send de paquete lectura a CPU. error");
 				break;
 			}
 
 			MUX_LOCK(&mux_infoProc);
-			sumarSyscall(cpu_i->cpu.pid);
+			sumarSyscall(cpu_i->con->pid);
 			MUX_UNLOCK(&mux_infoProc);
 
 			freeAndNULL((void **) &leer);

@@ -85,10 +85,10 @@ tDatosTablaGlobal *agregarArchivoTablaGlobal(tPackAbrir * file){
 	tDatosTablaGlobal *dato;
 
 	if ((dato = encontrarEnTablaGlobalporPath(file->direccion)) != NULL){
-		dato = crearArchivoEnTablaGlobal(file);
+		dato->cantidadOpen++;
 
 	} else
-		dato->cantidadOpen++;
+		dato = crearArchivoEnTablaGlobal(file);
 
 	return dato;
 }
@@ -97,7 +97,7 @@ tProcesoArchivo *crearArchivoDeProceso(int pid, tPackAbrir *abrir, tDatosTablaGl
 	log_trace(logTrace, "Crear archivo del proceso");
 
 	tProcesoArchivo *arch = malloc(sizeof *arch);
-	arch->fdGlobal = dato->fd;
+	arch->fdGlobal = dato->fd;	arch->fdLocal  = 2;
 	arch->posicionCursor = 0;
 	memcpy(&arch->flag, &abrir->flags, sizeof(t_banderas));
 
@@ -105,6 +105,7 @@ tProcesoArchivo *crearArchivoDeProceso(int pid, tPackAbrir *abrir, tDatosTablaGl
 	pid_arch->pid = pid;
 	pid_arch->archivosPorProceso = list_create();
 	list_add(pid_arch->archivosPorProceso, arch);
+	list_add(tablaProcesos, arch);
 
 	return arch;
 }
@@ -120,7 +121,7 @@ void agregarArchivoATablaProcesos(tDatosTablaGlobal *datos, t_banderas flags, in
 
 	pxa -> pid = pid;
 	pxa->archivosPorProceso = list_create();
-	list_add(pxa->archivosPorProceso, pa); // El index es 3 + el pid, porque 0,1 y 2 están reservados
+	list_add(pxa->archivosPorProceso, pa);
 	list_add(tablaProcesos,pxa);
 
 	log_trace(logTrace, "Fin agregar archivo a tabla procesos [PID %d]",pid);
@@ -140,7 +141,7 @@ tProcesoArchivo *obtenerProcesoSegunFDLocal(t_descriptor_archivo fd , int pid, c
 	t_procesoXarchivo * _unProceso;
 	tProcesoArchivo * _unArchivo;
 
-	if ((_unProceso = list_find(tablaProcesos, (void *) encontrarPid)) == NULL){
+	if ((_unProceso = (t_procesoXarchivo *)list_find(tablaProcesos, (void *) encontrarPid)) == NULL){ //todo:debug:
 		log_error(logTrace, "No se pudo encontrar el pid en la Tabla de Procesos");
 		return NULL;
 	}
@@ -231,6 +232,7 @@ int crearArchivo(tPackAbrir *file, int sock_cpu, int sock_fs, int pid){
 	int pack_size;
 	tPackHeader head, h_esp;
 	tDatosTablaGlobal *dato;
+	tProcesoArchivo *arch;
 
 	head.tipo_de_mensaje = CREAR_ARCHIVO;
 	buffer = serializeBytes(head, file->direccion, file->longitudDireccion, &pack_size);
@@ -251,8 +253,8 @@ int crearArchivo(tPackAbrir *file, int sock_cpu, int sock_fs, int pid){
 	}
 
 	dato = agregarArchivoTablaGlobal(file);
-	crearArchivoDeProceso(pid, file, dato);
-	return dato->fd;
+	arch = crearArchivoDeProceso(pid, file, dato);
+	return arch->fdLocal;
 }
 
 int validarArchivo(tPackAbrir *abrir, int sock_fs){
