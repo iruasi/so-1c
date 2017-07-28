@@ -194,7 +194,7 @@ int main(int argc, char* argv[]){
 		else if (head.tipo_de_mensaje == PCB_EXEC){
 
 			ejecutando=true;
-			if((pcb_serial = recvGeneric(sock_kern)) == NULL){
+			if((pcb_serial = recvGenericWFlags(sock_kern,MSG_WAITALL)) == NULL){
 				return FALLO_RECV;
 			}
 
