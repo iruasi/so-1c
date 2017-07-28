@@ -13,7 +13,7 @@
 #include <commons/collections/list.h>
 #include <commons/bitarray.h>
 
-#include <fuse.h>
+//#include <fuse.h>
 
 #include <funcionesPaquetes/funcionesPaquetes.h>
 #include <funcionesCompartidas/funcionesCompartidas.h>
@@ -28,22 +28,22 @@
 #define BACKLOG 20
 #endif
 
-enum {
-	KEY_VERSION,
-	KEY_HELP,
-};
-
-static struct fuse_opt fuse_options[] = {
-		// Este es un parametro definido por nosotros
-		//CUSTOM_FUSE_OPT_KEY("--welcome-msg %s", welcome_msg, 0),
-
-		// Estos son parametros por defecto que ya tiene FUSE
-		FUSE_OPT_KEY("-V", KEY_VERSION),
-		FUSE_OPT_KEY("--version", KEY_VERSION),
-		FUSE_OPT_KEY("-h", KEY_HELP),
-		FUSE_OPT_KEY("--help", KEY_HELP),
-		FUSE_OPT_END,
-};
+//enum {
+//	KEY_VERSION,
+//	KEY_HELP,
+//};
+//
+//static struct fuse_opt fuse_options[] = {
+//		// Este es un parametro definido por nosotros
+//		//CUSTOM_FUSE_OPT_KEY("--welcome-msg %s", welcome_msg, 0),
+//
+//		// Estos son parametros por defecto que ya tiene FUSE
+//		FUSE_OPT_KEY("-V", KEY_VERSION),
+//		FUSE_OPT_KEY("--version", KEY_VERSION),
+//		FUSE_OPT_KEY("-h", KEY_HELP),
+//		FUSE_OPT_KEY("--help", KEY_HELP),
+//		FUSE_OPT_END,
+//};
 
 int *ker_manejador(void);
 int recibirConexionKernel(void);
@@ -59,48 +59,49 @@ int main(int argc, char* argv[]){
 
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
-		log_error(logTrace,"Error en nla cant de parametros");
+		log_error(logTrace,"Error en la cant de parametros");
 		return EXIT_FAILURE;
 	}
 
 	logTrace = log_create("/home/utnso/logFILESYSTEMTrace.txt","FILESYSTEM",0,LOG_LEVEL_TRACE);
 	log_trace(logTrace,"\n\n\n\n\n Inicia nueva ejecucion de FILESYSTEM \n\n\n\n\n");
 
-	int stat, fuseret, *retval;
+//	int fuseret;
+	int stat, *retval;
 	pthread_t kern_th;
 
 	fileSystem = getConfigFS(argv[1]);
 	mostrarConfiguracion(fileSystem);
 
-	setupFuseOperations();
-
-	char* argumentos[] = {"", fileSystem->punto_montaje, "-f -o nonempty"};
-	struct fuse_args args = FUSE_ARGS_INIT(3, argumentos);
+//	setupFuseOperations();
+//
+//	char* argumentos[] = {"", fileSystem->punto_montaje, "-f -o nonempty"};
+//	struct fuse_args args = FUSE_ARGS_INIT(3, argumentos);
 
 	// Limpio la estructura que va a contener los parametros
-	memset(&runtime_options, 0, sizeof(struct t_runtime_options));
-	log_trace(logTrace,"limpio la estructura q va a contener a los parametrosd");
+//	memset(&runtime_options, 0, sizeof(struct t_runtime_options));
+//	log_trace(logTrace,"limpio la estructura q va a contener a los parametrosd");
 	// Esta funcion de FUSE lee los parametros recibidos y los intepreta
-	if (fuse_opt_parse(&args, &runtime_options, fuse_options, NULL) == -1){
-		perror("Invalid arguments!");
-		log_error(logTrace,"invalid arguments");
-		return EXIT_FAILURE;
-	}
+//	if (fuse_opt_parse(&args, &runtime_options, fuse_options, NULL) == -1){
+//		perror("Invalid arguments!");
+//		log_error(logTrace,"invalid arguments");
+//		return EXIT_FAILURE;
+//	}
 
 
 
 
 	//bitmap
 	crearDirMontaje();
-	if ((fuseret = fuse_main(args.argc, args.argv, &oper, NULL)) == -1){
-		perror("Error al operar fuse_main. error");
-		log_error(logTrace,"error al operar fuse_main");
-		return FALLO_GRAL;
-	}
+//	if ((fuseret = fuse_main(args.argc, args.argv, &oper, NULL)) == -1){
+//		perror("Error al operar fuse_main. error");
+//		log_error(logTrace,"error al operar fuse_main");
+//		return FALLO_GRAL;
+//	}
 
 	crearDirectoriosBase();
 	if (inicializarMetadata() != 0){
-		log_error(logTrace,"no s epudo levantaar el metadata del filesystem");
+		log_error(logTrace,"no se pudo levantar el metadata del filesystem");
 		puts("No se pudo levantar el Metadata del Filesystem!");
 		return ABORTO_FILESYSTEM;
 	}
@@ -122,7 +123,8 @@ int main(int argc, char* argv[]){
 
 	close(sock_kern);
 	liberarConfiguracionFileSystem(fileSystem);
-	return fuseret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
+	return 0;
+//	return fuseret; // en todos los ejemplos que vi se retorna el valor del fuse_main..
 }
 
 
@@ -138,7 +140,7 @@ int *ker_manejador(void){
 	tPackRecvRW *rw;
 	tPackRecibirRW * leer;
 	tPackRecibirRW * escribir;
-	struct fuse_file_info *fi = malloc(sizeof *fi);
+//	struct fuse_file_info *fi = malloc(sizeof *fi);
 	int operacion;
 	header.tipo_de_proceso = FS;
 
@@ -148,7 +150,7 @@ int *ker_manejador(void){
 	case VALIDAR_ARCHIVO:
 		log_trace(logTrace,"Se pide validacion de archivo");
 		//puts("Se pide validacion de archivo");
-		buffer = recvGeneric(sock_kern);
+		buffer = recvGeneric(sock_kern); //todo: este buffer recibe mal
 		abrir = deserializeBytes(buffer);
 
 		head.tipo_de_proceso = FS;
@@ -166,6 +168,7 @@ int *ker_manejador(void){
 		log_trace(logTrace,"se pide crear archivo");
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
+
 
 		head.tipo_de_proceso = FS;
 		head.tipo_de_mensaje = (crearArchivo(abrir->bytes) < 0)?
@@ -203,7 +206,7 @@ int *ker_manejador(void){
 
 		info = malloc(rw->size);
 
-		if(read2(rw->direccion, &info, rw->size, rw->cursor, fi) != 0){
+		if(read2(rw->direccion, &info, rw->size, rw->cursor) != 0){
 			puts("Hubo un fallo ejecutando read2");
 
 			log_error(logTrace,"hubo un fallo ejecutando read2");
@@ -233,8 +236,9 @@ int *ker_manejador(void){
 		//puts("Se peticiona la escritura de un archivo");
 		log_trace(logTrace,"se peticiona la escritura de un archivo");
 		buffer = recvGeneric(sock_kern);
-		escribir = deserializeLeerFS(buffer);
-		if(true){//(operacion = write2(escribir->direccion)) == 0
+		info = malloc(rw->size);
+		rw = deserializeLeerFS2(buffer);
+		if(write2(rw->direccion, info, rw->size, rw->cursor)){//(operacion = write2(escribir->direccion)) == 0
 			//puts("El archivo fue escrito con exito");
 			log_trace(logTrace,"el archivo fue escrito con exito");
 			header.tipo_de_mensaje = ARCHIVO_ESCRITO;

@@ -1,24 +1,24 @@
 #ifndef OPERACIONESFS_H_
 #define OPERACIONESFS_H_
 
-#include <fuse.h>
+//#include <fuse.h>
 
 /* Este es el contenido por defecto que va a contener
  * el unico archivo que se encuentre presente en el FS.
  * Si se modifica la cadena se podra ver reflejado cuando
  * se lea el contenido del archivo
  */
-#define DEFAULT_FILE_CONTENT "Hello World!\n"
+//#define DEFAULT_FILE_CONTENT "Hello World!\n"
 
 /*
  * Este es el nombre del archivo que se va a encontrar dentro de nuestro FS
  */
-#define DEFAULT_FILE_NAME "hello"
+//#define DEFAULT_FILE_NAME "hello"
 
 /*
  * Este es el path de nuestro, relativo al punto de montaje, archivo dentro del FS
  */
-#define DEFAULT_FILE_PATH "/" DEFAULT_FILE_NAME
+//#define DEFAULT_FILE_PATH "/" DEFAULT_FILE_NAME
 
 
 
@@ -27,17 +27,17 @@
  * que nosotros le pasemos por linea de comando a la funcion principal
  * de FUSE
  */
-struct t_runtime_options {
-	char* welcome_msg;
-} runtime_options;
+//struct t_runtime_options {
+//	char* welcome_msg;
+//} runtime_options;
 
-static struct fuse_operations oper;
+//static struct fuse_operations oper;
 /*
  * Esta Macro sirve para definir nuestros propios parametros que queremos que
  * FUSE interprete. Esta va a ser utilizada mas abajo para completar el campos
  * welcome_msg de la variable runtime_options
  */
-#define CUSTOM_FUSE_OPT_KEY(t, p, v) { t, offsetof(struct t_runtime_options, p), v }
+//#define CUSTOM_FUSE_OPT_KEY(t, p, v) { t, offsetof(struct t_runtime_options, p), v }
 
 /*
  *
@@ -59,7 +59,7 @@ static struct fuse_operations oper;
  * 	@RETURN
  * 		O archivo/directorio fue encontrado. -ENOENT archivo/directorio no encontrado
  */
-static int getattr(const char *path, struct stat *stbuf);
+//static int getattr(const char *path, struct stat *stbuf);
 
 
 /*
@@ -78,7 +78,7 @@ static int getattr(const char *path, struct stat *stbuf);
  * 	@RETURN
  * 		O directorio fue encontrado. -ENOENT directorio no encontrado
  */
-static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
+//static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi);
 
 /*
  * @DESC
@@ -93,7 +93,7 @@ static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t of
  * 	@RETURN
  * 		O archivo fue encontrado. -EACCES archivo no es accesible
  */
-int open2(const char *path, struct fuse_file_info *fi);
+int open2(char *path);
 
 /*
  * @DESC
@@ -113,14 +113,15 @@ int open2(const char *path, struct fuse_file_info *fi);
  * 		la cantidad de bytes leidos o -ENOENT si ocurrio un error. ( Este comportamiento es igual
  * 		para la funcion write )
  */
-int read2(const char *path, char **buf, size_t size, off_t offset, struct fuse_file_info *fi);
 
-static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi);
+int read2(char *path, char **buf, size_t size, off_t offset);
 
-int unlink2 (const char *path);
+int write2(char * path, char * buf, size_t size, off_t offset);
+
+int unlink2 (char *path);
 
 int validarArchivo(char* path);
 
-void setupFuseOperations(void);
+//void setupFuseOperations(void);
 
 #endif /* OPERACIONESFS_H_ */

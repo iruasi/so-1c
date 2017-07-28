@@ -31,6 +31,10 @@ int crearArchivo(char* ruta){
 	char *path = string_duplicate(fileSystem->punto_montaje);
 	string_append(&path, "Archivos"); string_append(&path, ruta);
 
+	if(validarArchivo(ruta)== -1){
+		perror("El archivo no existe");
+		log_error(logTrace, "El archivo no existe");
+	}
 	if ((open(path, O_RDWR | O_CREAT, 0777)) == -1){
 		perror("No se pudo crear el archivo. error");
 		log_error(logTrace,"no se pudo crear el archivo");
@@ -215,7 +219,7 @@ void escucharKernel(){
 	tPackRW* rw = malloc(sizeof(tPackRW));
 	tPackAbrir* abrir = malloc(sizeof(tPackAbrir));
 	tPackBytes* borrar = malloc(sizeof(tPackBytes));
-	struct fuse_file_info* fi; //se va a usar para pasar por parametro en las operaciones
+//	struct fuse_file_info* fi; //se va a usar para pasar por parametro en las operaciones
 	//todo: agregar header a los packs, o hacer dos sends/recvs entre ker y fs
 
 	if((stat=recv(sock_kern, bufHead, 2*sizeof(int), 0))< 0){
@@ -240,7 +244,7 @@ void escucharKernel(){
 	case ABRIR:
 		recv(sock_kern, bufAbrir, sizeof(tPackAbrir), 0);
 		abrir = deserializeAbrir(bufAbrir);
-		resultado = open2(abrir->direccion, fi);
+		resultado = open2(abrir->direccion);
 		break;
 	case BORRAR:
 		recv(sock_kern, bufBorrar, sizeof(tPackBytes), 0);
