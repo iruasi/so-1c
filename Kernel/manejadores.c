@@ -59,10 +59,8 @@ void setupGlobales_manejadores(void){
 void cpu_manejador(void *infoCPU){
 	t_RelCC *cpu_i = (t_RelCC *) infoCPU;
 	cpu_i->con->pid=cpu_i->con->fd_con=-1;
-	log_trace(logTrace, "cpu_manejador socket %d\n", cpu_i->cpu.fd_cpu);
-
+	log_trace(logTrace, "cpu_manejador socket %d", cpu_i->cpu.fd_cpu);
 	tPackHeader head = {.tipo_de_proceso = CPU, .tipo_de_mensaje = THREAD_INIT};
-
 	bool found;
 	char *buffer, *var, sfd[MAXPID_DIG];
 	char *file_serial;
@@ -78,11 +76,11 @@ void cpu_manejador(void *infoCPU){
 	tPackHeader h_esp;
 
 	do {
-	log_trace(logTrace,"(CPU) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+	//log_trace(logTrace,"(CPU) proc: %d  msj: %d", head.tipo_de_proceso, head.tipo_de_mensaje);
 	switch((int) head.tipo_de_mensaje){
 	case S_WAIT:
 		//puts("Signal wait a semaforo");
-		log_trace(logTrace,"Signal wait a semaforo");
+		log_trace(logTrace,"Signal wait a semaforo[CPU %d]",cpu_i->cpu.pid);
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -108,7 +106,7 @@ void cpu_manejador(void *infoCPU){
 
 	case S_SIGNAL:
 		//puts("Signal continuar a semaforo");
-		log_trace(logTrace,"Signal continuar a semaforo");
+		log_trace(logTrace,"Signal continuar a semaforo[CPU %d]",cpu_i->cpu.pid);
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -135,7 +133,7 @@ void cpu_manejador(void *infoCPU){
 
 	case SET_GLOBAL:
 		//puts("Se reasigna una variable global");
-		log_trace(logTrace,"Se reasigna una variable global");
+		log_trace(logTrace,"Se reasigna una variable global[CPU %d]",cpu_i->cpu.pid);
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -163,7 +161,7 @@ void cpu_manejador(void *infoCPU){
 
 	case GET_GLOBAL:
 		//puts("Se pide el valor de una variable global");
-		log_trace(logTrace,"Se pide el valor de una variable global");
+		log_trace(logTrace,"Se pide el valor de una variable global[CPU %d]",cpu_i->cpu.pid);
 		t_valor_variable val;
 		tPackBytes *var_name;
 
@@ -203,7 +201,7 @@ void cpu_manejador(void *infoCPU){
 
 		if ((stat = send(cpu_i->cpu.fd_cpu, buffer, pack_size, 0)) == -1){
 			perror("Fallo send variable global a CPU. error");
-			log_error(logTrace,"Fallo send variable global a CPU");
+			log_error(logTrace,"Fallo send variable global a CPU[CPU %d]",cpu_i->cpu.pid);
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
 			break;
@@ -218,7 +216,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case RESERVAR:
-		log_trace(logTrace,"Funcion reservar");
+		log_trace(logTrace,"Funcion reservar[CPU %d]",cpu_i->cpu.pid);
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -248,7 +246,7 @@ void cpu_manejador(void *infoCPU){
 		}
 
 		if ((stat = send(cpu_i->cpu.fd_cpu, buffer, pack_size, 0)) == -1){
-			log_error(logTrace,"Fallo send de puntero alojado a cpu");
+			log_error(logTrace,"Fallo send de puntero alojado a cpu[CPU %d]",cpu_i->cpu.pid);
 			perror("Fallo send de puntero alojado a CPU. error");
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_SEND;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -263,7 +261,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case LIBERAR:
-		log_trace(logTrace,"Funcion liberar");
+		log_trace(logTrace,"Funcion liberar[CPU %d]",cpu_i->cpu.pid);
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -287,7 +285,7 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case ABRIR: //todo: mutexear utilizacion de Tabla Global y TablaPorProceso
-			log_trace(logTrace,"CPU quiere abrir un archivo");
+			log_trace(logTrace,"CPU quiere abrir un archivo[CPU %d]",cpu_i->cpu.pid);
 
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackAbrir * abrir = deserializeAbrir(buffer);
@@ -314,7 +312,7 @@ void cpu_manejador(void *infoCPU){
 			fd_rta->val = fd;
 			file_serial = serializeVal(fd_rta, &pack_size);
 			if((stat = send(cpu_i->cpu.fd_cpu, file_serial, pack_size, 0)) == -1){
-				log_error(logTrace,"Error al enviar el paquete a la cpu");
+				log_error(logTrace,"Error al enviar el paquete a la cpu[CPU %d]",cpu_i->cpu.pid);
 				perror("error al enviar el paquete a la cpu. error");
 				break;
 			}
@@ -325,12 +323,10 @@ void cpu_manejador(void *infoCPU){
 
 			freeAndNULL((void **) &buffer);
 			freeAndNULL((void **) &file_serial);
-			log_trace(logTrace,"fin case abrir");
 			break;
 
 		case BORRAR:
-			log_trace(logTrace,"Case Borrar");
-
+			log_trace(logTrace,"Case Borrar[CPU %d]",cpu_i->cpu.pid);
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			oper_fd = deserializeVal(buffer);
 			freeAndNULL((void **) &buffer);
@@ -389,8 +385,9 @@ void cpu_manejador(void *infoCPU){
 			dictionary_put(tablaGlobal, sfd, datosGlobal);
 
 			cerrarArchivoDeProceso(cpu_i->cpu.pid, oper_fd->val);
+			log_trace(logTrace,"se cerro el archivo de fd %d y direc %s solicitado[CPU %d]",
+					oper_fd->val, datosGlobal->direccion,cpu_i->cpu.pid);
 
-			log_trace(logTrace, "Se cerro el fd #%d de direccion %s", oper_fd->val, datosGlobal->direccion);
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ARCHIVO_CERRADO;
 			pack_size = 0;
 			informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -404,8 +401,7 @@ void cpu_manejador(void *infoCPU){
 			break;
 
 		case MOVERCURSOR:
-			log_trace(logTrace,"Case Mover Cursor");
-
+			log_trace(logTrace,"case mover cursor[CPU %d]",cpu_i->cpu.pid);
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			cursor = deserializeMoverCursor(buffer);
 
@@ -430,7 +426,7 @@ void cpu_manejador(void *infoCPU){
 			pack_io = deserializeEscribir(buffer);
 
 			head.tipo_de_proceso = KER;
-			log_trace(logTrace,"Se recibio el fd %d", pack_io->fd);
+			log_trace(logTrace,"se recibio el fd %d[CPU %d]", pack_io->fd, cpu_i->cpu.pid);
 
 			if (pack_io->fd == FD_CONSOLA){ // lo mandamos a Consola y avisamos a CPU
 				head.tipo_de_mensaje = (escribirAConsola(cpu_i->con->pid,cpu_i->con->fd_con, pack_io) < 0)?
@@ -460,7 +456,7 @@ void cpu_manejador(void *infoCPU){
 
 			if (send(sock_fs, buffer, pack_size, 0) == -1){
 				perror("Fallo send pedido escritura a Filesystem. error");
-				log_error(logTrace, "Fallo send pedido escritura a Filesystem");
+				log_error(logTrace, "Fallo send pedido escritura a Filesystem[CPU %d]", cpu_i->cpu.pid);
 				head.tipo_de_mensaje = FALLO_SEND;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
@@ -470,47 +466,6 @@ void cpu_manejador(void *infoCPU){
 			head.tipo_de_mensaje = (validarRespuesta(sock_fs, h_esp, &head) != 0)?
 					FALLO_ESCRITURA : ARCHIVO_ESCRITO;
 
-			MUX_LOCK(&mux_archivosAbiertos); MUX_LOCK(&mux_tablaPorProceso);
-			if(dictionary_has_key(tablaGlobal,sfd)){
-				path = dictionary_get(tablaGlobal, sfd);
-				procArchivo = obtenerProcesoSegunFDLocal(pack_io->fd, cpu_i->con->pid, 'g');
-				log_trace(logTrace,"El archivo fd #%d del PID #%d se obtuvo de la Tabla Global",pack_io->fd,cpu_i->con->pid);
-			}else{
-				log_error(logTrace,"La tabla global de archivos no posee el fd solicitado");
-				free(pack_io->info); free(pack_io);
-				freeAndNULL((void **) &buffer);
-				MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
-				break;
-			}
-			MUX_UNLOCK(&mux_archivosAbiertos); MUX_UNLOCK(&mux_tablaPorProceso);
-
-			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
-			log_trace(logTrace,"el path del dir elegido es %s",path->direccion);
-
-
-			//printf("El path del direcctorio elegido es: %s\n", path->direccion);
-
-			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ESCRIBIR;
-			file_serial = serializeLeerFS(head, path->direccion, pack_io->info, pack_io->tamanio, procArchivo->flag, &pack_size);
-			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
-				log_error(logTrace,"error al enviar el paquete al fs");
-				perror("error al enviar el paquete al filesystem");
-				break;
-			}
-			head.tipo_de_proceso = FS;
-			head.tipo_de_mensaje = ARCHIVO_ESCRITO;
-			if(validarRespuesta(sock_fs,head,&h_esp)== 0){
-				head.tipo_de_mensaje =  ARCHIVO_ESCRITO;
-				head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
-				informarResultado(cpu_i->cpu.fd_cpu, head);
-			}else{
-				log_error(logTrace,"No se pudieron escribir los datos solicitados");
-				head.tipo_de_proceso = KER;
-				head.tipo_de_mensaje = FALLO_ESCRITURA;
-				informarResultado(cpu_i->cpu.fd_cpu,head);
-			}
-
-
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->cpu.pid);
 			MUX_UNLOCK(&mux_infoProc);
@@ -519,24 +474,24 @@ void cpu_manejador(void *infoCPU){
 			freeAndNULL((void **) &buffer);
 			break;
 
-		case LEER:
-			log_trace(logTrace,"case leer");
+		case LEER: // todo: arreglar ||||||||||||||||||||||||||||||| este es el unico CASE que falta refaccionar
+			log_trace(logTrace,"case leer[CPU %d]",cpu_i->cpu.pid);
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackLeer *leer = deserializeLeer(buffer);
 			freeAndNULL((void **) &buffer);
 
 			sprintf(sfd, "%d", leer->fd);
-			path = dictionary_get(tablaGlobal, sfd);
-			log_trace(logTrace, "el valor del fd en leer es %d", leer->fd);
+			datosGlobal = dictionary_get(tablaGlobal, sfd);
+			log_trace(logTrace, "el valor del fd en leer es %d [CPU %d]", leer->fd, cpu_i->cpu.pid);
 			if ((procArchivo = obtenerProcesoSegunFDLocal(leer->fd,cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 			}
 
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = LEER;
-			file_serial = serializeLeerFS2(head, path->direccion, procArchivo->posicionCursor, leer->size, &pack_size); //todo: segfault
+			file_serial = serializeLeerFS2(head, datosGlobal->direccion, procArchivo->posicionCursor, leer->size, &pack_size); //todo: segfault
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
-				log_error(logTrace, "error al enviar el paquete a Filesystem");
+				log_error(logTrace, "error al enviar el paquete a Filesystem[CPU %d]",cpu_i->cpu.pid);
 				perror("error al enviar el paquete al filesystem");
 				break;
 			}
@@ -546,7 +501,7 @@ void cpu_manejador(void *infoCPU){
 			h_esp.tipo_de_mensaje = ARCHIVO_LEIDO;
 			if(validarRespuesta(sock_fs, h_esp, &head) != 0){
 				head.tipo_de_proceso = KER; //Esta asignacion para que el validarRespuesta de la primitiva la reconozca
-				log_error(logTrace, "No se pudieron leer los datos solicitados");
+				log_error(logTrace, "No se pudieron leer los datos solicitados[CPU %d]",cpu_i->cpu.pid);
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 				break;
 			}
@@ -558,7 +513,7 @@ void cpu_manejador(void *infoCPU){
 			file_serial = serializeBytes(head, bytes->bytes, bytes->bytelen, &pack_size);
 
 			if (send(cpu_i->cpu.fd_cpu, file_serial, pack_size, 0) == -1){
-				log_error(logTrace, "No se pudo enviar paquete leido a CPU");
+				log_error(logTrace, "No se pudo enviar paquete leido a CPU[CPU %d]",cpu_i->cpu.pid);
 				perror("Fallo send de paquete lectura a CPU. error");
 				break;
 			}
@@ -573,14 +528,15 @@ void cpu_manejador(void *infoCPU){
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE):
 			case(PCB_PREEMPT): case(PCB_BLOCK)://COLA EXIT o BLOCK
-			log_trace(logTrace,"case para enviar a cola exit o block");
+			log_trace(logTrace,"case para enviar a cola exit o block[CPU %d]",cpu_i->cpu.pid);
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
 		informarNuevoQSLuego(cpu_i);
 	break;
 
 	case HSHAKE:
-		log_trace(logTrace,"se recibe handshake de cpu");
+		log_trace(logTrace,"se recibe handshake de cpu[CPU %d]", cpu_i->cpu.fd_cpu);
+
 		head.tipo_de_proceso = KER; head.tipo_de_mensaje = KERINFO;
 		if ((stat = contestar2ProcAProc(head, kernel->quantum_sleep, kernel->stack_size, cpu_i->cpu.fd_cpu)) < 0){
 			log_error(logTrace, "No se pudo informar el quantum sleep ni stack size a cpu");
@@ -601,7 +557,7 @@ void cpu_manejador(void *infoCPU){
 
 	default:
 		puts("Funcion no reconocida!");
-		log_error(logTrace,"Funcion no reconocida");
+		log_error(logTrace,"Funcion no reconocida[CPU %d]",cpu_i->cpu.pid);
 		break;
 
 	}} while((stat = recv(cpu_i->cpu.fd_cpu, &head, sizeof head, 0)) > 0);
@@ -613,7 +569,7 @@ void cpu_manejador(void *infoCPU){
 	}
 
 	puts("CPU se desconecto, la sacamos de la listaDeCpu..");
-	log_trace(logTrace,"Cpu se desconecto, sale de la lista de CPU");
+	log_trace(logTrace,"Cpu se desconecto, sale de la lista de CPU[CPU %d]",cpu_i->cpu.pid);
 	if(cpu_i->con->pid > -1){ //esta cpu tenia asignado un proceso. //con->pid o cpu->pid ?!? todo;
 
 		desconexionCpu(cpu_i);//en esta funcion ponemos el pcb mas actual en exit y avisamos a consola el fin..
@@ -640,7 +596,7 @@ void mem_manejador(void *m_sock){
 	do {
 	switch((int) head.tipo_de_mensaje){
 	//printf("(MEM) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
-	log_trace(logTrace,"MEM) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
+	//log_trace(logTrace,"MEM) proc: %d  \t msj: %d\n", head.tipo_de_proceso, head.tipo_de_mensaje);
 
 	case ASIGN_SUCCS : case FALLO_ASIGN:
 		//puts("Se recibe respuesta de asignacion de paginas para algun proceso");
@@ -683,9 +639,10 @@ void mem_manejador(void *m_sock){
 			break;
 		}
 
-		if ((stat = send(*sock_mem, buffer, pack_size, 0)) == -1)
+		if ((stat = send(*sock_mem, buffer, pack_size, 0)) == -1){
 			log_error(logTrace,"No se pudo mandar lista de pids a memoria");
 			perror("No se pudo mandar lista de PIDs a Memoria. error");
+		}
 		//printf("Se enviaron %d bytes a Memoria\n", stat);
 		log_trace(logTrace,"Se enviaron %d bytes a memoria",stat);
 		break;
@@ -715,8 +672,8 @@ void cons_manejador(void *conInfo){
 	log_trace(logTrace,"Se recibe un mensaje de consola %d",con_i->con->fd_con);
 	case SRC_CODE:
 		//puts("Consola quiere iniciar un programa");
-		log_trace(logTrace,"Consola quiere iniciar un programa");
 
+		log_trace(logTrace,"solicitud de incio de programa x consola");
 		if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
 			puts("Fallo recepcion de SRC_CODE");
 			log_error(logTrace,"Fallo recepcion de src code");
@@ -731,6 +688,7 @@ void cons_manejador(void *conInfo){
 
 		tPCB *new_pcb = crearPCBInicial();
 		con_i->con->pid = new_pcb->id;
+		log_trace(logTrace,"Consola quiere iniciar un programa [CONSOLA %d]",con_i->con->pid);
 		avisarPIDaPrograma(new_pcb->id,con_i->con->fd_con);
 		log_trace(logTrace,"CONSOLA(fd=%d) ENVIA UN PROGRAMA PARA EJECUTAR. SU PID %d###\n",con_i->con->fd_con,new_pcb->id);
 		printf("###CONSOLA(fd=%d) ENVIA UN PROGRAMA PARA EJECUTAR. SU PID %d###\n",con_i->con->fd_con,new_pcb->id);
@@ -755,7 +713,7 @@ void cons_manejador(void *conInfo){
 		break;
 
 	case KILL_PID:
-		log_trace(logTrace,"Case KILL_PID de consola");
+		log_trace(logTrace,"Case KILL_PID de consola[CONSOLA %d]",con_i->con->pid);
 		if ((buffer = recvGeneric(con_i->con->fd_con)) == NULL){
 			log_error(logTrace,"error al recibir el pid");
 			puts("error al recibir el pid");
@@ -768,10 +726,10 @@ void cons_manejador(void *conInfo){
 			return;
 		}
 
-		log_trace(logTrace,"asigno pid a la estructura");
 		pidAFinalizar = ppid->val;
 		//freeAndNULL((void **)&ppid);
 		printf("Pid a finalizar: %d\n",pidAFinalizar);
+		log_trace(logTrace,"PID A FINALIZAR %d",pidAFinalizar);
 		t_finConsola *fc = malloc(sizeof(fc));
 		fc->pid = pidAFinalizar ;
 		fc->ecode = CONS_FIN_PROG;
@@ -784,7 +742,7 @@ void cons_manejador(void *conInfo){
 
 	default:
 		log_trace(logTrace,"Se recibe un msj no reconocido de CON");
-		puts("Se recibe un mensaje no reconocido!");
+		//puts("Se recibe un mensaje no reconocido!");
 		break;
 
 	}} while ((stat = recv(con_i->con->fd_con, &head, HEAD_SIZE, 0)) > 0);

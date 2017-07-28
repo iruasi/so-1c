@@ -89,7 +89,7 @@ int Finalizar_Programa(int pid){
 		perror("Fallo envio de PID a Consola. error");
 		return FALLO_SEND;
 	}
-	log_trace(logTrace,"se enviaron %d bytes al kernel",stat);
+	log_trace(logTrace,"se enviaron %d bytes al kernel para finalizar el PID %d",stat,pid);
 
 	//printf("Se enviaron %d bytes al kernel\n", stat);
 
@@ -146,10 +146,10 @@ void accionesFinalizacion(int pid){
 			printf("###CANTIDAD DE IMPRESIONES POR PANTALLA: %d\n",aux->cantImpresiones);//todo:impresiones x pantala
 
 			log_info(logTrace,"FIN DE EJECUCION PROCESO %d",pid);
-			log_info(logTrace,"HORA DE INICIO: %s",buffInicio);
-			log_info(logTrace,"HORA DE FIN: %s",buffFin);
-			log_info(logTrace,"SEGUNDOS DE EJECUCION: %.f",diferencia);
-			log_info(logTrace,"CANTIDAD DE IMPRESIONES X PANTALLA: %d",aux->cantImpresiones);
+			log_info(logTrace,"HORA DE INICIO: %s [PID%d]",buffInicio,pid);
+			log_info(logTrace,"HORA DE FIN: %s [PID%d]",buffFin,pid);
+			log_info(logTrace,"SEGUNDOS DE EJECUCION: %.f [PID%d]",diferencia,pid);
+			log_info(logTrace,"CANTIDAD DE IMPRESIONES X PANTALLA: %d [PID%d]",aux->cantImpresiones,pid);
 
 			//Lo sacamos de la lista de programas en ejecucion
 
@@ -217,17 +217,12 @@ void *programa_handler(void *atributos){
 	log_trace(logTrace,"handshake realizado");
 	tPackHeader head_tmp;
 
-	log_trace(logTrace,"creando codigo fuente");
 	tPackSrcCode *src_code = readFileIntoPack(CON, args->path);
 	log_trace(logTrace,"codigo fuente creado");
-	log_trace(logTrace,"serializando codigo fuente");
 	head_tmp.tipo_de_proceso = CON; head_tmp.tipo_de_mensaje = SRC_CODE; pack_size = 0;
 	buffer = serializeBytes(head_tmp, src_code->bytes, src_code->bytelen, &pack_size);
 
 	log_trace(logTrace,"codigo fuente serializado");
-
-
-	log_trace(logTrace,"conectando con kernel");
 
 	log_trace(logTrace,"enviando codigo fuente");
 
@@ -235,7 +230,8 @@ void *programa_handler(void *atributos){
 		log_error(logTrace,"no se pudo enviar codigo fuente a kernel. ");
 		return (void *) FALLO_SEND;
 	}
-	log_trace(logTrace,"se enviaron %d bytes",stat);
+
+	log_trace(logTrace,"se enviaron %d bytes del codigo fuente a kernel",stat);
 
 
 	// enviamos el codigo fuente, lo liberamos ahora antes de olvidarnos..
@@ -252,7 +248,7 @@ void *programa_handler(void *atributos){
 			if (head_tmp.tipo_de_mensaje == IMPRIMIR){
 				//log_trace(logTrace,"kernel manda algo a imprimir [PID %d]",args->pidProg);
 
-				log_trace(logTrace, "recibimos info para imprimir[PID %d]",args->pidProg);
+				log_trace(logTrace, "recibimos info para imprimir [PID %d]",args->pidProg);
 
 				if ((buffer = recvGeneric(args->sock)) == NULL){
 					log_error(logTrace,"error al recibir la info a imprimir[PID %d]",args->pidProg);
@@ -262,6 +258,7 @@ void *programa_handler(void *atributos){
 				tPackRW * prints=deserializeRW(buffer);
 
 				printf("[Impresion para PID:%d]: %s\n",args->pidProg, (char *) prints->info);
+
 				args->cantImpresiones++;
 
 			}
@@ -280,15 +277,13 @@ void *programa_handler(void *atributos){
 					return (void *) FALLO_DESERIALIZAC;
 				}
 
-				log_trace(logTrace,"asigno pid a la estructura");
-
 				memcpy(&args->pidProg, &ppid->val, sizeof(int));
 				freeAndNULL((void **)&ppid);
 
 
 				log_trace(logTrace,"PID: %d ",args->pidProg);
 
-				printf("Pid Recibido es: %d\n", args->pidProg);
+				printf("\n\n###Pid Recibido es: %d###\n\n", args->pidProg);
 
 
 				pthread_mutex_lock(&mux_listaAtributos);
@@ -306,16 +301,14 @@ void *programa_handler(void *atributos){
 
 				accionesFinalizacion(args->pidProg);
 
-				finalizar = 1;
+				finalizar=1;
+
 				//close(args->sock); //todo:revisar esto
-
-
 				//pthread_cancel(aux->hiloProg);
-
 			}
 
 			if((int) head_tmp.tipo_de_mensaje == DESCONEXION_CPU){
-				printf("\n\n\n #####Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n####",args->pidProg);
+				printf("\n\n\n #####Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)\n\n####",args->pidProg);
 				log_trace(logTrace,"Kernel nos avisa q termino de ejecutar el programa %d (por desconexion de CPU)",args->pidProg);
 				accionesFinalizacion(args->pidProg);
 				finalizar = 1;

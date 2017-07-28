@@ -69,6 +69,8 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 		puts("No se recibio correctamente informacion de Memoria!");
 		return FALLO_GRAL;
 	}
+	puts("Me conecte a memoria");
+	log_trace(logTrace,"Me conecte a memoria");
 	printf("Se trabaja una Memoria con %d frames de size %d\n", frames, frame_size);
 	log_trace(logTrace,"cant frames: %d",frames);
 	log_trace(logTrace,"size frames: %d",frame_size);
@@ -89,7 +91,13 @@ int interconectarProcesos(ker_socks *ks, const char* pathDirectorio){
 	}
 	//printf("Se enviaron: %d bytes a FILESYSTEM\n", stat);
 	log_trace(logTrace,"se enviaron %d bytes a FS",stat);
+<<<<<<< HEAD
 
+=======
+	ks->fd_max = MAX(sock_fs, ks->fd_max);
+	puts("Me conecte a filesystem");
+	log_trace(logTrace,"me conecte a fS");
+>>>>>>> 04b2e4a0cac0886982c8ff60c080c9ebdc245461
 	// Creamos sockets para hacer listen() de CPUs
 	if ((ks->sock_lis_cpu = makeListenSock(kernel->puerto_cpu)) < 0){
 		log_error(logTrace,"no se pudo crear socket para escuchar sock_lis_cpu");
@@ -179,9 +187,9 @@ int main(int argc, char* argv[]){
 
 	//int directorioLen = string_length(argv[1]) - string_length("/config_kernel");
 	//char* pathDirectorio = string_substring_until(argv[1], directorioLen);
-	char* pathDirectorio = "/home/utnso/git/tp-2017-1c-Flanders-chip-y-asociados/Kernel"; //hardcode para debug
+	char* pathDirectorio = "/home/utnso/tp-2017-1c-Flanders-chip-y-asociados/Kernel"; //hardcode para debug
 	printf("path dire: %s\n", pathDirectorio);
-
+	log_info(logTrace,"Path directorio para inofity %s",pathDirectorio);
 	if (interconectarProcesos(ks, pathDirectorio) != 0){
 		log_error(logTrace,"Fallo en la conexion c el resto de los procesos");
 		puts("Fallo en la conexion con el resto de los procesos");
@@ -233,7 +241,7 @@ int main(int argc, char* argv[]){
 
 				// Controlamos el listen de CPU o de Consola
 				if (fd == ks->sock_lis_cpu){
-
+					log_trace(logTrace,"El sock es de CPU");
 					int *sock_cpu = malloc(sizeof(int));
 					if ((*sock_cpu = makeCommSock(fd)) < 0)
 						break; // Fallo y no se conecto el CPU
@@ -251,7 +259,7 @@ int main(int argc, char* argv[]){
 					break;
 
 				} else if (fd == ks->sock_lis_con){
-
+					log_trace(logTrace,"EL sock es de consola");
 					int *sock_con = malloc(sizeof(int));
 					if ((*sock_con = makeCommSock(fd)) < 0)
 						break; // Fallo y no se conecto el Programa

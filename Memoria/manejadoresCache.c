@@ -50,7 +50,7 @@ void setupCacheLines(void){
 }
 
 char *getCacheContent(int pid, int page){
-	log_trace(logTrace,"Buscando contenido en Cache");
+	log_trace(logTrace,"Buscando contenido en Cache [PID %d]",pid);
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
 		if (CACHE_lines[i].pid == pid && CACHE_lines[i].page == page){
@@ -64,7 +64,7 @@ char *getCacheContent(int pid, int page){
 }
 
 void actualizarCache(int pid, int page, int frame){
-	log_trace(logTrace,"Funcion actualizar Cache");
+	log_trace(logTrace,"Funcion actualizar Cache[PID %d] page %d frame %d",pid,page,frame);
 	int i;
 	char *mem_cont = MEM_FIS + frame * memoria->marco_size;
 
@@ -78,7 +78,7 @@ void actualizarCache(int pid, int page, int frame){
 }
 
 void cachePenalizer(int accessed){
-	log_trace(logTrace,"Funcion cachePenalizer");
+	log_trace(logTrace,"Funcion cachePenalizer accesed %d",accessed);
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i)
 		CACHE_accs[i]--;
@@ -86,7 +86,7 @@ void cachePenalizer(int accessed){
 }
 
 int insertarEnCache(int pid, int page, char *cont){
-	log_trace(logTrace,"funcion insertar en cache");
+	log_trace(logTrace,"funcion insertar en cache [PID %d] page %d cont %s",pid,page,cont);
 	int min_pos;
 
 	if (pageCachedQuantity(pid) >= memoria->cache_x_proc){
@@ -119,7 +119,7 @@ tCacheEntrada *getCacheVictim(int *min_line){
 }
 
 int pageCachedQuantity(int pid){
-	log_trace(logTrace,"funcion page cached quantity");
+	log_trace(logTrace,"funcion page cached quantity[PID %d]",pid);
 	int i, pages;
 	for (i = pages = 0; i < memoria->entradas_cache; ++i){
 		(CACHE_lines[i].pid == pid)? pages++ : pages;

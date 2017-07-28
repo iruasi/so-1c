@@ -1,6 +1,6 @@
 #include <stddef.h>
 #include <stdlib.h>
-#include <fuse.h>
+//#include <fuse.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -19,45 +19,45 @@ extern tMetadata *meta;
 
 extern t_log *logTrace;
 
-static int getattr(const char *path, struct stat *stbuf) {
-	int res = 0;
-	log_trace(logTrace,"funcion getattr");
-	memset(stbuf, 0, sizeof(struct stat));
+//static int getattr(const char *path, struct stat *stbuf) {
+//	int res = 0;
+//	log_trace(logTrace,"funcion getattr");
+//	memset(stbuf, 0, sizeof(struct stat));
+//
+//	//Si path es igual a "/" nos estan pidiendo los atributos del punto de montaje
+//
+//	if (strcmp(path, "/") == 0) {
+//		stbuf->st_mode = S_IFDIR | 0755;
+//		stbuf->st_nlink = 2;
+//	} else if (strcmp(path, DEFAULT_FILE_PATH) == 0) {
+//		stbuf->st_mode = S_IFREG | 0444;
+//		stbuf->st_nlink = 1;
+//		stbuf->st_size = strlen(DEFAULT_FILE_CONTENT);
+//	} else {
+//		res = -ENOENT;
+//	}
+//	return res;
+//}
+//
+//static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
+//	(void) offset;
+//	log_trace(logTrace,"funcion readdir");
+//	(void) fi;
+//
+//	if (strcmp(path, "/") != 0)
+//		return -ENOENT;
+//
+//	// "." y ".." son entradas validas, la primera es una referencia al directorio donde estamos parados
+//	// y la segunda indica el directorio padre
+//	filler(buf, ".", NULL, 0);
+//	filler(buf, "..", NULL, 0);
+//	filler(buf, DEFAULT_FILE_NAME, NULL, 0);
+//	//printf("Leyendo los archivos de %s\n", path);
+//	log_trace(logTrace,"leyendo los archivos de %s ",path);
+//	return 0;
+//}
 
-	//Si path es igual a "/" nos estan pidiendo los atributos del punto de montaje
-
-	if (strcmp(path, "/") == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
-		stbuf->st_nlink = 2;
-	} else if (strcmp(path, DEFAULT_FILE_PATH) == 0) {
-		stbuf->st_mode = S_IFREG | 0444;
-		stbuf->st_nlink = 1;
-		stbuf->st_size = strlen(DEFAULT_FILE_CONTENT);
-	} else {
-		res = -ENOENT;
-	}
-	return res;
-}
-
-static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) {
-	(void) offset;
-	log_trace(logTrace,"funcion readdir");
-	(void) fi;
-
-	if (strcmp(path, "/") != 0)
-		return -ENOENT;
-
-	// "." y ".." son entradas validas, la primera es una referencia al directorio donde estamos parados
-	// y la segunda indica el directorio padre
-	filler(buf, ".", NULL, 0);
-	filler(buf, "..", NULL, 0);
-	filler(buf, DEFAULT_FILE_NAME, NULL, 0);
-	//printf("Leyendo los archivos de %s\n", path);
-	log_trace(logTrace,"leyendo los archivos de %s ",path);
-	return 0;
-}
-
-int open2(const char *path, struct fuse_file_info *fi) {
+int open2(char *path) {
 	int bloque=-1;
 	int i=0;
 	log_trace(logTrace,"funcion open2");
@@ -71,10 +71,7 @@ int open2(const char *path, struct fuse_file_info *fi) {
 	*/
 	//puts ("Se quiere abrir un archivo");
 	log_trace(logTrace,"se quiere abrir un archivo");
-	/*
-	 * todo: habria que poner un mutex aca? por si se quieren crear
-	 * dos archivos al mismo tiempo..
-	 */
+
 	while(i<meta->cantidad_bloques && bloque==-1){
 		if(!bitarray_test_bit(bitArray, i)){
 			bitarray_set_bit(bitArray, i);
@@ -99,10 +96,10 @@ int open2(const char *path, struct fuse_file_info *fi) {
 	}
 
 
-	return 0; //todo: ver como retornar el fd
+	return fileno(path);
 }
 
-int read2(const char *path, char **buf, size_t size, off_t offset, struct fuse_file_info *fi) {
+int read2(char *path, char **buf, size_t size, off_t offset) {
 	/*size_t len;
 	(void) fi;
 	if (strcmp(path, DEFAULT_FILE_PATH) != 0)
@@ -128,7 +125,7 @@ int read2(const char *path, char **buf, size_t size, off_t offset, struct fuse_f
 	return size;
 }
 
-static int write2(const char * path, const char * buf, size_t size, off_t offset, struct fuse_file_info * fi){
+int write2(char * path, char * buf, size_t size, off_t offset){
 	int cantidadBloques = (int) ceil((float) size/meta->tamanio_bloques);
 	int bloquesLibres=0,
 			i=0;
@@ -162,7 +159,7 @@ static int write2(const char * path, const char * buf, size_t size, off_t offset
 	return size;
 }
 
-int unlink2 (const char *path){
+int unlink2 (char *path){
 	//int rem;
 	log_trace(logTrace,"se quiere borrar el archivo %s",path);
 	//printf("Se quiere borrar el archivo el archivo %s\n", path);
@@ -178,7 +175,13 @@ int unlink2 (const char *path){
 	for(i=0; i<sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++){
 		bitarray_clean_bit(bitArray, atoi(archivo->bloques[i]));
 	}
-	//todo: sacar el archivo de lista_archivos
+	for(i=0; i<list_size(lista_archivos); i++){
+		archivo = list_get(lista_archivos, i);
+		if(archivo->fd == fileno(path)){
+			list_remove(lista_archivos, i);
+			break;
+		}
+	}
 	remove(path);
 	free(archivo);
 	config_destroy(conf);
@@ -203,14 +206,14 @@ int validarArchivo(char* path){
 	return 0;
 }
 
-void setupFuseOperations(void){
-	oper.getattr = getattr;
-//	oper.readdir = readdir;
-	oper.open    = open2;
-	oper.read    = read2;
-	oper.write   = write2;
-	oper.unlink  = unlink2;
-}
+//void setupFuseOperations(void){
+//	oper.getattr = getattr;
+////	oper.readdir = readdir;
+//	oper.open    = open2;
+//	oper.read    = read2;
+//	oper.write   = write2;
+//	oper.unlink  = unlink2;
+//}
 
 
 

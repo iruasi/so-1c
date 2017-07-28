@@ -39,7 +39,7 @@ void flush(void){
 void dump(int pid){
 
 	puts("COMIENZO DE DUMP");
-	log_trace(logTrace,"DUMP");
+	log_trace(logTrace,"DUMP [PID %d]",pid);
 	dumpCache();
 	dumpMemStructs();
 	dumpMemContent(pid);
@@ -49,7 +49,7 @@ void dump(int pid){
 
 
 void size(int pid){
-	log_trace(logTrace,"funcion size");
+	log_trace(logTrace,"funcion size[PID %d]",pid);
 	int mem_ocup, mem_free = 0;
 
 	if (pid < 0){
@@ -68,11 +68,11 @@ void size(int pid){
 // API DE LA MEMORIA
 
 int inicializarPrograma(int pid, int page_quant){
-	log_trace(logTrace,"Se reservan %d paginas", page_quant);
+	log_trace(logTrace,"Se reservan %d paginas[PID %d]", page_quant,pid);
 	int reservadas;
 
 	if ((reservadas = reservarPaginas(pid, page_quant)) < 0){
-		log_error(logTrace, "Fallo reserva: No hay frames libres en Memoria");
+		log_error(logTrace, "Fallo reserva: No hay frames libres en Memoria[PID %d]",pid);
 		return reservadas;
 	}
 	log_trace(logTrace,"Se reservaron %d paginas a partir de la %d", page_quant, reservadas);
@@ -107,12 +107,12 @@ char *solicitarBytes(int pid, int page, int offset, int size){
 }
 
 int asignarPaginas(int pid, int page_count){
-	log_trace(logTrace,"funcion asignar paginas");
+	log_trace(logTrace,"funcion asignar paginas cant pags %d [PID %d]",page_count,pid);
 	int new_page, stat;
 	tHeapMeta hmd = {.size = memoria->marco_size - 2*SIZEOF_HMD, .isFree = true};
 
 	if((new_page = reservarPaginas(pid, page_count)) < 0){
-		log_error(logTrace,"no se pudieron reservar pags para el proceso");
+		log_error(logTrace,"no se pudieron reservar pags para el proceso [PID %d]",pid);
 		printf("No se pudieron reservar paginas para el proceso. error: %d\n", new_page);
 		return new_page;
 	}
@@ -122,7 +122,7 @@ int asignarPaginas(int pid, int page_count){
 		return stat;
 
 	//printf("Se reservaron correctamente %d paginas\n", page_count);
-	log_trace(logTrace,"se reservaron correctamente %d paginas",page_count);
+	log_trace(logTrace,"se reservaron correctamente %d paginas [PID %d]",page_count,pid);
 	return new_page;
 }
 

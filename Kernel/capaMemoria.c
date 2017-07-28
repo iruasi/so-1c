@@ -85,19 +85,28 @@ t_puntero reservarBytes(char* heap_page, int sizeReserva){
 }
 
 t_puntero reservar(int pid, int size){
+<<<<<<< HEAD
 	log_trace(logTrace,"inicio reservar bytes para pid");
+=======
+	//printf("Se reservaran %d bytes para el PID %d\n", size, pid);
+	log_trace(logTrace,"inicio reservar %d bytes bytes para [PID %d]",size,pid);
+>>>>>>> 04b2e4a0cac0886982c8ff60c080c9ebdc245461
 	int stat;
 	t_puntero ptr;
 
 	if (!VALID_ALLOC(size)){
 		printf("El size %d no es un tamanio valido para almacenar en Memoria\n", size);
+<<<<<<< HEAD
 		log_trace(logTrace, "El size %d no es un tamanio valido para almacenar en memoria",size);
+=======
+		log_trace(logTrace,"el size %d no es un tamanio valido para almacenar en memoria [PID %d]",size,pid);
+>>>>>>> 04b2e4a0cac0886982c8ff60c080c9ebdc245461
 		return 0; // Un puntero a Heap nunca podria ser 0
 	}
 
 	if (!tieneHeap(pid)){
 		if ((stat = crearNuevoHeap(pid)) != 0){
-			log_error(logTrace,"no se pudo crear pagina de heap");
+			log_error(logTrace,"no se pudo crear pagina de heap [PID %d]",pid);
 			puts("No se pudo crear pagina de heap!");
 			return 0;
 		}
@@ -108,7 +117,7 @@ t_puntero reservar(int pid, int size){
 			return 0;
 
 
-	log_trace(logTrace,"fin reservar bytes para el PID");
+	log_trace(logTrace,"fin reservar bytes para el PID [PID %d]",pid);
 
 	MUX_LOCK(&mux_infoProc);
 	sumarSizeYAlloc(pid, size);
@@ -120,7 +129,7 @@ t_puntero reservar(int pid, int size){
 t_puntero intentarReservaUnica(int pid, int size){
 	char *heap, spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
-	log_trace(logTrace,"inicio intentar reserva unica");
+	log_trace(logTrace,"inicio intentar reserva unica [PID %d] size %d",pid,size);
 	t_puntero  ptr;
 	int stat;
 	t_list    *heaps;
@@ -128,7 +137,7 @@ t_puntero intentarReservaUnica(int pid, int size){
 
 	if ((stat = crearNuevoHeap(pid)) != 0){
 		puts("No se pudo crear pagina de heap!");
-		log_error(logTrace,"no se pudo crear pagina de heap");
+		log_error(logTrace,"no se pudo crear pagina de heap[PID %d]",pid);
 		return 0;
 	}
 
@@ -148,13 +157,13 @@ t_puntero intentarReservaUnica(int pid, int size){
 
 	hp->max_size = getMaxFreeBlock(heap);
 	escribirEnMemoria(pid, hp->page, heap);
-	log_trace(logTrace,"fin satisfactorio intenta reserva uncia");
+	log_trace(logTrace,"fin satisfactorio intenta reserva uncia [PID %d]",pid);
 	return ptr + hp->page * frame_size;
 }
 
 
 int escribirEnMemoria(int pid, int pag, char *heap){
-	log_trace(logTrace,"inicio escribir en memoria");
+	log_trace(logTrace,"inicio escribir en memoria [PID %d] pag %d",pid,pag);
 	int stat, pack_size;
 	tPackByteAlmac byteal;
 	char *h_serial;
@@ -166,17 +175,17 @@ int escribirEnMemoria(int pid, int pag, char *heap){
 
 	if ((h_serial = serializeByteAlmacenamiento(&byteal, &pack_size)) == NULL){
 		puts("No se pudo serializar el heap para Memoria");
-		log_error(logTrace,"no se pudo serializar el heap para memoria");
+		log_error(logTrace,"no se pudo serializar el heap para memoria[PID %d]",pid);
 		return FALLO_SERIALIZAC;
 	}
 
 	if ((stat = send(sock_mem, h_serial, pack_size, 0)) == -1){
 		perror("Fallo send de heap serial a Memoria. error");
-		log_error(logTrace,"fallo send de heapserial a memoria");
+		log_error(logTrace,"fallo send de heapserial a memoria[PID %d]",pid);
 		return FALLO_SEND;
 	}
 	//printf("Se enviaron los %d bytes de heap a Memoria\n", stat);
-	log_trace(logTrace,"se enviaron los %d bytes de heap a meoria",stat);
+	log_trace(logTrace,"se enviaron los %d bytes de heap a meoria [PID %d]",stat,pid);
 	freeAndNULL((void **) &heap);
 	free(h_serial);
 	return 0;
@@ -185,7 +194,7 @@ int escribirEnMemoria(int pid, int pag, char *heap){
 t_puntero reservarEnHeap(int pid, int size){
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
-	log_trace(logTrace,"inicio reservar en heap");
+	log_trace(logTrace,"inicio reservar size%d en heap[PID %d]",size,pid);
 	int i;
 	t_puntero ptr;
 	char *heap;
@@ -203,19 +212,19 @@ t_puntero reservarEnHeap(int pid, int size){
 			continue;
 
 		if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL){
-			log_trace(logTrace,"fin reservar en heap");
+			log_trace(logTrace,"fin reservar en heap[PID %d]",pid);
 			return 0;
 		}
 		if ((ptr = reservarBytes(heap, size))){
 			hp->max_size = getMaxFreeBlock(heap);
 			escribirEnMemoria(pid, hp->page, heap);
-			log_trace(logTrace,"fin reservar en heap");
+			log_trace(logTrace,"fin reservar en heap [PID %d]",pid);
 			return ptr + hp->page * frame_size; // posicion absoluta de Memoria
 		}
 
 		freeAndNULL((void **) &heap);
 	}
-	log_trace(logTrace,"fin reservar en heap");
+	log_trace(logTrace,"fin reservar en heap [PID %d]",pid);
 	return 0;
 }
 
@@ -261,7 +270,7 @@ int getMaxFreeBlock(char *heap){
 }
 
 char *obtenerHeapDeMemoria(int pid, int pag){
-	log_trace(logTrace,"inicio obtenerHeapDeMemoria");
+	log_trace(logTrace,"inicio obtenerHeapDeMemoria[PID %d] pag %d",pid,pag);
 	tPackByteReq byterq;
 	tPackBytes *bytes;
 	char *byterq_serial, *buff_bytes;
@@ -275,26 +284,26 @@ char *obtenerHeapDeMemoria(int pid, int pag){
 
 	if ((byterq_serial = serializeByteRequest(&byterq, &pack_size)) == NULL){
 		puts("Fallo serializacion de pedido de heap");
-		log_error(logTrace,"fallo serializacion de pedido de heap");
+		log_error(logTrace,"fallo serializacion de pedido de heap[PID %d]",pid);
 		return NULL;
 	}
 
 	if ((stat = send(sock_mem, byterq_serial, pack_size, 0)) == -1){
 		perror("Fallo envio de pedido de bytes a Memoria. error");
-		log_error(logTrace,"fallo envio de pedido de bytes a memoria");
+		log_error(logTrace,"fallo envio de pedido de bytes a memoria[PID %d]",pid);
 		return NULL;
 	}
 
 	sem_wait(&sem_bytes);
 	if ((buff_bytes = recvGeneric(sock_mem)) == NULL){
 		puts("Fallo recepcion generica");
-		log_error(logTrace,"fallo recepcion generica");
+		log_error(logTrace,"fallo recepcion generica[PID %d]",pid);
 		return NULL;
 	}
 	sem_post(&sem_end_exec);
 	if ((bytes = deserializeBytes(buff_bytes)) == NULL){
 		puts("Fallo deserializacion de Bytes");
-		log_error(logTrace,"fallo deserializacion de bytes");
+		log_error(logTrace,"fallo deserializacion de bytes[PID %d]",pid);
 		return NULL;
 	}
 	memcpy(heap, bytes->bytes, frame_size);
@@ -302,7 +311,7 @@ char *obtenerHeapDeMemoria(int pid, int pag){
 	free(bytes->bytes); free(bytes);
 	free(byterq_serial);
 	free(buff_bytes);
-	log_trace(logTrace,"fin obtener heap de memoria");
+	log_trace(logTrace,"fin obtener heap de memoria[PID %d]",pid);
 	return heap;
 }
 
@@ -312,7 +321,7 @@ char *obtenerHeapDeMemoria(int pid, int pag){
  */
 int crearNuevoHeap(int pid){
 
-	log_trace(logTrace,"inicio crear nuevo heap");
+	log_trace(logTrace,"inicio crear nuevo heap[PID %d]",pid);
 	int stat, pack_size;
 	tPackPidPag *heap_pp;
 	char *buffer;
@@ -324,13 +333,13 @@ int crearNuevoHeap(int pid){
 
 	if ((buffer = serializePIDPaginas(heap_pp, &pack_size)) == NULL){
 		puts("No se pudo serializar pedido de pagina Heap");
-		log_error(logTrace,"no se pudo serializar pedido de pag de heap");
+		log_error(logTrace,"no se pudo serializar pedido de pag de heap[PID %d]",pid);
 		return FALLO_SERIALIZAC;
 	}
 	freeAndNULL((void **) &heap_pp);
 
 	if ((stat = send(sock_mem, buffer, pack_size, 0)) == -1){
-		log_error(logTrace,"fallo send pedido de pag a memoria");
+		log_error(logTrace,"fallo send pedido de pag a memoria[PID %d]",pid);
 		perror("Fallo send pedido de pagina a Memoria. error");
 		return FALLO_SEND;
 	}
@@ -343,7 +352,7 @@ int crearNuevoHeap(int pid){
 
 	if (heap_pp->pageCount < 0){
 		puts("No se pudo asignar una pagina en Memoria para el Heap");
-		log_error(logTrace,"no se pudo asignar una pag en memoria para el heap");
+		log_error(logTrace,"no se pudo asignar una pag en memoria para el heap[PID %d]",pid);
 		return FALLO_ASIGN;
 	}
 
@@ -354,12 +363,12 @@ int crearNuevoHeap(int pid){
 
 	free(heap_pp);
 	free(buffer);
-	log_trace(logTrace,"fin crear nuevo heap");
+	log_trace(logTrace,"fin crear nuevo heap[PID %d]",pid);
 	return 0;
 }
 
 int liberar(int pid, t_puntero ptr){
-	log_trace(logTrace,"inicio liberar");
+	log_trace(logTrace,"inicio liberar el putnero %d para [PID %d]",ptr,pid);
 	//printf("Se liberara el puntero %d para el PID %d\n", ptr, pid);
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
@@ -372,16 +381,16 @@ int liberar(int pid, t_puntero ptr){
 
 	if (!paginaPerteneceAPID(spid, pag, &hp)){
 		printf("No se encontro para el programa %s la pagina %d\n", spid, pag);
-		log_error(logTrace,"no se encontro el programa %s para la pag %d",spid,pag);
+		log_error(logTrace,"no se encontro el programa %s para la pag %d[PID %d]",spid,pag,pid);
 		return FALLO_HEAP;
 	}
 
 	if ((heap = obtenerHeapDeMemoria(pid, hp->page)) == NULL){
-		log_error(logTrace,"fallo_soli");
+		log_error(logTrace,"fallo_soli[PID %d]",pid);
 		return FALLO_SOLIC;
 	}
 	if (!punteroApuntaABloqueValido(heap, ptr)){
-		log_error(logTrace,"puntero invalido");
+		log_error(logTrace,"puntero invalido[PID %d]",pid);
 		return PUNTERO_INVALIDO;
 	}
 	hmd = (tHeapMeta *) (heap + off);
@@ -393,16 +402,16 @@ int liberar(int pid, t_puntero ptr){
 	hp->max_size = getMaxFreeBlock(heap);
 
 	if ((escribirEnMemoria(pid, hp->page, heap)) != 0){
-		log_error(logTrace,"fallo_almac");
+		log_error(logTrace,"fallo_almac[PID %d]",pid);
 		return FALLO_ALMAC;
 	}
-	log_trace(logTrace,"fin liberar");
+	log_trace(logTrace,"fin liberar[PID %d]",pid);
 	return 0;
 }
 
 bool paginaPerteneceAPID(char *spid, int pag, tHeapProc **hp){
 
-	log_trace(logTrace,"inicio pagina pertenece a pid");
+	log_trace(logTrace,"inicio pagina %d pertenece a pid",pag);
 	int i;
 	t_list *heaps = dictionary_get(dict_heap, spid);
 
@@ -492,7 +501,7 @@ void consolidar(char *heap){
 }
 
 void agregarHeapAPID(int pid, int pag){
-	log_trace(logTrace,"inicio agergar heap a pid");
+	log_trace(logTrace,"inicio agergar heap a pid[PID %d]",pid );
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 	//printf("Registramos la pagina de heap %d al PID %s\n", pag, spid);
@@ -513,11 +522,11 @@ void agregarHeapAPID(int pid, int pag){
 
 	t_list *heaps = dictionary_get(dict_heap, spid);
 	list_add(heaps, hp);
-	log_trace(logTrace,"fin agregar heap a pid");
+	log_trace(logTrace,"fin agregar heap a pid[PID %d]",pid);
 }
 
 void liberarHeapEnKernel(int pid){
-	log_trace(logTrace,"inicio liberar heap en kernel");
+	log_trace(logTrace,"inicio liberar heap en kernel[PID %d]",pid);
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 	//printf("Eliminamos los registros de Heap del PID %s\n", spid);
@@ -533,11 +542,11 @@ void liberarHeapEnKernel(int pid){
 	while (list_size(heaps))
 		free(list_remove(heaps, 0));
 
-	log_trace(logTrace,"fin liberar heap en kernel");
+	log_trace(logTrace,"fin liberar heap en kernel[PID %d]",pid);
 }
 
 bool tieneHeap(int pid){
-	log_trace(logTrace,"inicio tiene heap");
+	log_trace(logTrace,"inicio tiene heap[PID %d]",pid);
 	char spid[MAXPID_DIG];
 	sprintf(spid, "%d", pid);
 
@@ -545,6 +554,6 @@ bool tieneHeap(int pid){
 	bool rta = dictionary_has_key(dict_heap, spid);
 	MUX_UNLOCK(&mux_dict_heap);
 
-	log_trace(logTrace,"fin tiene heap");
+	log_trace(logTrace,"fin tiene heap[PID %d]",pid);
 	return rta;
 }
