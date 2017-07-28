@@ -36,7 +36,7 @@ bool frameLibre(int frame, int off){
 }
 
 int pageQuantity(int pid){
-	log_trace(logTrace, "Funcion page quantity");
+	log_trace(logTrace, "Funcion page quantity [PID %d]",pid);
 	int off, fr;
 	int page_quant = 0;
 
@@ -50,7 +50,7 @@ int pageQuantity(int pid){
 }
 
 int maxPage(int pid){
-	log_trace(logTrace, "Funcion max page");
+	log_trace(logTrace, "Funcion max page[PID %d]",pid);
 
 	tEntradaInv *inv;
 	int off, fr;
@@ -69,7 +69,7 @@ int maxPage(int pid){
 }
 
 int reservarPaginas(int pid, int pageCount){
-	log_trace(logTrace,"funcion reservar paginas");
+	log_trace(logTrace,"funcion reservar paginas cantpags %d [PID %d]",pageCount,pid);
 	int fr_apr, fr, off, cic;
 	int pag_assign, nr_pag, max_page;
 	int init = 1; // distingue si el PID ya tiene paginas
@@ -107,7 +107,7 @@ int reservarPaginas(int pid, int pageCount){
 }
 
 void limpiarDeCache(int pid){
-	log_trace(logTrace,"funcion limpiar cache");
+	log_trace(logTrace,"funcion limpiar cache[PID %d]",pid);
 	int i;
 	for (i = 0; i < memoria->entradas_cache; ++i){
 		if (CACHE_lines[i].pid == pid){
@@ -118,7 +118,7 @@ void limpiarDeCache(int pid){
 }
 
 void limpiarDeInvertidas(int pid){
-	log_trace(logTrace,"funcion limpiar de invertidas");
+	log_trace(logTrace,"funcion limpiar de invertidas[PID %d]",pid);
 	int pag, frpid;
 	tEntradaInv entry = {.pid = pid_free, .pag = free_page};
 

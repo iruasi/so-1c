@@ -177,7 +177,7 @@ int main(int argc, char* argv[]){
 /* dado el socket de Kernel, maneja las acciones que de este reciba
  */
 void* kernel_handler(void *infoKer){
-
+	puts("me conecte con kernel");
 	struct infoKer *ik = (struct infoKer *) infoKer;
 	sock_kernel = *ik->sock_ker;
 	int stat, new_page, pack_size;
