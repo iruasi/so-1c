@@ -27,15 +27,14 @@ char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	if(validarArchivo(path) == -1){
 		log_error(logTrace, "error al leer el archivo");
 		perror("Error al leer el archivo...");
-		return -1;
+		return NULL;
 	}
 
 	char *info;
 	tArchivos* file = getInfoDeArchivo(path);
-	tFileBLKS *arch = getFileByPath(path);
 
 	info = leerInfoDeBloques(file->bloques, size, offset, bytes_read);
-	if (*bytes_read < size){
+	if (*bytes_read < (int) size){
 		log_error(logTrace, "Fallo lectura de informacion. Size pedido: %d, Leido: %d", size, *bytes_read);
 		free(info); // liberamos la info a medio masticar, retornamos NULL
 		return NULL;
@@ -125,7 +124,8 @@ char *leerInfoDeBloques(char **bloques, size_t size, off_t off, int *ioff){
 		}
 		*ioff += MIN(meta->tamanio_bloques, (int) size);
 		size -= MIN(meta->tamanio_bloques, (int) size);
-	}buff -= ioff; // para retornar el puntero a su comienzo
+	}
+	buff -= *ioff; // para retornar el puntero a su comienzo
 	return buff;
 }
 

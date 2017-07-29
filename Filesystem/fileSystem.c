@@ -154,7 +154,7 @@ int *ker_manejador(void){
 		rw = deserializeLeerFS2(buffer);
 
 		abs_path = hacerPathAbsolutoArchivos(rw->direccion);
-
+		info = malloc(rw->size);
 		if((info = read2(abs_path, rw->size, rw->cursor, &bytes_leidos)) == NULL){
 			puts("Hubo un fallo ejecutando read2");
 			log_error(logTrace,"Fallo la lectura de %d bytes del file %s", rw->size, abs_path);
@@ -176,7 +176,7 @@ int *ker_manejador(void){
 		freeAndNULL((void **) &abs_path);
 		freeAndNULL((void **) &buffer);
 		free(rw->direccion); freeAndNULL((void **) &rw);
-		free(bytes->bytes);  freeAndNULL((void **) &bytes);
+	//	free(bytes->bytes);  freeAndNULL((void **) &bytes);
 		break;
 
 	case ESCRIBIR:
