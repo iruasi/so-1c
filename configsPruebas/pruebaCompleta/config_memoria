@@ -1,0 +1,15 @@
+# De momento, dado que todos los procesos se ejecutaran en la misma red local
+# todas las direcciones IP de cada proceso seran el localhost
+
+# Valores obtenidos del ejemplo del TP
+
+# En este puerto, Memoria recibe conexiones de Kernel y CPUs
+PUERTO_ENTRADA=5002
+MARCOS=
+MARCO_SIZE=256
+ENTRADAS_CACHE=18
+CACHE_X_PROC=3
+RETARDO_MEMORIA=100
+
+IP_KERNEL=127.0.0.1
+PUERTO_KERNEL=5001

@@ -1,0 +1,33 @@
+# De momento, dado que todos los procesos se ejecutaran en la misma red local
+# todas las direcciones IP de cada proceso seran el localhost
+
+# En este puerto, kernel recibe conexiones de Programas
+PUERTO_PROG=5000
+# En este puerto, kernel recibe conexiones de CPUs
+PUERTO_CPU=5001
+
+# Dir IP del proceso Memoria
+IP_MEMORIA=127.0.0.1
+# En este puerto, kernel se conecta a Memoria
+PUERTO_MEMORIA=5002
+
+# Dir IP del proceso Filesystem
+IP_FS=127.0.0.1
+# En este puerto, kernel se conecta a Filesystem
+PUERTO_FS=5003
+
+QUANTUM=4
+QUANTUM_SLEEP=100
+ALGORITMO=RR
+
+GRADO_MULTIPROG=3
+#SEM_IDS=[c, mutexArch, b, SEM1, SEM2, SEM3 ]
+SEM_IDS=[m,b,c]
+#SEM_INIT=[2, 0, 5, 0, 0, 5 ]
+SEM_INIT=[1,1,0]
+SEM_CANT=3
+#SHARED_VARS=[!pasadas, !colas, !Global, !UnaVar, !tiempo3 ]
+SHARED_VARS=[!pasadas,!colas]
+#SHARED_CANT=5
+SHARED_CANT=2
+STACK_SIZE=2
