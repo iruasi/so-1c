@@ -32,7 +32,6 @@ typedef enum {
 , FALLO_DESERIALIZAC=  -30
 , FALLO_SERIALIZAC=    -31
 , DESCONEXION_CPU=     -32
-
 , FALLO_INSTR=         -40
 , VAR_NOT_FOUND=       -41
 , GLOBAL_NOT_FOUND=    -42
@@ -42,6 +41,7 @@ typedef enum {
 , FRAME_NOT_FOUND=     -51
 , PID_INVALIDO=        -52
 , FALLO_ESCRITURA=     -53
+, FALLO_LECTURA=       -61
 , MAX_CACHE_ENTRIES=   -54
 , SIZE_INVALID=        -55
 , FALLO_HEAP=          -56

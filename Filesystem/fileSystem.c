@@ -36,7 +36,6 @@ t_list *lista_archivos;
 
 int main(int argc, char* argv[]){
 
-
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		log_error(logTrace,"Error en la cant de parametros");
@@ -53,9 +52,7 @@ int main(int argc, char* argv[]){
 	fileSystem = getConfigFS(argv[1]);
 	mostrarConfiguracion(fileSystem);
 
-	//bitmap
 	crearDirMontaje();
-
 	crearDirectoriosBase();
 	if (inicializarMetadata() != 0){
 		log_error(logTrace,"no se pudo levantar el metadata del filesystem");
@@ -71,10 +68,8 @@ int main(int argc, char* argv[]){
 	if ((stat = recibirConexionKernel()) < 0){
 		log_error(logTrace,"no se pudo conectar con kernel");
 		puts("No se pudo conectar con Kernel!");
-		//todo: limpiarFilesystem();
 	}
 
-	// todo: en vez del ker, habria que combinarlo con el manejador del manejadorSadica.c
 	pthread_create(&kern_th, NULL, (void *) ker_manejador, &retval);
 	pthread_join(kern_th, (void **) &retval);
 
@@ -86,7 +81,7 @@ int main(int argc, char* argv[]){
 
 int *ker_manejador(void){
 	log_trace(logTrace,"inicio thread ker manejador");
-	int stat, pack_size;
+	int stat, pack_size, bytes_leidos;
 	int *retval = malloc(sizeof(int));
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = 9852};//9852, iniciar escuchaKernel
 	char *buffer, *info, *abs_path;
@@ -106,7 +101,7 @@ int *ker_manejador(void){
 
 		abs_path = hacerPathAbsolutoArchivos(abrir->bytes);
 		free(abrir->bytes);
-		freeAndNULL((void **) &abs_path);
+		freeAndNULL((void **) &abrir);
 
 		head.tipo_de_proceso = FS;
 		head.tipo_de_mensaje = (validarArchivo(abs_path) == -1)?
@@ -160,16 +155,13 @@ int *ker_manejador(void){
 
 		abs_path = hacerPathAbsolutoArchivos(rw->direccion);
 
-		info = malloc(rw->size);
-
-		if(read2(abs_path, &info, rw->size, rw->cursor) != 0){
+		if((info = read2(abs_path, rw->size, rw->cursor, &bytes_leidos)) == NULL){
 			puts("Hubo un fallo ejecutando read2");
-
-			log_error(logTrace,"hubo un fallo ejecutando read2");
+			log_error(logTrace,"Fallo la lectura de %d bytes del file %s", rw->size, abs_path);
 			head.tipo_de_mensaje = INVALIDAR_RESPUESTA;
 			informarResultado(sock_kern, head);
 		}
-		//puts("El archivo fue leido con exito");
+
 		log_trace(logTrace,"el archivo fue leido con exito");
 		head.tipo_de_proceso = FS; head.tipo_de_mensaje = ARCHIVO_LEIDO;
 		bytes = serializeBytes(head, info, rw->size, &pack_size);

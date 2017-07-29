@@ -11,7 +11,7 @@
 
 int open2(char *path);
 
-int read2(char *path, char **buf, size_t size, off_t offset);
+char *read2(char *path, size_t size, off_t offset, int *bytes_read);
 
 int write2(char * path, char * buf, size_t size, off_t offset);
 
@@ -19,6 +19,8 @@ int unlink2 (char *path);
 
 int validarArchivo(char* path);
 
+char *leerInfoDeBloques(char **bloques, int blk_quant, size_t size, off_t off, int *ioff);
+int leerBloque(char *sblk, off_t off, char **info, int rd_size);
 int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off);
 int escribirBloque(char *sblk, off_t off, char *info, int wr_size);
 void iniciarBloques(int cant, char* path);

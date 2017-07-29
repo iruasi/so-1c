@@ -19,22 +19,29 @@ extern t_bitarray *bitArray;
 extern tMetadata *meta;
 extern tFileSystem* fileSystem;
 extern t_log *logTrace;
-extern t_list* lista_archivos;
 
-int read2(char *path, char **buf, size_t size, off_t offset) {
-
+char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	log_trace(logTrace,"se quiere leer el archivo %s size:%d offset:%d",path,size,offset);
-	//printf("Se quiere leer el archivo %s, size: %d, offset: %d\n", path, size, offset);
-	if(validarArchivo(path)==-1){
-		log_error(logTrace,"error al leer el archivo");
+
+	if(validarArchivo(path) == -1){
+		log_error(logTrace, "error al leer el archivo");
 		perror("Error al leer el archivo...");
 		return -1;
 	}
-	fseek(path, offset, SEEK_SET);
-	fread(*buf, size, 1, path);
-	//printf("Datos leidos: %s\n", *buf);
-	log_trace(logTrace,"datos leidos %s",buf);
-	return size;
+
+	char *info;
+	tArchivos* file = getInfoDeArchivo(path);
+	tFileBLKS *arch = getFileByPath(path);
+
+	info = leerInfoDeBloques(file->bloques, arch->blk_quant, size, offset, bytes_read);
+	if (*bytes_read < size){
+		log_error(logTrace, "Fallo lectura de informacion. Size pedido: %d, Leido: %d", size, *bytes_read);
+		free(info); // liberamos la info a medio masticar, retornamos NULL
+		return NULL;
+	}
+
+	log_trace(logTrace,"Se leyeron los datos %s", info);
+	return info;
 }
 
 int write2(char * abs_path, char * buf, size_t size, off_t offset){
@@ -72,6 +79,71 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	free(file->bloques);
 	free(file);
 	return size_efectivo;
+}
+
+char *leerInfoDeBloques(char **bloques, int blk_quant, size_t size, off_t off, int *ioff){
+
+	char *bloq_path = string_duplicate(fileSystem->punto_montaje);
+	string_append(&bloq_path, "Bloques/");
+
+	char *buff = malloc(size);
+
+	int start_b    = off / meta->tamanio_bloques;
+	int start_off  = off % meta->tamanio_bloques;
+	*ioff = 0; // offset sobre la info ya leida
+
+	char sblk[MAXMSJ];
+	sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
+
+	// primera lectura!
+	if (leerBloque(sblk, start_off, &buff, meta->tamanio_bloques - start_off) < 0){
+		log_error(logTrace, "Fallo lectura de Bloque");
+		return buff;
+	}
+	size -= meta->tamanio_bloques - start_off;
+	*ioff += meta->tamanio_bloques - start_off;
+
+	while (size){
+		start_b++;
+		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
+
+		if (leerBloque(sblk, start_off, &buff, meta->tamanio_bloques - start_off) < 0){
+			log_error(logTrace, "Fallo lectura de Bloque");
+			return buff;
+		}
+		size -= MIN(meta->tamanio_bloques, (int) size);
+		*ioff += MIN(meta->tamanio_bloques, (int) size);
+	}
+	return buff;
+}
+
+int leerBloque(char *sblk, off_t off, char **info, int rd_size){
+
+	FILE *f;
+	int valid_size = MIN(rd_size, meta->tamanio_bloques);
+
+	if ((f = fopen(sblk, "rb")) == NULL){
+		perror("Fallo fopen");
+		log_error(logTrace, "Fallo fopen de %s", sblk);
+		return FALLO_GRAL;
+	}
+	if ((fseek(f, off, SEEK_SET)) == -1){
+		perror("Fallo fseek a File. error");
+		log_error(logTrace, "Fallo fseek %d sobre %s", off, sblk);
+		return FALLO_LECTURA;
+	}
+	if (fread(*info, valid_size, 1, f) < 1){
+		perror("Fallo fwrite. error");
+		log_error(logTrace, "Fallo fread de %d bytes sobre %s", valid_size, sblk);
+		return FALLO_LECTURA;
+	}
+
+	if (fclose(f) != 0){
+		perror("Fallo fclose. error");
+		log_error(logTrace, "Fallo fclose", valid_size, sblk);
+		return FALLO_GRAL;
+	}
+	return 0;
 }
 
 int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off){

@@ -221,7 +221,7 @@ void dumpMemContent(int pid){
 	}
 }
 
-int *obtenerPIDsKernel(int *len){ // todo: debuggear
+int *obtenerPIDsKernel(int *len){
 	log_trace(logTrace,"funcion obtener pids kernel");
 	char *buffer;
 	tPackBytes *pb;

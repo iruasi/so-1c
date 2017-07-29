@@ -661,11 +661,6 @@ void mem_manejador(void *m_sock){
 		log_trace(logTrace,"Se inicia thread en handler de memoria");
 		break;
 
-	case DUMP_DISK: // todo: agregar /dmp a FS...
-		//puts("Memoria dumpea informacion en /dmp");
-		log_trace(logTrace,"Memoria dumpea info en /dmp");
-		break;
-
 	case PID_LIST:
 		//puts("Memoria pide lista de procesos activos");
 		log_trace(logTrace,"Memoria pide lista de procesos activos");
