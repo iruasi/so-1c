@@ -29,7 +29,7 @@ extern tKernel *kernel;
 
 t_dictionary *tablaGlobal;
 t_list *gl_Programas, *list_infoProc, *listaDeCpu, *finalizadosPorConsolas, *tablaProcesos,*listaAvisarQS;
-pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc,mux_listaAvisar;
+pthread_mutex_t mux_listaDeCPU, mux_listaFinalizados, mux_gl_Programas, mux_infoProc,mux_listaAvisar, mux_sems;
 extern pthread_mutex_t mux_exec, mux_tablaPorProceso, mux_archivosAbiertos;
 extern sem_t eventoPlani, sem_heapDict, sem_end_exec, sem_bytes;
 
@@ -44,6 +44,7 @@ void setupGlobales_manejadores(void){
 	finalizadosPorConsolas = list_create();
 	listaAvisarQS = list_create();
 
+	pthread_mutex_init(&mux_sems,             NULL);
 	pthread_mutex_init(&mux_tablaPorProceso,  NULL);
 	pthread_mutex_init(&mux_archivosAbiertos, NULL);
 	pthread_mutex_init(&mux_infoProc,         NULL);
@@ -102,7 +103,6 @@ void cpu_manejador(void *infoCPU){
 		break;
 
 	case S_SIGNAL:
-		//puts("Signal continuar a semaforo");
 		log_trace(logTrace,"Signal continuar a semaforo[CPU %d]",cpu_i->cpu.pid);
 		if ((buffer = recvGeneric(cpu_i->cpu.fd_cpu)) == NULL){
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;

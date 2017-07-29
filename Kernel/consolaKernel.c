@@ -6,15 +6,17 @@
 #define MAXOPCION 200
 #define MAXPID_DIG 6
 
+#include <commons/config.h>
 #include <tiposRecursos/tiposErrores.h>
 
 #include "defsKernel.h"
 #include "auxiliaresKernel.h"
+#include "kernelConfigurators.h"
 #include "planificador.h"
 #include "consolaKernel.h"
 #include "commons/log.h"
 
-
+extern tKernel *kernel;
 extern t_queue *New, *Ready, *Exit;
 extern t_list *Exec, *Block;
 extern int grado_mult;
@@ -43,6 +45,7 @@ void showOpciones(void){
 	printf ("4-Para modificar el grado de multiprogramacion: 'nuevoGrado <GRADO>'\n");
 	printf ("5-Para finalizar un proceso: 'finalizar <PID>'\n");
 	printf ("6-Para detener la planificacion: 'stop'\n");
+	printf ("7-Para estado de semaforos: 'sems'\n");
 
 }
 
@@ -58,6 +61,16 @@ void consolaKernel(void){
 
 		if (strncmp(opcion, "\0", 1) == 0){
 			showOpciones();
+			continue;
+		}
+
+		if (strncmp(opcion, "sems", 4) == 0){
+			mostrarSemaforos(kernel);
+			continue;
+		}
+
+		if (strncmp(opcion, "globales", 8) == 0){
+			mostrarGlobales(kernel);
 			continue;
 		}
 
