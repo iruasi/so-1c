@@ -37,7 +37,7 @@ extern t_log * logTrace;
 int grado_mult;
 extern tKernel *kernel;
 
-sem_t eventoPlani;
+sem_t eventoPlani,semSig;
 pthread_mutex_t mux_new, mux_ready, mux_exec, mux_block, mux_exit, mux_listaDeCPU, mux_gradoMultiprog;
 extern pthread_mutex_t mux_gl_Programas,mux_listaAvisar;
 
@@ -52,6 +52,7 @@ void setupGlobales_planificador(void){
 	pthread_mutex_init(&mux_block, NULL);
 
 	sem_init(&eventoPlani, 0, 0);
+	sem_init(&semSig,0,0);
 }
 
 void setupPlanificador(void){
@@ -492,26 +493,9 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	//puts("Fin case FIN_PROCESO");
 	break;
-	/*case(-665):
-			sleep(2);
-			log_trace(logTrace,"FIN DE QUANTUM[pid %d] &",pcbCPU->id);
-			MUX_LOCK(&mux_exec);
-			pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
-			MUX_UNLOCK(&mux_exec);
-
-			mergePCBs(&pcbPlanif, pcbCPU);
-
-			MUX_LOCK(&mux_exit);
-			queue_push(Ready, pcbCPU);
-			MUX_UNLOCK(&mux_exit);
-
-			cpu->cpu.pid = cpu->con->pid = cpu->con->fd_con = -1;
-			informarNuevoQSLuego(cpu);
-			sem_post(&eventoPlani);
-
-		break;*/
-	case (PCB_PREEMPT):case(SIG1):
+	case (PCB_PREEMPT):
 	//printf("\nFIN DE QUANTUM[pid %d]\n",pcbCPU->id);
+
 	log_trace(logTrace,"FIN DE QUANTUM[pid %d]",pcbCPU->id);
 	MUX_LOCK(&mux_exec);
 	pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
@@ -519,7 +503,7 @@ void cpu_handler_planificador(t_RelCC *cpu){
 
 	mergePCBs(&pcbPlanif, pcbCPU);
 
-	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1 && cpu->msj != SIG1 ){
+	if((k=fueFinalizadoPorConsola(pcbCPU->id))!=-1){
 		log_trace(logTrace,"ya fue finalizado por consola, lo mandamos a exit a pid %d",pcbCPU->id);
 		fcAux=list_get(finalizadosPorConsolas,k);
 		pcbCPU->exitCode = fcAux->ecode;
@@ -578,7 +562,21 @@ void cpu_handler_planificador(t_RelCC *cpu){
 		informarNuevoQSLuego(cpu);
 		sem_post(&eventoPlani);
 		break;
+	case(SIG1):
+		printf("CPU se desconecto por recepciond e SIGUSR1");
+		log_trace(logTrace,"cpu se desconecto por sigurs1 el pid %d",cpu->cpu.pid);
+		MUX_LOCK(&mux_exec);
+		pcbPlanif = list_remove(Exec, getPCBPositionByPid(pcbCPU->id, Exec));
+		MUX_UNLOCK(&mux_exec);
 
+		mergePCBs(&pcbPlanif, pcbCPU);
+
+		MUX_LOCK(&mux_ready);
+		queue_push(Ready,pcbPlanif);
+		MUX_UNLOCK(&mux_ready);
+		sem_post(&semSig);
+		sem_post(&eventoPlani);
+		break;
 	default:
 		break;
 	}
