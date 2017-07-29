@@ -68,8 +68,10 @@ tDatosTablaGlobal *encontrarEnTablaGlobalporPath(char *path){
 
 	for (i = 0; i < dictionary_size(tablaGlobal); ++i){
 		sprintf(fds, "%d", i);
-		if (!dictionary_has_key(tablaGlobal, fds))
+		if (!dictionary_has_key(tablaGlobal, fds)){
+			log_trace(logTrace,"La tabla global no tiene el archivo que se esta solicitando en el fd #%d",i);
 			continue;
+		}
 
 		dato = dictionary_get(tablaGlobal, fds);
 		if (strcmp(path, dato->direccion) == 0){
@@ -81,7 +83,7 @@ tDatosTablaGlobal *encontrarEnTablaGlobalporPath(char *path){
 
 tDatosTablaGlobal *agregarArchivoTablaGlobal(tPackAbrir * file){
 	log_trace(logTrace, "Agregar archivo a Tabla Global");
-
+	log_trace(logTrace,"El archivo es %s",file->direccion);
 	tDatosTablaGlobal *dato;
 
 	if ((dato = encontrarEnTablaGlobalporPath(file->direccion)) != NULL){

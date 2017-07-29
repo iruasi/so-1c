@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "commons/txt.h"
 
 #include <tiposRecursos/tiposErrores.h>
 #include <commons/log.h>
+
 #include "structsMem.h"
 #include "manejadoresCache.h"
 #include "apiMemoria.h"
@@ -131,11 +133,21 @@ int pageCachedQuantity(int pid){
 void dumpCache(void){
 	log_trace(logTrace,"funcion dump cache");
 	int i;
+	char * dumpFormato = string_new();
+	char * titulosFormato  = string_new();
 	puts("Comienzo dump Cache");
 
+	FILE * fileDump = txt_open_for_append("dumpCache.txt");
+	txt_write_in_file(fileDump,"COMIENZO DUMP CACHE");
+	titulosFormato = string_from_format("\nPID \t\t PAGINA\n");
 	printf("PID \t\t PAGINA\n");
-	for (i = 0; i < memoria->entradas_cache; ++i)
+	txt_write_in_file(fileDump,titulosFormato);
+	for (i = 0; i < memoria->entradas_cache; ++i){
 		printf("%d \t\t %d\n", (CACHE_lines + i)->pid, (CACHE_lines + i)->page);
-
+		dumpFormato = string_from_format("%d \t\t %d\n", (CACHE_lines + i)->pid, (CACHE_lines + i)->page);
+		txt_write_in_file(fileDump,dumpFormato);
+	}
+	txt_write_in_file(fileDump,"Fin dump cache \n");
+	txt_close_file(fileDump);
 	puts("Fin dump Cache");
 }

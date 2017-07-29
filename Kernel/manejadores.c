@@ -288,7 +288,8 @@ void cpu_manejador(void *infoCPU){
 			tPackAbrir * abrir = deserializeAbrir(buffer);
 			freeAndNULL((void **) &buffer);
 			head.tipo_de_proceso = KER;
-
+			tDatosTablaGlobal * dato;
+			tProcesoArchivo * _unProceso;
 			if ((stat = validarArchivo(abrir, sock_fs)) == FALLO_SEND){
 				head.tipo_de_mensaje = stat;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -303,6 +304,11 @@ void cpu_manejador(void *infoCPU){
 
 				} else
 					fd = crearArchivo(abrir, cpu_i->cpu.fd_cpu, sock_fs, cpu_i->cpu.pid);
+			}else{
+				log_trace(logTrace,"El proceso %d, pudo validar el archivo %s, por lo tanto no lo crea",cpu_i->cpu.pid,abrir->direccion);
+				dato = agregarArchivoTablaGlobal(abrir);
+				_unProceso = crearArchivoDeProceso(cpu_i->con->pid,abrir,dato);
+				fd = _unProceso->fdLocal;
 			}
 
 			fd_rta->head.tipo_de_proceso = KER; fd_rta->head.tipo_de_mensaje = ENTREGO_FD;
@@ -483,18 +489,43 @@ void cpu_manejador(void *infoCPU){
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackLeer *leer = deserializeLeer(buffer);
 			freeAndNULL((void **) &buffer);
-
+			tDatosTablaGlobal * datosAux;
+			datosAux = encontrarEnTablaGlobalPorFD(leer->fd,cpu_i->con->pid,'g');
 			sprintf(sfd, "%d", leer->fd);
-
-			datosGlobal = dictionary_get(tablaGlobal, sfd);
+			if(dictionary_has_key(tablaGlobal,sfd))
+				datosGlobal = dictionary_get(tablaGlobal, sfd);
 			log_trace(logTrace, "el valor del fd en leer es %d [CPU %d]", leer->fd, cpu_i->con->pid);
 			if ((procArchivo = obtenerProcesoSegunFDLocal(leer->fd, cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 			}
 
+			char *serializeLeerFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, int *pack_size){
+
+				int dirSize = strlen(path) + 1;
+				char *leer_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof cursor + sizeof(int));
+
+				*pack_size = 0;
+				memcpy(leer_serial + *pack_size, &head, HEAD_SIZE);
+				*pack_size += HEAD_SIZE;
+
+				*pack_size += sizeof(int);
+
+				memcpy(leer_serial + *pack_size, &dirSize, sizeof(int)),
+				*pack_size += sizeof(int);
+				memcpy(leer_serial + *pack_size, path, dirSize);
+				*pack_size += dirSize;
+				memcpy(leer_serial + *pack_size, &cursor, sizeof(int));
+				*pack_size += sizeof(int);
+				memcpy(leer_serial + *pack_size, &size, sizeof(int));
+				*pack_size += sizeof(int);
+
+				memcpy(leer_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+				return leer_serial;
+			}
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = LEER;
-			file_serial = serializeLeerFS2(head, datosGlobal->direccion, procArchivo->posicionCursor, leer->size, &pack_size); //todo: segfault
+			file_serial = serializeLeerFS2(head, datosAux->direccion, procArchivo->posicionCursor, leer->size, &pack_size); //todo: segfault
 			if((stat = send(sock_fs, file_serial, pack_size, 0)) == -1){
 				log_error(logTrace, "error al enviar el paquete a Filesystem[CPU %d]",cpu_i->con->pid);
 				perror("error al enviar el paquete al filesystem");

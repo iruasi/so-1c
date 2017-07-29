@@ -164,12 +164,25 @@ void dumpMemStructs(void){
 	log_trace(logTrace,"funcion dump mem structs");
 	int i;
 	tEntradaInv *entry = (tEntradaInv*) MEM_FIS;
-
+	FILE * fileDump = txt_open_for_append("dumpCache.txt");
 	puts("Comienzo dump Tabla de Paginas Invertida");
+	char * string = string_new();
+	string = string_from_format("\n\n Comienzo dump tabla de paginas invertida\n");
+	txt_write_in_file(fileDump,string);
+
+
 	printf("FRAME \t\t PID \t\t PAGINA\n");
-	for (i = 0; i < memoria->marcos; ++i)
+	string = string_from_format("FRAME \t\t PID \t\t PAGINA\n");
+	txt_write_in_file(fileDump,string);
+	for (i = 0; i < memoria->marcos; ++i){
 		printf("%d \t\t %d \t\t %d\n", i, (entry +i)->pid, (entry +i)->pag);
+		string = string_from_format("%d \t\t %d \t\t %d\n", i, (entry +i)->pid, (entry +i)->pag);
+		txt_write_in_file(fileDump,string);
+	}
 	puts("Fin dump Tabla de Paginas Invertida");
+	string = string_from_format("Fin dump tabla de paginas invertida\n");
+	txt_write_in_file(fileDump,string);
+	txt_close_file(fileDump);
 }
 
 void dumpMemContent(int pid){
@@ -186,14 +199,23 @@ void dumpMemContent(int pid){
 	int pag, found;
 	char *cont;
 	int page_count = pageQuantity(pid);
-
+	FILE * fileDump = txt_open_for_append("dumpCache.txt");
+	char * string = string_new();
+	string = string_from_format("Dump mem content\n\n");
+	txt_write_in_file(fileDump,string);
+	txt_close_file(fileDump);
 	for (pag = found = 0; found < page_count; ++pag){
 		if ((cont = getMemContent(pid, pag)) == NULL)
 			continue;
 		found++;
-
+		FILE * dump2 = txt_open_for_append("dumpCache.txt");
 		printf("PID \t PAGINA\n%d \t %d \t\n", pid, pag);
+		string = string_from_format("PID \t PAGINA\n%d \t %d \t\n", pid, pag);
+		txt_write_in_file(dump2,string);
 		puts("CONTENIDO");
+		string = string_from_format("CONTENIDO\n");
+		txt_write_in_file(dump2,string);
+		txt_close_file(dump2);
 		DumpHex(cont, memoria->marco_size);
 		puts("");
 	}
@@ -233,11 +255,18 @@ int *obtenerPIDsKernel(int *len){ // todo: debuggear
 
 void DumpHex(const void* data, size_t size){
 	log_trace(logTrace,"funcion dump hex");
+
+
+	FILE * fileDump = txt_open_for_append("dumpCache.txt");
+	char * string = string_new();
+
 	char ascii[17];
 	size_t i, j;
 	ascii[16] = '\0';
 	for (i = 0; i < size; ++i) {
 		printf("%02X ", ((unsigned char*)data)[i]);
+		string = string_from_format("%02X ", ((unsigned char*)data)[i]);
+		txt_write_in_file(fileDump,string);
 		if (((unsigned char*)data)[i] >= ' ' && ((unsigned char*)data)[i] <= '~') {
 			ascii[i % 16] = ((unsigned char*)data)[i];
 		} else {
@@ -245,18 +274,32 @@ void DumpHex(const void* data, size_t size){
 		}
 		if ((i+1) % 8 == 0 || i+1 == size) {
 			printf(" ");
+			string = string_from_format("  ");
+			txt_write_in_file(fileDump,string);
+
 			if ((i+1) % 16 == 0) {
 				printf("| %s \n", ascii);
+				string = string_from_format("| %s \n", ascii);
+				txt_write_in_file(fileDump,string);
+
 			} else if (i+1 == size) {
 				ascii[(i+1) % 16] = '\0';
 				if ((i+1) % 16 <= 8) {
 					printf(" ");
+					string = string_from_format(" ");
+					txt_write_in_file(fileDump,string);
+
 				}
 				for (j = (i+1) % 16; j < 16; ++j) {
 					printf(" ");
+					string = string_from_format(" ");
+					txt_write_in_file(fileDump,string);
 				}
 				printf("| %s \n", ascii);
+				string = string_from_format("| %s \n", ascii);
+				txt_write_in_file(fileDump,string);
 			}
 		}
 	}
+	txt_close_file(fileDump);
 }

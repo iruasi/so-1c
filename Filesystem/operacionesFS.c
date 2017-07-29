@@ -53,7 +53,6 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 		return FALLO_ESCRITURA;
 	}
 
-
 	marcarBloquesOcupados(bloques, arch->blk_quant);
 	if (agregarBloquesSobreBloques(&file->bloques, bloques, arch->blk_quant, blocks_req) < 0){
 		log_error(logTrace, "No se pudo agregar los bloques nuevos  necesarios al archivo");
@@ -164,8 +163,11 @@ void iniciarBloques(int cant, char* path){
 
 char **obtenerBloquesDisponibles(int cant){
 	log_trace(logTrace, "Obtener bloques disponibles");
-
 	int i, pos_blk;
+	char **bloques = malloc(cant * sizeof(char*));
+	for(i=0; i<cant; i++)
+		bloques[i] = malloc(MAX_DIG + 1);
+
 	int resto = cant;
 	int libres = obtenerCantidadBloquesLibres();
 	char snum[MAX_DIG];
@@ -175,9 +177,6 @@ char **obtenerBloquesDisponibles(int cant){
 		perror("No hay bloques suficientes para escribir los datos");
 		return NULL;
 	}
-	char **bloques = malloc(cant * sizeof(char*));
-	for(i=0; i<cant; i++)
-		bloques[i] = malloc(MAX_DIG + 1);
 
 	i = pos_blk = 0;
 	while(i < meta->cantidad_bloques && resto > 0){
@@ -222,35 +221,33 @@ void marcarBloquesOcupados(char **bloques, int cant){
 int obtenerCantidadBloquesLibres(void){
 	log_trace(logTrace, "Obtener cantidad de bloques libres");
 
-	int i,libres;
-	for(i=libres=0; i< meta->cantidad_bloques; i++){
+	int i;
+	int libres=0;
+	for(i=0; i< meta->cantidad_bloques; i++){
 		if(!bitarray_test_bit(bitArray, i))
 			libres++;
 	}
 	return libres;
 }
 
-int unlink2 (char *path){
+int unlink2 (char *path){ // todo: hacer
 	log_trace(logTrace,"se quiere borrar el archivo %s", path);
 
-	tFileBLKS *file = getFileByPath(path);
+	log_trace(logTrace,"se quiere borrar el archivo %s",path);
+	//printf("Se quiere borrar el archivo el archivo %s\n", path);
+	if(validarArchivo(path)==-1){
+		log_error(logTrace,"error al borrar archivo");
+		perror("Error al borrar archivo");
+		return -1;
+	}
 
-
-	tArchivos* archivo = malloc(sizeof(tArchivos));
+	tArchivos* archivo = getInfoDeArchivo(path);
 	t_config* conf = config_create(path);
-	archivo->bloques = config_get_array_value(conf, "BLOQUES");
 	int i;
 	for(i = 0; i < sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++)
 		bitarray_clean_bit(bitArray, atoi(archivo->bloques[i]));
 	msync(bitArray->bitarray, bitArray->size, bitArray->mode);
 
-	for(i=0; i<list_size(lista_archivos); i++){
-		archivo = list_get(lista_archivos, i);
-		if(archivo->fd == fileno(path)){
-			list_remove(lista_archivos, i);
-			break;
-		}
-	}
 	remove(path);
 	free(archivo);
 	config_destroy(conf);

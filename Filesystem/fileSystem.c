@@ -35,12 +35,12 @@ t_log *logTrace;
 
 int main(int argc, char* argv[]){
 
+
 	if(argc!=2){
 		printf("Error en la cantidad de parametros\n");
 		log_error(logTrace,"Error en la cant de parametros");
 		return EXIT_FAILURE;
 	}
-
 	logTrace = log_create("/home/utnso/logFILESYSTEMTrace.txt","FILESYSTEM",0,LOG_LEVEL_TRACE);
 	log_trace(logTrace,"\n\n\n\n\n Inicia nueva ejecucion de FILESYSTEM \n\n\n\n\n");
 

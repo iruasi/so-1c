@@ -207,7 +207,7 @@ tFileBLKS* getFileByPath(char *path){
 			return file;
 	}
 
-	log_error("No se encontro Archivo para el path %s", path);
+	log_error(logTrace, "No se encontro Archivo para el path %s", path);
 	return NULL;
 }
 
