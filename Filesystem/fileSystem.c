@@ -167,7 +167,7 @@ int *ker_manejador(void){
 		head.tipo_de_proceso = FS; head.tipo_de_mensaje = ARCHIVO_LEIDO;
 		buffer = serializeBytes(head, info, rw->size, &pack_size);
 
-		if ((stat = send(sock_kern, bytes, pack_size, 0)) == -1){
+		if ((stat = send(sock_kern, buffer, pack_size, 0)) == -1){
 			perror("Fallo send de bytes leidos a Kernel. error");
 			log_trace(logTrace,"fallo send de bytes leiudos a kernel");
 		}

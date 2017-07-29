@@ -34,7 +34,7 @@ char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	tArchivos* file = getInfoDeArchivo(path);
 
 	info = leerInfoDeBloques(file->bloques, size, offset, bytes_read);
-	if (*bytes_read < (int) size){
+	if ((*(unsigned int*)bytes_read) <  size){
 		log_error(logTrace, "Fallo lectura de informacion. Size pedido: %d, Leido: %d", size, *bytes_read);
 		free(info); // liberamos la info a medio masticar, retornamos NULL
 		return NULL;
