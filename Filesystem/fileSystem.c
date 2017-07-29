@@ -32,6 +32,7 @@ int recibirConexionKernel(void);
 int sock_kern;
 tFileSystem* fileSystem;
 t_log *logTrace;
+t_list *lista_archivos;
 
 int main(int argc, char* argv[]){
 
@@ -41,6 +42,8 @@ int main(int argc, char* argv[]){
 		log_error(logTrace,"Error en la cant de parametros");
 		return EXIT_FAILURE;
 	}
+
+	lista_archivos = list_create();
 	logTrace = log_create("/home/utnso/logFILESYSTEMTrace.txt","FILESYSTEM",0,LOG_LEVEL_TRACE);
 	log_trace(logTrace,"\n\n\n\n\n Inicia nueva ejecucion de FILESYSTEM \n\n\n\n\n");
 

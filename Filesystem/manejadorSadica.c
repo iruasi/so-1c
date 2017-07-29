@@ -32,26 +32,23 @@ extern tFileSystem *fileSystem;
 int crearArchivo(char* ruta){
 	log_trace(logTrace, "Se crea el archivo %s", ruta);
 
-	char *path = string_duplicate(fileSystem->punto_montaje);
-	string_append(&path, "Archivos"); string_append(&path, ruta);
-
 	if(validarArchivo(ruta)== -1){
 		perror("El archivo no existe");
 		log_error(logTrace, "El archivo no existe");
 	}
-	if ((open(path, O_RDWR | O_CREAT, 0777)) == -1){
+	if ((open(ruta, O_RDWR | O_CREAT, 0777)) == -1){
 		perror("No se pudo crear el archivo. error");
 		log_error(logTrace,"no se pudo crear el archivo");
 		return FALLO_GRAL;
 	}
-	log_trace(logTrace,"se creo el archivo %s",path);
+	log_trace(logTrace,"se creo el archivo %s",ruta);
 
 	tFileBLKS *file = malloc(sizeof *file);
-	file->f_path    = path;
+	file->f_path    = ruta;
 	file->blk_quant = 1;
 	list_add(lista_archivos, file);
 
-	iniciarBloques(1, path);
+	iniciarBloques(1, ruta);
 	return 0;
 }
 
