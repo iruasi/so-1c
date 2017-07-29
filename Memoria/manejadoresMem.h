@@ -12,11 +12,6 @@ extern char *MEM_FIS;
 #define SIZEOF_HMD 5
 #endif
 
-typedef struct{
-	int pid;
-	int stack_lim;
-} t_procCtl;
-
 /* Libera todas las estructuras del proceso Memoria,
  * desde la Memoria Fisica hasta los componentes de la Cache
  */

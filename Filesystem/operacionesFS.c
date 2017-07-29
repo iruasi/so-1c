@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <sys/mman.h>
 
 #include <commons/log.h>
 #include <commons/collections/list.h>
@@ -18,7 +19,7 @@ extern t_bitarray *bitArray;
 extern tMetadata *meta;
 extern tFileSystem* fileSystem;
 extern t_log *logTrace;
-
+extern t_list* lista_archivos;
 
 int read2(char *path, char **buf, size_t size, off_t offset) {
 
@@ -42,6 +43,7 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	int blocks_req, size_efectivo;
 	char **bloques;
 	tArchivos* file = getInfoDeArchivo(abs_path);
+	tFileBLKS *arch = getFileByPath(abs_path);
 
 	size_efectivo = offset + size - file->size;
 	blocks_req = ceil((float) (offset + size - file->size) / meta->tamanio_bloques);
@@ -50,14 +52,24 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 		log_error(logTrace, "no alcanzan los bloques libres. No pudo escribir");
 		return FALLO_ESCRITURA;
 	}
-	marcarBloquesOcupados(bloques);
-	agregarBloquesSobreBloques(&file->bloques, bloques);
 
-	escribirInfoEnBloques(file->bloques, buf, size, offset);
+
+	marcarBloquesOcupados(bloques, arch->blk_quant);
+	if (agregarBloquesSobreBloques(&file->bloques, bloques, arch->blk_quant, blocks_req) < 0){
+		log_error(logTrace, "No se pudo agregar los bloques nuevos  necesarios al archivo");
+		return FALLO_GRAL;
+	}
+	arch->blk_quant += blocks_req;
+
+	if (escribirInfoEnBloques(file->bloques, buf, size, offset) < 0){
+		log_error(logTrace, "No se pudo escribir la informacion requerida");
+		return FALLO_ESCRITURA;
+	}
 
 	file->size = size_efectivo;
 	escribirInfoEnArchivo(abs_path, file);
-	log_trace(logTrace,"se escribieron los datos en el archivo");
+
+	log_trace(logTrace,"Se escribieron los datos en el archivo");
 	free(file->bloques);
 	free(file);
 	return size_efectivo;
@@ -76,18 +88,23 @@ int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off){
 	sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
 
 	// primera escritura!
-	escribirBloque(sblk, start_off, info, meta->tamanio_bloques - start_off);
-	ioff += start_off;
+	if (escribirBloque(sblk, start_off, info, meta->tamanio_bloques - start_off) < 0){
+		log_error(logTrace, "Fallo escritura de Bloque");
+		return FALLO_ESCRITURA;
+	}
+	size -= meta->tamanio_bloques - start_off;
+	ioff += meta->tamanio_bloques - start_off;
 
 	while (size){
 		start_b++;
 		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
 
-		if(escribirBloque(sblk, 0, info, size) < 0){
+		if (escribirBloque(sblk, 0, info + ioff, size) < 0){
 			log_error(logTrace, "Fallo escritura de Bloque");
 			return FALLO_ESCRITURA;
 		}
 		size -= MIN(meta->tamanio_bloques, (int) size);
+		ioff += MIN(meta->tamanio_bloques, (int) size);
 	}
 	return 0;
 }
@@ -122,21 +139,22 @@ int escribirBloque(char *sblk, off_t off, char *info, int wr_size){
 }
 
 void iniciarBloques(int cant, char* path){
+	log_trace(logTrace, "Se inicializan %d bloques para %s", cant, path);
 
 	char **bloquesArch;
-	uint32_t i;
+	int i;
 
 	if((bloquesArch = obtenerBloquesDisponibles(cant)) == NULL){
 		log_error(logTrace, "No se pudieron obtener bloques disponibles");
 		return;
 	}
 
-	//log_trace(logTrace, "Se marcan los bloques ocupados");
-	for(i=0; i < sizeof(bloquesArch)/sizeof(bloquesArch[0]); i++)
+	for(i = 0; i < cant; i++)
 		bitarray_set_bit(bitArray, atoi(bloquesArch[i]));
+	msync(bitArray->bitarray, bitArray->size, bitArray->mode);
 
 	tArchivos* info = malloc(sizeof (tArchivos));
-	info->bloques = bloquesArch;
+	info->bloques      = bloquesArch;
 	info->size = 0;
 
 	escribirInfoEnArchivo(path, info);
@@ -174,26 +192,31 @@ char **obtenerBloquesDisponibles(int cant){
 }
 
 /* bloques llega con el formato ["1", "2", "3"] */
-void agregarBloquesSobreBloques(char ***bloques, char **blq_add){
-
+int agregarBloquesSobreBloques(char ***bloques, char **blq_add, int prev, int add){
+	log_trace(logTrace, "Se agregan los %d nuevos bloques", add);
 	int i, j;
-	int len     = sizeof(bloques) / sizeof(bloques[0]);
-	int len_add = sizeof(blq_add) / sizeof(blq_add[0]);
 
-	realloc(*bloques, (len + len_add) * sizeof(char*));
-	for(j = 0, i = len_add; i < (len + len_add); i++, j++){
-		(*bloques)[i] = malloc(MAX_DIG + 1);
+	if (realloc(*bloques, (prev + add) * sizeof(char*)) == NULL){
+		log_error(logTrace, "Fallo reallocacion de bloques");
+		return FALLO_GRAL;
+	}
 
+	for(j = 0, i = add; i < (prev + add); i++, j++){
+		if(((*bloques)[i] = malloc(MAX_DIG + 1)) == NULL){
+			log_error(logTrace, "Fallo mallocacion de bloque");
+			return FALLO_GRAL;
+		}
 		memcpy((*bloques)[i], blq_add[j], MAX_DIG + 1);
 	}
+	return 0;
 }
 
-void marcarBloquesOcupados(char **bloques){
+void marcarBloquesOcupados(char **bloques, int cant){
 
 	int i;
-	int len = sizeof(bloques) / sizeof(bloques[0]);
-	for (i = 0; i < len; ++i)
-		bitarray_set_bit(bitArray, atoi(bloques[i]));
+	for (i = 0; i < cant; ++i)
+		bitarray_set_bit(bitArray, atoi(bloques[i])); msync(bitArray->bitarray, bitArray->size, bitArray->mode);
+	msync(bitArray->bitarray, bitArray->size, bitArray->mode);
 }
 
 int obtenerCantidadBloquesLibres(void){
@@ -208,20 +231,19 @@ int obtenerCantidadBloquesLibres(void){
 }
 
 int unlink2 (char *path){
-	log_trace(logTrace,"se quiere borrar el archivo %s",path);
-	//printf("Se quiere borrar el archivo el archivo %s\n", path);
-	if(validarArchivo(path)==-1){
-		log_error(logTrace,"error al borrar archivo");
-		perror("Error al borrar archivo");
-		return -1;
-	}
+	log_trace(logTrace,"se quiere borrar el archivo %s", path);
+
+	tFileBLKS *file = getFileByPath(path);
+
+
 	tArchivos* archivo = malloc(sizeof(tArchivos));
 	t_config* conf = config_create(path);
 	archivo->bloques = config_get_array_value(conf, "BLOQUES");
 	int i;
-	for(i=0; i<sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++){
+	for(i = 0; i < sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++)
 		bitarray_clean_bit(bitArray, atoi(archivo->bloques[i]));
-	}
+	msync(bitArray->bitarray, bitArray->size, bitArray->mode);
+
 	for(i=0; i<list_size(lista_archivos); i++){
 		archivo = list_get(lista_archivos, i);
 		if(archivo->fd == fileno(path)){

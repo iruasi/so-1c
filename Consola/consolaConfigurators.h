@@ -6,10 +6,8 @@
 #include <stdio.h>
 
 #include <tiposRecursos/tiposPaquetes.h>
-#define MAX_MESSAGE_SIZE 5000
 
 #endif /* CONSOLA_H_ */
-
 
 typedef struct {
 
@@ -17,26 +15,6 @@ typedef struct {
 	char *puerto_kernel;
 	tProceso tipo_de_proceso;
 } tConsola;
-
-
-typedef struct _t_PackageEnvio {
-	uint32_t tipo_de_proceso;
-	uint32_t tipo_de_mensaje;
-	uint32_t message_size;
-	void* message;
-} t_PackageEnvio;
-
-typedef struct _t_PackageRecepcion {
-	uint32_t tipo_de_proceso;
-	uint32_t tipo_de_mensaje;
-	char message[MAX_MESSAGE_SIZE];
-	uint32_t message_size;			// NOTA: Es calculable. Aca lo tenemos por fines didacticos!
-} t_PackageRecepcion;
-
-char* serializarOperandos(t_PackageEnvio*);
-int recieve_and_deserialize(t_PackageRecepcion *package, int socketCliente);
-
-
 
 /* Carga los datos de configuracion en una estructura.
  */

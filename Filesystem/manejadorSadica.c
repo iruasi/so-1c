@@ -15,10 +15,11 @@
 #include "manejadorSadica.h"
 #include "operacionesFS.h"
 
-t_log *logTrace;
+extern t_log *logTrace;
+t_list* lista_archivos; //archivos que se vayan creando
+t_bitarray* bitArray;
 
 tMetadata* meta;
-t_bitarray* bitArray;
 
 char *mapeado;
 char *rutaMetadata, *binMetadata_path, *binBitmap_path;
@@ -27,7 +28,9 @@ FILE *metadataArch, *bitmapArch;
 int sock_kern;
 extern tFileSystem *fileSystem;
 
+
 int crearArchivo(char* ruta){
+	log_trace(logTrace, "Se crea el archivo %s", ruta);
 
 	char *path = string_duplicate(fileSystem->punto_montaje);
 	string_append(&path, "Archivos"); string_append(&path, ruta);
@@ -43,8 +46,12 @@ int crearArchivo(char* ruta){
 	}
 	log_trace(logTrace,"se creo el archivo %s",path);
 
+	tFileBLKS *file = malloc(sizeof *file);
+	file->f_path    = path;
+	file->blk_quant = 1;
+	list_add(lista_archivos, file);
+
 	iniciarBloques(1, path);
-	free(path);
 	return 0;
 }
 
@@ -173,7 +180,7 @@ char *crearStringListaBloques(char **bloques){
 	}
 
 
-	string_append(&block_arr, "]");
+	string_append(&block_arr, " ]");
 	return block_arr;
 }
 
@@ -189,17 +196,19 @@ tArchivos* getInfoDeArchivo(char* abs_path){
 	return ret;
 }
 
-char* getPathFromFD(int fd){
-	int i=0;
-	tArchivos* arch = malloc(sizeof(tArchivos));
-	while(i<list_size(lista_archivos)){
-		arch = list_get(lista_archivos, i);
-		if(arch->fd==fd){
-			return arch->ruta;
-		}
+tFileBLKS* getFileByPath(char *path){
+
+	int i = 0;
+	tFileBLKS *file;
+
+	for (i = 0; i < list_size(lista_archivos); ++i){
+		file = list_get(lista_archivos, i);
+		if (strcmp(file->f_path, path) == 0)
+			return file;
 	}
-	free(arch);
-	return "NOT FOUND";
+
+	log_error("No se encontro Archivo para el path %s", path);
+	return NULL;
 }
 
 

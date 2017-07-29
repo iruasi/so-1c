@@ -19,8 +19,6 @@ typedef struct{
 	int fd;
 }tArchivos;
 
-t_list* lista_archivos; //archivos que se vayan creando
-
 typedef struct{
 	int cantidad_bloques,
 		tamanio_bloques;
@@ -28,9 +26,11 @@ typedef struct{
 }tMetadata;
 
 typedef struct{
-	tPackHeader head;
-	int rta; //devuelve el int correspondiente, en de falla devuelve el error
-}tPackFSKer;
+	char *f_path;
+	int blk_quant;
+} tFileBLKS;
+
+void inicializarGlobales(void);
 
 tArchivos* getInfoDeArchivo(char* path);
 void escribirInfoEnArchivo(char* path, tArchivos* info);

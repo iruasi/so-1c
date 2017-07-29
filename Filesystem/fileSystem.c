@@ -33,7 +33,6 @@ int sock_kern;
 tFileSystem* fileSystem;
 t_log *logTrace;
 
-
 int main(int argc, char* argv[]){
 
 	if(argc!=2){
@@ -100,32 +99,37 @@ int *ker_manejador(void){
 
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
+		freeAndNULL((void **) &buffer);
 
 		abs_path = hacerPathAbsolutoArchivos(abrir->bytes);
+		free(abrir->bytes);
+		freeAndNULL((void **) &abs_path);
 
 		head.tipo_de_proceso = FS;
 		head.tipo_de_mensaje = (validarArchivo(abs_path) == -1)?
 				INVALIDAR_RESPUESTA: VALIDAR_RESPUESTA;
 		informarResultado(sock_kern, head);
 
-		freeAndNULL((void **) &abs_path);
-		freeAndNULL((void **) &buffer);
 		freeAndNULL((void **) &abrir);
 		break;
 
 	case CREAR_ARCHIVO:
-		//puts("Se pide crear un archivo");
-		log_trace(logTrace,"se pide crear archivo");
+		log_trace(logTrace,"Se pide crear archivo");
+
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
+		freeAndNULL((void **) &buffer);
 
+		abs_path = hacerPathAbsolutoArchivos(abrir->bytes);
+		free(abrir->bytes);
+		freeAndNULL((void **) &abrir);
 
 		head.tipo_de_proceso = FS;
-		head.tipo_de_mensaje = (crearArchivo(abrir->bytes) < 0)?
+		head.tipo_de_mensaje = (crearArchivo(abs_path) < 0)?
 				INVALIDAR_RESPUESTA : CREAR_ARCHIVO;
 		informarResultado(sock_kern, head);
 
-		//puts("Fin case CREAR_ARCHIVO");
+		freeAndNULL((void **) &abs_path);
 		break;
 
 	case BORRAR:
@@ -133,13 +137,15 @@ int *ker_manejador(void){
 
 		buffer = recvGeneric(sock_kern);
 		bytes  = deserializeBytes(buffer);
+		free(bytes->bytes);
+		freeAndNULL((void **) &bytes);
 
-		head.tipo_de_mensaje = (unlink2(bytes->bytes) != 0)?
+		abs_path = hacerPathAbsolutoArchivos(bytes->bytes);
+
+		head.tipo_de_mensaje = (unlink2(abs_path) != 0)?
 				INVALIDAR_RESPUESTA : ARCHIVO_BORRADO;
 		informarResultado(sock_kern,head);
 
-		free(bytes->bytes);
-		freeAndNULL((void **) &bytes);
 		freeAndNULL((void **) &buffer);
 		break;
 

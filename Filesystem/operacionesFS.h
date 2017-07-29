@@ -23,8 +23,8 @@ int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off);
 int escribirBloque(char *sblk, off_t off, char *info, int wr_size);
 void iniciarBloques(int cant, char* path);
 char** obtenerBloquesDisponibles(int cant);
-void agregarBloquesSobreBloques(char ***bloques, char **blq_add);
-void marcarBloquesOcupados(char **bloques);
+int agregarBloquesSobreBloques(char ***bloques, char **blq_add, int prev, int add);
+void marcarBloquesOcupados(char **bloques, int cant);
 int obtenerCantidadBloquesLibres(void);
 
 
