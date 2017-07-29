@@ -26,7 +26,7 @@ char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	if(validarArchivo(path) == -1){
 		log_error(logTrace, "error al leer el archivo");
 		perror("Error al leer el archivo...");
-		return -1;
+		return NULL;
 	}
 
 	char *info;
@@ -34,7 +34,7 @@ char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	tFileBLKS *arch = getFileByPath(path);
 
 	info = leerInfoDeBloques(file->bloques, arch->blk_quant, size, offset, bytes_read);
-	if (*bytes_read < size){
+	if ((*(unsigned int *)bytes_read) < size){
 		log_error(logTrace, "Fallo lectura de informacion. Size pedido: %d, Leido: %d", size, *bytes_read);
 		free(info); // liberamos la info a medio masticar, retornamos NULL
 		return NULL;
@@ -106,13 +106,13 @@ char *leerInfoDeBloques(char **bloques, int blk_quant, size_t size, off_t off, i
 	while (size){
 		start_b++;
 		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
-
-		if (leerBloque(sblk, start_off, &buff, meta->tamanio_bloques - start_off) < 0){
+		buff += *ioff;
+		if (leerBloque(sblk, start_off, &buff , size) < 0){
 			log_error(logTrace, "Fallo lectura de Bloque");
 			return buff;
 		}
-		size -= MIN(meta->tamanio_bloques, (int) size);
 		*ioff += MIN(meta->tamanio_bloques, (int) size);
+		size -= MIN(meta->tamanio_bloques, (int) size);
 	}
 	return buff;
 }
