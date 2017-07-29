@@ -53,6 +53,7 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	marcarBloquesOcupados(bloques);
 	agregarBloquesSobreBloques(&file->bloques, bloques);
 
+
 	FILE* f;
 	if ((f = fopen(abs_path, "wb")) == NULL){
 		log_error(logTrace, "Fallo fopen de %s", abs_path);
@@ -70,6 +71,11 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	}
 
 	file->size = size_efectivo;
+	int i;
+	for(i=0; i< sizeof(bloques) / sizeof(bloques[0]); i++){
+		string_append(file->bloques, ", ");
+		string_append(file->bloques, bloques[i]);
+	}
 
 	escribirInfoEnArchivo(abs_path, file);
 	log_trace(logTrace,"se escribieron los datos en el archivo");
@@ -103,8 +109,11 @@ void iniciarBloques(int cant, char* path){
 
 char **obtenerBloquesDisponibles(int cant){
 	log_trace(logTrace, "Obtener bloques disponibles");
-
 	int i, pos_blk;
+	char **bloques = malloc(cant * sizeof(char*));
+	for(i=0; i<cant; i++)
+		bloques[i] = malloc(MAX_DIG + 1);
+
 	int resto = cant;
 	int libres = obtenerCantidadBloquesLibres();
 	char snum[MAX_DIG];
@@ -114,9 +123,6 @@ char **obtenerBloquesDisponibles(int cant){
 		perror("No hay bloques suficientes para escribir los datos");
 		return NULL;
 	}
-	char **bloques = malloc(cant * sizeof(char*));
-	for(i=0; i<cant; i++)
-		bloques[i] = malloc(MAX_DIG + 1);
 
 	i = pos_blk = 0;
 	while(i < meta->cantidad_bloques && resto > 0){
@@ -156,8 +162,9 @@ void marcarBloquesOcupados(char **bloques){
 int obtenerCantidadBloquesLibres(void){
 	log_trace(logTrace, "Obtener cantidad de bloques libres");
 
-	int i,libres;
-	for(i=libres=0; i< meta->cantidad_bloques; i++){
+	int i;
+	int libres=0;
+	for(i=0; i< meta->cantidad_bloques; i++){
 		if(!bitarray_test_bit(bitArray, i))
 			libres++;
 	}
@@ -172,20 +179,19 @@ int unlink2 (char *path){
 		perror("Error al borrar archivo");
 		return -1;
 	}
-	tArchivos* archivo = malloc(sizeof(tArchivos));
+	tArchivos* archivo = getInfoDeArchivo(path);
 	t_config* conf = config_create(path);
-	archivo->bloques = config_get_array_value(conf, "BLOQUES");
 	int i;
 	for(i=0; i<sizeof(archivo->bloques)/sizeof(archivo->bloques[0]); i++){
 		bitarray_clean_bit(bitArray, atoi(archivo->bloques[i]));
 	}
-	for(i=0; i<list_size(lista_archivos); i++){
+	/*for(i=0; i<list_size(lista_archivos); i++){
 		archivo = list_get(lista_archivos, i);
 		if(archivo->fd == fileno(path)){
 			list_remove(lista_archivos, i);
 			break;
 		}
-	}
+	}*/
 	remove(path);
 	free(archivo);
 	config_destroy(conf);
