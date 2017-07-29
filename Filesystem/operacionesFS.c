@@ -19,6 +19,7 @@ extern t_bitarray *bitArray;
 extern tMetadata *meta;
 extern tFileSystem* fileSystem;
 extern t_log *logTrace;
+extern t_list *lista_archivos;
 
 char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	log_trace(logTrace,"se quiere leer el archivo %s size:%d offset:%d",path,size,offset);
@@ -33,7 +34,7 @@ char *read2(char *path, size_t size, off_t offset, int *bytes_read) {
 	tArchivos* file = getInfoDeArchivo(path);
 	tFileBLKS *arch = getFileByPath(path);
 
-	info = leerInfoDeBloques(file->bloques, arch->blk_quant, size, offset, bytes_read);
+	info = leerInfoDeBloques(file->bloques, size, offset, bytes_read);
 	if (*bytes_read < size){
 		log_error(logTrace, "Fallo lectura de informacion. Size pedido: %d, Leido: %d", size, *bytes_read);
 		free(info); // liberamos la info a medio masticar, retornamos NULL
@@ -50,22 +51,33 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	int blocks_req, size_efectivo;
 	char **bloques;
 	tArchivos* file = getInfoDeArchivo(abs_path);
+	if (file == NULL){
+		log_error(logTrace, "El archivo %s no tiene metadatos de si mismo", abs_path);
+		return FALLO_GRAL;
+	}
+
 	tFileBLKS *arch = getFileByPath(abs_path);
+	if (arch == NULL){
+		log_error(logTrace, "El archivo %s no tiene registro de su ", abs_path);
+		return FALLO_GRAL;
+	}
 
 	size_efectivo = offset + size - file->size;
 	blocks_req = ceil((float) (offset + size - file->size) / meta->tamanio_bloques);
 
-	if ((bloques = obtenerBloquesDisponibles(blocks_req)) == NULL){
-		log_error(logTrace, "no alcanzan los bloques libres. No pudo escribir");
-		return FALLO_ESCRITURA;
-	}
+	if (blocks_req > 0){
+		if ((bloques = obtenerBloquesDisponibles(blocks_req)) == NULL){
+			log_error(logTrace, "no alcanzan los bloques libres. No pudo escribir");
+			return FALLO_ESCRITURA;
+		}
 
-	marcarBloquesOcupados(bloques, arch->blk_quant);
-	if (agregarBloquesSobreBloques(&file->bloques, bloques, arch->blk_quant, blocks_req) < 0){
-		log_error(logTrace, "No se pudo agregar los bloques nuevos  necesarios al archivo");
-		return FALLO_GRAL;
+		marcarBloquesOcupados(bloques, arch->blk_quant);
+		if (agregarBloquesSobreBloques(&file->bloques, bloques, arch->blk_quant, blocks_req) < 0){
+			log_error(logTrace, "No se pudo agregar los bloques nuevos  necesarios al archivo");
+			return FALLO_GRAL;
+		}
+		arch->blk_quant += blocks_req;
 	}
-	arch->blk_quant += blocks_req;
 
 	if (escribirInfoEnBloques(file->bloques, buf, size, offset) < 0){
 		log_error(logTrace, "No se pudo escribir la informacion requerida");
@@ -81,7 +93,7 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	return size_efectivo;
 }
 
-char *leerInfoDeBloques(char **bloques, int blk_quant, size_t size, off_t off, int *ioff){
+char *leerInfoDeBloques(char **bloques, size_t size, off_t off, int *ioff){
 
 	char *bloq_path = string_duplicate(fileSystem->punto_montaje);
 	string_append(&bloq_path, "Bloques/");
@@ -106,14 +118,14 @@ char *leerInfoDeBloques(char **bloques, int blk_quant, size_t size, off_t off, i
 	while (size){
 		start_b++;
 		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
-
-		if (leerBloque(sblk, start_off, &buff, meta->tamanio_bloques - start_off) < 0){
+		buff += *ioff;
+		if (leerBloque(sblk, start_off, &buff, size) < 0){
 			log_error(logTrace, "Fallo lectura de Bloque");
 			return buff;
 		}
-		size -= MIN(meta->tamanio_bloques, (int) size);
 		*ioff += MIN(meta->tamanio_bloques, (int) size);
-	}
+		size -= MIN(meta->tamanio_bloques, (int) size);
+	}buff -= ioff; // para retornar el puntero a su comienzo
 	return buff;
 }
 
@@ -174,8 +186,8 @@ int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off){
 			log_error(logTrace, "Fallo escritura de Bloque");
 			return FALLO_ESCRITURA;
 		}
-		size -= MIN(meta->tamanio_bloques, (int) size);
 		ioff += MIN(meta->tamanio_bloques, (int) size);
+		size -= MIN(meta->tamanio_bloques, (int) size);
 	}
 	return 0;
 }
@@ -326,6 +338,31 @@ int unlink2 (char *path){ // todo: hacer
 	return 0;
 }
 
+void asegurarEnListaArchivos(char *path){
+
+	int i, dirlen;
+	tFileBLKS *file;
+	dirlen = strlen(path) + 1;
+
+	if ((file = getFileByPath(path)) == NULL)
+		registrarArchivoALista(path);
+
+}
+
+void registrarArchivoALista(char *path){
+	log_trace(logTrace, "Se registra el archivo %s a la lista", path);
+
+	int dirlen = strlen(path) + 1;
+	tArchivos* archivo = getInfoDeArchivo(path);
+	tFileBLKS *file = malloc(sizeof *file);
+
+	file->f_path    = malloc(dirlen);
+	memcpy(file->f_path, path, dirlen);
+	file->blk_quant = ceil((float) archivo->size / meta->tamanio_bloques);
+
+	list_add(lista_archivos, file);
+}
+
 int validarArchivo(char* path){
 	//printf("Se quiere validar la existencia del archivo %s\n", path);
 	log_trace(logTrace,"se quiere validar la existencia del archivo %s",path);
@@ -336,6 +373,9 @@ int validarArchivo(char* path){
 		perror("El archivo no existe...\n");
 		return -1;
 	}
+
+	asegurarEnListaArchivos(path);
+
 	log_trace(logTrace,"el archivo existe");
 	//puts ("El archivo existe!\n");
 	return 0;

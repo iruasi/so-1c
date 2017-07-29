@@ -100,14 +100,14 @@ int *ker_manejador(void){
 		freeAndNULL((void **) &buffer);
 
 		abs_path = hacerPathAbsolutoArchivos(abrir->bytes);
-		free(abrir->bytes);
-		freeAndNULL((void **) &abrir);
 
 		head.tipo_de_proceso = FS;
 		head.tipo_de_mensaje = (validarArchivo(abs_path) == -1)?
 				INVALIDAR_RESPUESTA: VALIDAR_RESPUESTA;
 		informarResultado(sock_kern, head);
 
+		free(abrir->bytes);
+		freeAndNULL((void **) &abs_path);
 		freeAndNULL((void **) &abrir);
 		break;
 
@@ -160,18 +160,19 @@ int *ker_manejador(void){
 			log_error(logTrace,"Fallo la lectura de %d bytes del file %s", rw->size, abs_path);
 			head.tipo_de_mensaje = INVALIDAR_RESPUESTA;
 			informarResultado(sock_kern, head);
+			break;
 		}
 
 		log_trace(logTrace,"el archivo fue leido con exito");
 		head.tipo_de_proceso = FS; head.tipo_de_mensaje = ARCHIVO_LEIDO;
-		bytes = serializeBytes(head, info, rw->size, &pack_size);
+		buffer = serializeBytes(head, info, rw->size, &pack_size);
 
 		if ((stat = send(sock_kern, bytes, pack_size, 0)) == -1){
 			perror("Fallo send de bytes leidos a Kernel. error");
 			log_trace(logTrace,"fallo send de bytes leiudos a kernel");
-			break;
 		}
 		log_trace(logTrace,"se enviaron %d bytes a kernel",stat);
+
 		freeAndNULL((void **) &abs_path);
 		freeAndNULL((void **) &buffer);
 		free(rw->direccion); freeAndNULL((void **) &rw);
@@ -192,7 +193,7 @@ int *ker_manejador(void){
 		informarResultado(sock_kern, head);
 
 		freeAndNULL((void **) &abs_path);
-		freeAndNULL((void **) &rw);
+		freeAndNULL((void **) &io);
 		freeAndNULL((void **) &buffer);
 		break;
 
