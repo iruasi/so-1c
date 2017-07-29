@@ -53,29 +53,72 @@ int write2(char * abs_path, char * buf, size_t size, off_t offset){
 	marcarBloquesOcupados(bloques);
 	agregarBloquesSobreBloques(&file->bloques, bloques);
 
-	FILE* f;
-	if ((f = fopen(abs_path, "wb")) == NULL){
-		log_error(logTrace, "Fallo fopen de %s", abs_path);
-		return FALLO_ESCRITURA;
-	}
-	if ((fseek(f, offset, SEEK_SET)) == -1){
-		perror("Fallo fseek a File. error");
-		log_error(logTrace, "Fallo fseek %d sobre %s", offset, abs_path);
-		return FALLO_ESCRITURA;
-	}
-	if (fwrite(buf, size, 1, f) < 1){
-		perror("Fallo fwrite. error");
-		log_error(logTrace, "Fallo fwrite de %d bytes sobre %s", size, abs_path);
-		return FALLO_ESCRITURA;
-	}
+	escribirInfoEnBloques(file->bloques, buf, size, offset);
 
 	file->size = size_efectivo;
-
 	escribirInfoEnArchivo(abs_path, file);
 	log_trace(logTrace,"se escribieron los datos en el archivo");
 	free(file->bloques);
 	free(file);
 	return size_efectivo;
+}
+
+int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off){
+
+	char *bloq_path = string_duplicate(fileSystem->punto_montaje);
+	string_append(&bloq_path, "Bloques/");
+
+	int start_b    = off / meta->tamanio_bloques;
+	int start_off  = off % meta->tamanio_bloques;
+	int ioff = 0; // offset sobre la info ya escrita
+
+	char sblk[MAXMSJ];
+	sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
+
+	// primera escritura!
+	escribirBloque(sblk, start_off, info, meta->tamanio_bloques - start_off);
+	ioff += start_off;
+
+	while (size){
+		start_b++;
+		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
+
+		if(escribirBloque(sblk, 0, info, size) < 0){
+			log_error(logTrace, "Fallo escritura de Bloque");
+			return FALLO_ESCRITURA;
+		}
+		size -= MIN(meta->tamanio_bloques, (int) size);
+	}
+	return 0;
+}
+
+int escribirBloque(char *sblk, off_t off, char *info, int wr_size){
+
+	FILE *f;
+	int valid_size = MIN(wr_size, meta->tamanio_bloques);
+
+	if ((f = fopen(sblk, "wb")) == NULL){
+		perror("Fallo fopen");
+		log_error(logTrace, "Fallo fopen de %s", sblk);
+		return FALLO_GRAL;
+	}
+	if ((fseek(f, off, SEEK_SET)) == -1){
+		perror("Fallo fseek a File. error");
+		log_error(logTrace, "Fallo fseek %d sobre %s", off, sblk);
+		return FALLO_ESCRITURA;
+	}
+	if (fwrite(info, valid_size, 1, f) < 1){
+		perror("Fallo fwrite. error");
+		log_error(logTrace, "Fallo fwrite de %d bytes sobre %s", valid_size, sblk);
+		return FALLO_ESCRITURA;
+	}
+
+	if (fclose(f) != 0){
+		perror("Fallo fclose. error");
+		log_error(logTrace, "Fallo fclose", valid_size, sblk);
+		return FALLO_GRAL;
+	}
+	return 0;
 }
 
 void iniciarBloques(int cant, char* path){
