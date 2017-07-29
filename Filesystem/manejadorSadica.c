@@ -43,8 +43,10 @@ int crearArchivo(char* ruta){
 	}
 	log_trace(logTrace,"se creo el archivo %s",ruta);
 
+	int dirlen = strlen(ruta) + 1;
 	tFileBLKS *file = malloc(sizeof *file);
-	file->f_path    = ruta;
+	file->f_path    = malloc(dirlen);
+	memcpy(file->f_path, ruta, dirlen);
 	file->blk_quant = 1;
 	list_add(lista_archivos, file);
 
@@ -149,11 +151,13 @@ void crearDir(char *dir){
 void escribirInfoEnArchivo(char* path, tArchivos* info){
 	log_trace(logTrace, "Escribir info en archivo");
 
+	tFileBLKS *file = getFileByPath(path);
+
 	t_config* conf = config_create(path); // se trata como configs para sacar el tamanio y  bloque
 	char str_size[MAX_DIG];
 	sprintf(str_size,   "%d", info->size);
 	config_set_value(conf, "TAMANIO", str_size);
-	char *array = crearStringListaBloques(info->bloques);
+	char *array = crearStringListaBloques(info->bloques, file->blk_quant);
  	config_set_value(conf, "BLOQUES", array);
 
  	free(array);
@@ -161,17 +165,15 @@ void escribirInfoEnArchivo(char* path, tArchivos* info){
 	config_destroy(conf);
 }
 
-char *crearStringListaBloques(char **bloques){
-
-	int len = sizeof(bloques) / sizeof(bloques[0]);
+char *crearStringListaBloques(char **bloques, int cant){
 
 	char *block_arr = string_new();
 	string_append(&block_arr, "[");
 
 	int i;
-	for (i = 0; i < len; ++i){
+	for (i = 0; i < cant; ++i){
 		string_append(&block_arr, bloques[i]);
-		if (i == len - 1)
+		if (i == cant - 1)
 			break;
 		string_append(&block_arr, ", ");
 	}

@@ -32,9 +32,10 @@ typedef struct{
 
 void inicializarGlobales(void);
 
+tFileBLKS* getFileByPath(char *path);
 tArchivos* getInfoDeArchivo(char* path);
 void escribirInfoEnArchivo(char* path, tArchivos* info);
-char *crearStringListaBloques(char **bloques);
+char *crearStringListaBloques(char **bloques, int cant);
 
 
 void crearDirMontaje(void);

@@ -200,7 +200,7 @@ int agregarBloquesSobreBloques(char ***bloques, char **blq_add, int prev, int ad
 		return FALLO_GRAL;
 	}
 
-	for(j = 0, i = add; i < (prev + add); i++, j++){
+	for(j = 0, i = prev; i < (prev + add); i++, j++){
 		if(((*bloques)[i] = malloc(MAX_DIG + 1)) == NULL){
 			log_error(logTrace, "Fallo mallocacion de bloque");
 			return FALLO_GRAL;
@@ -214,7 +214,7 @@ void marcarBloquesOcupados(char **bloques, int cant){
 
 	int i;
 	for (i = 0; i < cant; ++i)
-		bitarray_set_bit(bitArray, atoi(bloques[i])); msync(bitArray->bitarray, bitArray->size, bitArray->mode);
+		bitarray_set_bit(bitArray, atoi(bloques[i]));
 	msync(bitArray->bitarray, bitArray->size, bitArray->mode);
 }
 
