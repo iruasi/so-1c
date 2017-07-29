@@ -750,9 +750,19 @@ void leer (t_descriptor_archivo descriptor_archivo, t_puntero ptr, t_valor_varia
 	}
 
 	// todo:
-	//buffer = recvGeneric(sock_kern);
-	//bla = deserializeBytes(buffer);
-	//writeToPointer(ptr, bytes, size);
+	char * buffer;
+	tPackBytes * bytes_serial;
+	buffer = recvGeneric(sock_kern);
+	bytes_serial = deserializeBytes(buffer);
+
+	int i, cantBytes;
+	int totalBytes = atoi(bytes_serial->bytes);
+	cantBytes = totalBytes /4;
+	for(i = 0;i<cantBytes;i++){
+		asignar(ptr,totalBytes);
+		ptr += 4; totalBytes += 4;
+		//cantBytes = bytes_serial/4;
+	}
 
 	log_trace(logTrace, "fin leer [PID %d]",pcb->id);
 	free(p_leer);
