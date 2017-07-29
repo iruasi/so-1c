@@ -107,25 +107,29 @@ char *leerInfoDeBloques(char **bloques, size_t size, off_t off, int *ioff){
 	sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
 
 	// primera lectura!
+	int sizeAux = size;
 	if (leerBloque(sblk, start_off, &buff, meta->tamanio_bloques - start_off) < 0){
 		log_error(logTrace, "Fallo lectura de Bloque");
 		return buff;
-	}
-	size -= meta->tamanio_bloques - start_off;
-	*ioff += meta->tamanio_bloques - start_off;
+	}else if(sizeAux>meta->tamanio_bloques){
 
-	while (size){
-		start_b++;
-		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
-		buff += *ioff;
-		if (leerBloque(sblk, start_off, &buff, size) < 0){
-			log_error(logTrace, "Fallo lectura de Bloque");
-			return buff;
+		size -= meta->tamanio_bloques - start_off;
+		*ioff += meta->tamanio_bloques - start_off;
+
+		while (size){
+			start_b++;
+			sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
+			buff += *ioff;
+			if (leerBloque(sblk, start_off, &buff, size) < 0){
+				log_error(logTrace, "Fallo lectura de Bloque");
+				return buff;
+			}
+			*ioff += MIN(meta->tamanio_bloques, (int) size);
+			size -= MIN(meta->tamanio_bloques, (int) size);
 		}
-		*ioff += MIN(meta->tamanio_bloques, (int) size);
-		size -= MIN(meta->tamanio_bloques, (int) size);
+		buff -= *ioff; // para retornar el puntero a su comienzo
+		return buff;
 	}
-	buff -= *ioff; // para retornar el puntero a su comienzo
 	return buff;
 }
 
@@ -169,32 +173,38 @@ int escribirInfoEnBloques(char **bloques, char *info, size_t size, off_t off){
 
 	char sblk[MAXMSJ];
 	sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
-
+	int sizeAux = size;
 	// primera escritura!
 	if (escribirBloque(sblk, start_off, info, meta->tamanio_bloques - start_off) < 0){
 		log_error(logTrace, "Fallo escritura de Bloque");
 		return FALLO_ESCRITURA;
-	}
-	size -= meta->tamanio_bloques - start_off;
-	ioff += meta->tamanio_bloques - start_off;
+	}else if(sizeAux>meta->tamanio_bloques){
+		size -= meta->tamanio_bloques - start_off;
+		ioff += meta->tamanio_bloques - start_off;
+		info += ioff;
+		while (size){
+			start_b++;
+			sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
 
-	while (size){
-		start_b++;
-		sprintf(sblk, "%s%s.bin", bloq_path, bloques[start_b]);
-
-		if (escribirBloque(sblk, 0, info + ioff, size) < 0){
-			log_error(logTrace, "Fallo escritura de Bloque");
-			return FALLO_ESCRITURA;
+			if (escribirBloque(sblk,0, info , size) < 0){
+				log_error(logTrace, "Fallo escritura de Bloque");
+				return FALLO_ESCRITURA;
+			}
+			ioff += MIN(meta->tamanio_bloques, (int) size);
+			size -= MIN(meta->tamanio_bloques, (int) size);
 		}
-		ioff += MIN(meta->tamanio_bloques, (int) size);
-		size -= MIN(meta->tamanio_bloques, (int) size);
+		return 0;
 	}
+
+
+
 	return 0;
 }
 
 int escribirBloque(char *sblk, off_t off, char *info, int wr_size){
 
 	FILE *f;
+
 	int valid_size = MIN(wr_size, meta->tamanio_bloques);
 
 	if ((f = fopen(sblk, "wb")) == NULL){
