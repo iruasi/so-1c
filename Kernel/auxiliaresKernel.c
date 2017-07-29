@@ -105,7 +105,7 @@ tProcesoArchivo *crearArchivoDeProceso(int pid, tPackAbrir *abrir, tDatosTablaGl
 	pid_arch->pid = pid;
 	pid_arch->archivosPorProceso = list_create();
 	list_add(pid_arch->archivosPorProceso, arch);
-	list_add(tablaProcesos, arch);
+	list_add(tablaProcesos, pid_arch);
 
 	return arch;
 }
@@ -141,7 +141,7 @@ tProcesoArchivo *obtenerProcesoSegunFDLocal(t_descriptor_archivo fd , int pid, c
 	t_procesoXarchivo * _unProceso;
 	tProcesoArchivo * _unArchivo;
 
-	if ((_unProceso = (t_procesoXarchivo *)list_find(tablaProcesos, (void *) encontrarPid)) == NULL){ //todo:debug:
+	if ((_unProceso = list_find(tablaProcesos, (void *) encontrarPid)) == NULL){ //todo:debug:
 		log_error(logTrace, "No se pudo encontrar el pid en la Tabla de Procesos");
 		return NULL;
 	}

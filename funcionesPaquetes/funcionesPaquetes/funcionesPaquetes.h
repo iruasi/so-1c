@@ -115,6 +115,8 @@ tPackRW * deserializeRW(char * rw_serial);
 char *serializeLeer(tPackLeer *read, int *pack_size);
 tPackLeer *deserializeLeer(char *leer_serial);
 
+char *serializeEscribirFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, void *info, int *pack_size);
+
 char *serializeLeerFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, int *pack_size);
 tPackRecvRW *deserializeLeerFS2(char *leer_serial);
 
@@ -131,7 +133,9 @@ tPackFS * deserializeFileDescriptor(char * aux_serial);
 tPackAbrir * deserializeAbrir(char *abrir_serial);
 
 //serializeLeerFS, guarda el paquete que hay que mandarle al fs para leer
-char * serializeLeerFS(tPackHeader head, t_direccion_archivo  path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size);
+char *serializeLeerFS(tPackHeader head, t_direccion_archivo path, void * info,t_valor_variable tamanio, t_puntero cursor ,int * pack_size);
+tPackRecibirRW * deserializeLeerFS(char * recibir_serial);
+
 void informarResultado(int sock, tPackHeader head);
 
 

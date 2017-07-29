@@ -344,8 +344,8 @@ void inotifyer(char *path, int fdInotify){
 						kernel->quantum_sleep = newQS;
 						informarNuevoQS();
 					}
-					break;
 				}
+				break;
 
 			} else {
 				log_trace(logTrace,"Hubo una accion sobre un archivo que no manejamos");

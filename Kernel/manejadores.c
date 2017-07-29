@@ -373,17 +373,21 @@ void cpu_manejador(void *infoCPU){
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			oper_fd =  deserializeVal(buffer);
 
-			datosGlobal = encontrarEnTablaGlobalPorFD(oper_fd->val, cpu_i->con->pid, 'r');
-			if (datosGlobal->cantidadOpen == 1){ // es el ultimo abierto, lo eliminamos
-				free(datosGlobal->direccion);
-				freeAndNULL((void **) &datosGlobal);
-			}
-			sprintf(sfd, "%d", datosGlobal->fd);
-			dictionary_put(tablaGlobal, sfd, datosGlobal);
+			datosGlobal = encontrarEnTablaGlobalPorFD(oper_fd->val, cpu_i->con->pid, 'g');
+			char *dir = string_duplicate(datosGlobal->direccion);
+			datosGlobal->cantidadOpen--;
+//			if (datosGlobal->cantidadOpen == 1){ // es el ultimo abierto, lo eliminamos
+//				free(datosGlobal->direccion);
+//				freeAndNULL((void **) &datosGlobal);
+//
+//			} else {
+//				sprintf(sfd, "%d", datosGlobal->fd);
+//				dictionary_put(tablaGlobal, sfd, datosGlobal);
+//			}
 
-			cerrarArchivoDeProceso(cpu_i->cpu.pid, oper_fd->val);
+//			cerrarArchivoDeProceso(cpu_i->cpu.pid, oper_fd->val);
 			log_trace(logTrace,"se cerro el archivo de fd %d y direc %s solicitado[CPU %d]",
-					oper_fd->val, datosGlobal->direccion,cpu_i->cpu.pid);
+					oper_fd->val, dir,cpu_i->cpu.pid);
 
 			head.tipo_de_proceso = KER; head.tipo_de_mensaje = ARCHIVO_CERRADO;
 			pack_size = 0;
@@ -444,7 +448,7 @@ void cpu_manejador(void *infoCPU){
 			}
 
 			head.tipo_de_mensaje = ESCRIBIR;
-			buffer = serializeLeerFS2(head, datosGlobal->direccion, procArchivo->posicionCursor, pack_io->tamanio, &pack_size);
+			buffer = serializeLeerFS(head, datosGlobal->direccion, pack_io->info, pack_io->tamanio, procArchivo->posicionCursor, &pack_size);
 			if (buffer == NULL){
 				head.tipo_de_mensaje = FALLO_SERIALIZAC;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
@@ -462,6 +466,8 @@ void cpu_manejador(void *infoCPU){
 			h_esp.tipo_de_proceso = FS; h_esp.tipo_de_mensaje = ARCHIVO_ESCRITO;
 			head.tipo_de_mensaje = (validarRespuesta(sock_fs, h_esp, &head) != 0)?
 					FALLO_ESCRITURA : ARCHIVO_ESCRITO;
+			head.tipo_de_proceso = KER;
+			informarResultado(cpu_i->cpu.fd_cpu, head);
 
 			MUX_LOCK(&mux_infoProc);
 			sumarSyscall(cpu_i->con->pid);
@@ -472,15 +478,17 @@ void cpu_manejador(void *infoCPU){
 			break;
 
 		case LEER: // todo: arreglar ||||||||||||||||||||||||||||||| este es el unico CASE que falta refaccionar
-			log_trace(logTrace,"case leer[CPU %d]",cpu_i->con->pid);
+			log_trace(logTrace,"Case Leer[CPU %d]",cpu_i->con->pid);
+
 			buffer = recvGeneric(cpu_i->cpu.fd_cpu);
 			tPackLeer *leer = deserializeLeer(buffer);
 			freeAndNULL((void **) &buffer);
 
 			sprintf(sfd, "%d", leer->fd);
+
 			datosGlobal = dictionary_get(tablaGlobal, sfd);
 			log_trace(logTrace, "el valor del fd en leer es %d [CPU %d]", leer->fd, cpu_i->con->pid);
-			if ((procArchivo = obtenerProcesoSegunFDLocal(leer->fd,cpu_i->con->pid, 'g')) == NULL){
+			if ((procArchivo = obtenerProcesoSegunFDLocal(leer->fd, cpu_i->con->pid, 'g')) == NULL){
 				head.tipo_de_proceso = KER; head.tipo_de_mensaje = FALLO_GRAL;
 				informarResultado(cpu_i->cpu.fd_cpu, head);
 			}
@@ -524,7 +532,7 @@ void cpu_manejador(void *infoCPU){
 			break;
 
 	case(FIN_PROCESO): case(ABORTO_PROCESO): case(RECURSO_NO_DISPONIBLE):
-			case(PCB_PREEMPT): case(PCB_BLOCK): case(SIG1)://COLA EXIT o BLOCK
+			case(PCB_PREEMPT): case(PCB_BLOCK): case(SIG1): //COLA EXIT o BLOCK
 			log_trace(logTrace,"case para enviar a cola exit o block[CPU %d]",cpu_i->cpu.pid);
 		cpu_i->msj = head.tipo_de_mensaje;
 		cpu_handler_planificador(cpu_i);
@@ -775,4 +783,30 @@ void cons_manejador(void *conInfo){
 		log_trace(logTrace,"Ciera thread de consola fd %d",con_i->con->fd_con);
 		printf("cierro thread de consola fd %d\n",con_i->con->fd_con);
 	}
+}
+
+
+char *serializeLeerFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, int *pack_size){
+
+	int dirSize = strlen(path) + 1;
+	char *leer_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof cursor + sizeof(int));
+
+	*pack_size = 0;
+	memcpy(leer_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(leer_serial + *pack_size, &dirSize, sizeof(int)),
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, path, dirSize);
+	*pack_size += dirSize;
+	memcpy(leer_serial + *pack_size, &cursor, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, &size, sizeof(int));
+	*pack_size += sizeof(int);
+
+	memcpy(leer_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return leer_serial;
 }

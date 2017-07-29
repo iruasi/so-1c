@@ -37,7 +37,6 @@
 									<listOptionValue builtIn="false" value="funcionesCompartidas"/>
 									<listOptionValue builtIn="false" value="pthread"/>
 									<listOptionValue builtIn="false" value="m"/>
-									<listOptionValue builtIn="false" value="fuse"/>
 									<listOptionValue builtIn="false" value="funcionesPaquetes"/>
 									<listOptionValue builtIn="false" value="commons"/>
 								</option>
@@ -122,4 +121,5 @@
 			<resource resourceType="PROJECT" workspacePath="/Filesystem"/>
 		</configuration>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.internal.ui.text.commentOwnerProjectMappings"/>
 </cproject>

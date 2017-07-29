@@ -87,9 +87,10 @@ int *ker_manejador(void){
 	int stat, pack_size;
 	int *retval = malloc(sizeof(int));
 	tPackHeader head = {.tipo_de_proceso = KER, .tipo_de_mensaje = 9852};//9852, iniciar escuchaKernel
-	char *buffer, *info;
+	char *buffer, *info, *abs_path;
 	tPackBytes * abrir, *bytes, *borrar;
 	tPackRecvRW *rw;
+	tPackRecibirRW *io;
 
 	do {
 	switch(head.tipo_de_mensaje){
@@ -100,14 +101,16 @@ int *ker_manejador(void){
 		buffer = recvGeneric(sock_kern);
 		abrir = deserializeBytes(buffer);
 
+		abs_path = hacerPathAbsolutoArchivos(abrir->bytes);
+
 		head.tipo_de_proceso = FS;
-		head.tipo_de_mensaje = (validarArchivo(abrir->bytes) == -1)?
+		head.tipo_de_mensaje = (validarArchivo(abs_path) == -1)?
 				INVALIDAR_RESPUESTA: VALIDAR_RESPUESTA;
 		informarResultado(sock_kern, head);
 
-		freeAndNULL((void **)&buffer);
-		freeAndNULL((void **)&abrir);
-		//puts("Fin case VALIDAR_ARCHIVO");
+		freeAndNULL((void **) &abs_path);
+		freeAndNULL((void **) &buffer);
+		freeAndNULL((void **) &abrir);
 		break;
 
 	case CREAR_ARCHIVO:
@@ -146,9 +149,11 @@ int *ker_manejador(void){
 		buffer = recvGeneric(sock_kern);
 		rw = deserializeLeerFS2(buffer);
 
+		abs_path = hacerPathAbsolutoArchivos(rw->direccion);
+
 		info = malloc(rw->size);
 
-		if(read2(rw->direccion, &info, rw->size, rw->cursor) != 0){
+		if(read2(abs_path, &info, rw->size, rw->cursor) != 0){
 			puts("Hubo un fallo ejecutando read2");
 
 			log_error(logTrace,"hubo un fallo ejecutando read2");
@@ -166,23 +171,26 @@ int *ker_manejador(void){
 			break;
 		}
 		log_trace(logTrace,"se enviaron %d bytes a kernel",stat);
-
+		freeAndNULL((void **) &abs_path);
 		freeAndNULL((void **) &buffer);
 		free(rw->direccion); freeAndNULL((void **) &rw);
 		free(bytes->bytes);  freeAndNULL((void **) &bytes);
 		break;
 
 	case ESCRIBIR:
-		log_trace(logTrace,"Se escribe un archivo");
+		log_trace(logTrace, "Se escribe un archivo");
 
 		buffer = recvGeneric(sock_kern);
-		rw = deserializeLeerFS2(buffer);
+		io = deserializeLeerFS(buffer);
+
+		abs_path = hacerPathAbsolutoArchivos(io->direccion);
 
 		head.tipo_de_proceso = FS;
-		head.tipo_de_mensaje = (write2(rw->direccion, info, rw->size, rw->cursor) < 0)?
+		head.tipo_de_mensaje = (write2(abs_path, io->info, io->tamanio, io->cursor) < 0)?
 			FALLO_ESCRITURA : ARCHIVO_ESCRITO;
 		informarResultado(sock_kern, head);
 
+		freeAndNULL((void **) &abs_path);
 		freeAndNULL((void **) &rw);
 		freeAndNULL((void **) &buffer);
 		break;

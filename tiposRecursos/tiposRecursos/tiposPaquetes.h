@@ -165,7 +165,7 @@ typedef struct{
 	char * direccion;
 	void * info;
 	int tamanio;
-	t_banderas flag;
+	t_puntero cursor;
 }__attribute__((packed))tPackRecibirRW;//Paquete para recibir la serealizacion de lectura y escritura de kernel
 
 
@@ -181,6 +181,13 @@ typedef struct{
 	t_descriptor_archivo fd;
 	t_valor_variable posicion;
 }__attribute__((packed))tPackCursor;
+
+typedef struct {
+	t_direccion_archivo path;
+	t_puntero cursor;
+	void *info;
+	int *size;
+} tPackEscribir;
 
 
 #endif /* TIPOSPAQUETES_H_ */

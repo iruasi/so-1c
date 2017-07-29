@@ -1,6 +1,8 @@
-#include <fuse.h>
 #include <sys/mman.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <commons/config.h>
 #include <commons/bitarray.h>
@@ -175,11 +177,14 @@ char *crearStringListaBloques(char **bloques){
 	return block_arr;
 }
 
-tArchivos* getInfoDeArchivo(char* path){
-	t_config* conf = config_create(path);
-	tArchivos* ret = malloc(sizeof(tArchivos));
+tArchivos* getInfoDeArchivo(char* abs_path){
+
+	t_config* conf = config_create(abs_path);
+	tArchivos* ret = malloc(sizeof(*ret));
+
 	ret->size = config_get_int_value(conf, "TAMANIO");
 	ret->bloques = config_get_array_value(conf, "BLOQUES");
+
 	config_destroy(conf);
 	return ret;
 }
@@ -195,4 +200,13 @@ char* getPathFromFD(int fd){
 	}
 	free(arch);
 	return "NOT FOUND";
+}
+
+
+char *hacerPathAbsolutoArchivos(char *path){
+	char *abs_path = string_duplicate(fileSystem->punto_montaje);
+	string_append(&abs_path, "Archivos");
+	string_append(&abs_path, path);
+
+	return abs_path;
 }

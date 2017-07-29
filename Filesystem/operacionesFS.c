@@ -36,13 +36,14 @@ int read2(char *path, char **buf, size_t size, off_t offset) {
 	return size;
 }
 
-int write2(char * path, char * buf, size_t size, off_t offset){
-	log_trace(logTrace, "Escribir %d bytes en %s", size, path);
+int write2(char * abs_path, char * buf, size_t size, off_t offset){
+	log_trace(logTrace, "Escribir %d bytes en %s", size, abs_path);
 
-	int blocks_req;
+	int blocks_req, size_efectivo;
 	char **bloques;
-	tArchivos* file = getInfoDeArchivo(path);
+	tArchivos* file = getInfoDeArchivo(abs_path);
 
+	size_efectivo = offset + size - file->size;
 	blocks_req = ceil((float) (offset + size - file->size) / meta->tamanio_bloques);
 
 	if ((bloques = obtenerBloquesDisponibles(blocks_req)) == NULL){
@@ -53,26 +54,28 @@ int write2(char * path, char * buf, size_t size, off_t offset){
 	agregarBloquesSobreBloques(&file->bloques, bloques);
 
 	FILE* f;
-	if ((f = fopen(path, "wb")) == NULL){
-		log_error(logTrace, "Fallo fopen de %s", path);
+	if ((f = fopen(abs_path, "wb")) == NULL){
+		log_error(logTrace, "Fallo fopen de %s", abs_path);
 		return FALLO_ESCRITURA;
 	}
 	if ((fseek(f, offset, SEEK_SET)) == -1){
 		perror("Fallo fseek a File. error");
-		log_error(logTrace, "Fallo fseek %d sobre %s", offset, path);
+		log_error(logTrace, "Fallo fseek %d sobre %s", offset, abs_path);
 		return FALLO_ESCRITURA;
 	}
 	if (fwrite(buf, size, 1, f) < 1){
 		perror("Fallo fwrite. error");
-		log_error(logTrace, "Fallo fwrite de %d bytes sobre %s", size, path);
+		log_error(logTrace, "Fallo fwrite de %d bytes sobre %s", size, abs_path);
 		return FALLO_ESCRITURA;
 	}
 
-	escribirInfoEnArchivo(path, file);
+	file->size = size_efectivo;
+
+	escribirInfoEnArchivo(abs_path, file);
 	log_trace(logTrace,"se escribieron los datos en el archivo");
 	free(file->bloques);
 	free(file);
-	return size;
+	return size_efectivo;
 }
 
 void iniciarBloques(int cant, char* path){
@@ -136,8 +139,9 @@ void agregarBloquesSobreBloques(char ***bloques, char **blq_add){
 
 	realloc(*bloques, (len + len_add) * sizeof(char*));
 	for(j = 0, i = len_add; i < (len + len_add); i++, j++){
-		*bloques[i] = malloc(MAX_DIG + 1);
-		memcpy(bloques[i], blq_add[j], MAX_DIG + 1);
+		(*bloques)[i] = malloc(MAX_DIG + 1);
+
+		memcpy((*bloques)[i], blq_add[j], MAX_DIG + 1);
 	}
 }
 
@@ -191,9 +195,6 @@ int unlink2 (char *path){
 int validarArchivo(char* path){
 	//printf("Se quiere validar la existencia del archivo %s\n", path);
 	log_trace(logTrace,"se quiere validar la existencia del archivo %s",path);
-
-	char *rutaArch = string_duplicate(fileSystem->punto_montaje);
-	string_append(&rutaArch, DIR_ARCHIVOS); string_append(&rutaArch, path);
 
 	FILE* arch;
 	if((arch = fopen(path, "rb")) == NULL){

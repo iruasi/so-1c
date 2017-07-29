@@ -50,6 +50,8 @@ void crearDirectoriosBase(void);
 void crearDir(char *dir);
 char* getPathFromFD(int fd);
 
+char *hacerPathAbsolutoArchivos(char *path);
+
 
 
 #endif /* MANEJADORSADICA_H_ */

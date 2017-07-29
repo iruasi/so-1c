@@ -724,7 +724,7 @@ void escribir (t_descriptor_archivo fd, void* informacion, t_valor_variable tama
 }
 
 void leer (t_descriptor_archivo descriptor_archivo, t_puntero ptr, t_valor_variable tamanio){
-	log_trace(logTrace, "Leer fd %d por %d bytes y almacenar en %d [PID %d]", descriptor_archivo, tamanio, ptr,pcb->id);
+	log_trace(logTrace, "Leer fd %d por %d bytes y almacenar en %d [PID %d]", descriptor_archivo, tamanio, ptr, pcb->id);
 
 	tPackHeader head, h_esp;
 	int pack_size = 0;

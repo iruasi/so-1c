@@ -1010,6 +1010,32 @@ tPackFS * deserializeFileDescriptor(char * aux_serial){
 	return aux;
 }
 
+char *serializeEscribirFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, void *info, int *pack_size){
+
+	int dirSize = strlen(path) + 1;
+	char *leer_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof cursor + sizeof(int) + size);
+
+	*pack_size = 0;
+	memcpy(leer_serial + *pack_size, &head, HEAD_SIZE);
+	*pack_size += HEAD_SIZE;
+
+	*pack_size += sizeof(int);
+
+	memcpy(leer_serial + *pack_size, &dirSize, sizeof(int)),
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, path, dirSize);
+	*pack_size += dirSize;
+	memcpy(leer_serial + *pack_size, &cursor, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, &size, sizeof(int));
+	*pack_size += sizeof(int);
+	memcpy(leer_serial + *pack_size, info, size);
+	*pack_size += size;
+
+	memcpy(leer_serial + HEAD_SIZE, pack_size, sizeof(int));
+
+	return leer_serial;
+}
 
 char *serializeLeerFS2(tPackHeader head, t_direccion_archivo path, t_puntero cursor, int size, int *pack_size){
 
@@ -1055,30 +1081,29 @@ tPackRecvRW *deserializeLeerFS2(char *leer_serial){
 	return prw;
 }
 
-char * serializeLeerFS(tPackHeader head, t_direccion_archivo path, void * info,t_valor_variable tamanio,t_banderas flag ,int * pack_size){
+char *serializeLeerFS(tPackHeader head, t_direccion_archivo path, void * info,t_valor_variable tamanio, t_puntero cursor ,int * pack_size){
+
 	int dirSize = strlen(path)+1;
-	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int)+ sizeof(int) + dirSize + sizeof tamanio + tamanio + sizeof(flag));
+	char * leer_fs_serial = malloc(HEAD_SIZE + sizeof(int) + sizeof(int) + dirSize + sizeof tamanio + tamanio + sizeof(cursor));
 
 	*pack_size = 0;
 	memcpy(leer_fs_serial + *pack_size, &head, HEAD_SIZE);
 	*pack_size += HEAD_SIZE;
-	*pack_size += sizeof(int);
-	memcpy(leer_fs_serial + *pack_size,&dirSize,sizeof(int)),
+
 	*pack_size += sizeof(int);
 
+	memcpy(leer_fs_serial + *pack_size, &dirSize, sizeof(int)),
+	*pack_size += sizeof(int);
 	memcpy(leer_fs_serial + *pack_size, path, dirSize);
 	*pack_size += dirSize;
-
-	memcpy(leer_fs_serial + *pack_size,&tamanio,sizeof(tamanio));
+	memcpy(leer_fs_serial + *pack_size, &tamanio, sizeof(tamanio));
 	*pack_size += sizeof(tamanio);
-
 	memcpy(leer_fs_serial + *pack_size, info, tamanio);
 	*pack_size += tamanio;
-
-	memcpy(leer_fs_serial + *pack_size,&flag,sizeof(flag)),
+	memcpy(leer_fs_serial + *pack_size, &cursor, sizeof(cursor)),
 	*pack_size += sizeof(int);
 
-	memcpy(leer_fs_serial + HEAD_SIZE,pack_size,sizeof(int));
+	memcpy(leer_fs_serial + HEAD_SIZE, pack_size, sizeof(int));
 
 	return leer_fs_serial;
 }
@@ -1097,11 +1122,10 @@ tPackRecibirRW * deserializeLeerFS(char * recibir_serial){
 	aux->info = malloc(aux->tamanio);
 	memcpy(aux->info,off + recibir_serial,aux->tamanio);
 	off += aux->tamanio;
-	memcpy(&aux->flag,off + recibir_serial,sizeof(aux->flag));
-	off += sizeof(aux->flag);
+	memcpy(&aux->cursor, off + recibir_serial, sizeof(aux->cursor));
+	off += sizeof(aux->cursor);
 
 	return aux;
-
 }
 /*
  * FUNCIONES EXTRA...
